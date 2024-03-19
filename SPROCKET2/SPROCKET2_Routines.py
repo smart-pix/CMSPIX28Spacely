@@ -2123,11 +2123,98 @@ def ROUTINE_df_arithmetic_lint():
     analysis.plot_histogram('Values', 'Frequencies', source='Sample')
 
 
+
+def ROUTINE_PGL_Variation_Analysis():
+
+    ## SETUP
+    # Create a new Experiment
+    e = Experiment("PGL Variation Analysis 3_19_2024")
+    
+    df1 = e.new_data_file("Results")
+    df2 = e.new_data_file("Raw Data")
+    
+    df1.write("Vref_fe,Avg PGL Slope,RMS PGL Slope")
+    df2.write("Vref_fe,Raw Data Samples")
+    
+    #Range of vref_fe values we will check. 
+    VREF_FE_RANGE_mV = [400, 450, 500, 550, 600, 650, 700, 750]
+    
+    #Number of times we will sample PGL slope for each value of vref_fe
+    NUM_SAMP = 50
+    
+    #This will become a 2D list where each sublist corresponds to one VREF_FE value.
+    PGL_samples = []
+    
+    #Generate a Spacely pattern which will give a pulse on Rst
+    #### TBA!
+    
+    ## RUN EXPERIMENT
+    for vref_fe in VREF_FE_RANGE_mV:
+    
+        #Start a new empty sub-list
+        PGL_samples.append([])
+    
+        #Set Vref_fe to specified value
+        V_PORT["Vref_fe"].set_voltage(1e-3*vref_fe)
+        
+        #Run N times
+        for _ in range(len(NUM_SAMP)):
+        
+            #Set up scope trigger
+            sg.INSTR["Scope"].setup_trigger(1,0.6)
             
+            #Pulse Rst
+            #### TBA!
+            
+            #Get scope waveform
+            Rst_wave = sg.INSTR["Scope"].get_wave(1)
+            out_stage_1_wave = sg.INSTR["Scope"].get_wave(2)
+            
+            #Calculate PGL slope.
+            PGL_slope = calculate_PGL_Slope(Rst_wave, out_stage_1_wave)
+
+            #Save data
+            PGL_samples[-1].append(PGL_slope)
+    
+    
+        ## WRITE DATA TO FILE
+        avg_slope = np.mean(PGL_samples[-1])
+        rms_slope = np.stddev(PGL_samples[-1])
+        
+        #Summary statistics
+        df1.write(f"{vref_fe},{avg_slope},{rms_slope}")
+        
+        #Raw data
+        df2.write(str(vref_fe)+","+",".join([str(x) for x in PGL_samples[-1]))
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            PATTERN GENERATORS                   #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+
+#Calculates the slope of PGL in Volts per second, given captured waves from the oscilloscope.
+def calculate_PGL_Slope(Rst_wave, out_stage_1_wave):
+
+    scope_timebase_us = 0 #TBD: microseconds per scope sample
+    
+    
+    #Get the first falling edge of Rst:
+    Rst_falling_edge = falling_edge_idx(Rst_wave, 1, 0.6)
+
+    #Heuristically, measure the slope at about Rst + 0.5us to Rst + 1.5us
+    
+    x1 = Rst_falling_edge + int(0.5*scope_timebase_us)
+    x2 = Rst_falling_edge + int(1.5*scope_timebase_us)
+    
+    y1 = out_stage_1_wave[x1]
+    y2 = out_stage_1_wave[x2]
+    
+    slope_V_per_us = (y2-y1)
+    
+    slope_V_per_s = slope_V_per_us * 1e6
+    
+    return slope_V_per_s
+
 
 def FullConv_Scope_Setup():
     sg.INSTR["Scope"].enable_channels([1,2,3,4])
