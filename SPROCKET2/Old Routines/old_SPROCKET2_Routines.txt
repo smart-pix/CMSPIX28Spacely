@@ -1,0 +1,434 @@
+
+def interpret_CDAC_pattern_old(caplo_wave, dacclr_wave):
+
+    #print(dacclr_waveform)
+
+    #Assume horizontal scale of 20ns per point, and that bits are 100 ns long (75 ns + 25 ns gap)
+    # (2*100 ns)/(20ns) = 10
+    BIT_PERIOD = 10 #20
+
+    #Initial offset
+    idx = 3
+
+    THRESH = 0.6
+    
+    binary_approximations = []
+    decimal_approximations = []
+
+    for approximation in range(1,10):
+
+        #Find the rising edge of DACclr.
+        while idx < len(caplo_wave) and not (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] > THRESH):
+            idx = idx + 1
+
+
+        if idx >= len(caplo_wave):
+            print("ERROR (interpret_CDAC_pattern): Reached the end of the waveform w/o seeing all 10 bits. Is the Oscope resolution set properly?")
+            return -99
+        
+        print(f"(DBG) DACclr rising edge found at: {idx}")
+
+        #Add 2 to get off the rising edge.
+        idx = idx + 3
+        
+        binary_approximations.append([])
+                                             
+        for bit in range(approximation):
+            #Note the inverted polarity here b/c capLo being high means the CDAC value is decreasing.
+            if caplo_wave[idx] > THRESH:
+                binary_approximations[-1].append(0)
+            else:
+                binary_approximations[-1].append(1)
+            idx = idx + BIT_PERIOD
+
+        decimal_approximations.append(vec_to_int(binary_approximations[-1])*(2**(10-approximation)))
+        print("(DBG)",binary_approximations[-1], "==",decimal_approximations[-1])
+        idx = idx - BIT_PERIOD
+
+
+    return decimal_approximations[-1]
+
+
+
+
+#Old, do not use. 
+def ROUTINE_ADC_Capture_ScanChain():
+    """Operate the ADC to digitize a range of values from TestEn (DEPRECATED, DO NOT USE...)"""
+    
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(1)
+    sc_read_glue = genpattern_SC_write([0]*19,1000)
+    
+    
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
+    with open("ADC_Sweep_Results.csv","w") as write_file:
+        write_file.write("Vin(mV),Output Code\n")
+    
+        for vin in range(0,1000,100):
+            #Set the input voltage:
+            set_Vin_mV(vin)
+            
+            #Run the ADC to capture a reading.
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            #adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
+            print("CompOut value at the end of each bit period: ",adc_bits)
+            x = vec_to_int(adc_bits)
+            print("ADC value inferred directly from CompOut: ",x)
+            
+            #Scan out the result
+            pr.run_pattern(sc_read_glue,outfile_tag="sc_result")
+            sc_result = "sc_result_PXI1Slot16_NI6583_se_io.glue"
+            scanout_bits = gc.get_clocked_bitstream(gc.read_glue(sc_result), "S_CLK", "S_DOUT")
+            print("These are the bits read back from the scan chain: ", scanout_bits)
+            #These bits represent the ADC result.
+            x = vec_to_int(scanout_bits[0:10])
+            print("ADC Reading from the Scan Chain: ",x)
+            write_file.write(str(vin)+","+str(x)+"\n")
+
+#Old, do not use.            
+def ROUTINE_ADC_Capture_Scope():
+    """Operate the ADC to digitize a range of values from TestEn (OSCILLOSCOPE ASSISTED)"""
+
+
+    ASK_FOR_INPUT_CONNECTIONS = False
+
+    if ASK_FOR_INPUT_CONNECTIONS:
+        input("""REQUIREMENTS:
+ > Oscilloscope Ch1 connected to CAPLO
+ > Oscilloscope Ch2 connected to DACCLR
+Press enter to continue...""")
+    
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(10)
+    sc_read_glue = genpattern_SC_write([0]*19,1000)
+    
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
+    with open("ADC_Sweep_Results.csv","w") as write_file:
+        write_file.write("Vin(mV),Output Code\n")
+    
+        for vin in range(0,1000,10):
+            
+            #Set the input voltage:
+            set_Vin_mV(vin)
+
+            #Set up a 600 mV trigger on channel 1:
+            sg.scope.write("HORIZONTAL:POSITION 5")  #Sets the trigger close to the left-hand side.
+            sg.scope.write("HORIZONTAL:MODE MANUAL") #Manual mode: specify record length + sample rate.
+            sg.scope.write("HORIZONTAL:MODE:RECORDLENGTH 10000") #RL = 10,000 ( = total pattern length of 20ns * 10k = 200 us)
+            sg.scope.write("HORIZONTAL:MODE:SAMPLERATE 50E6") # = 20 ns/sample
+            #sg.scope.write("HORIZONTAL:MODE:SCALE 20E-6") #Sets the horizontal resolution to 2us/div.
+            #                                             #As a result we should have 20ns/sample
+            sg.scope.setup_trigger(2,0.6) #600mV trigger on DACclr.
+            
+            #Run the ADC to capture a reading.
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
+            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            
+            caplo_wave = sg.scope.get_wave(1)
+            dacclr_wave = sg.scope.get_wave(2)
+
+            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
+            adc_bits.reverse()
+            print("CompOut value at the end of each bit period: ",adc_bits[1:])
+            x = vec_to_int(adc_bits[1:])
+            print("ADC value inferred directly from CompOut: ",x)
+
+            #sg.scope.onscreen()
+            write_file.write(str(vin)+","+str(result)+","+str(x)+"\n")
+
+
+
+
+
+def _ROUTINE_Scan_Chain_Loopback():
+    """Scan Chain Loopback"""
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    time.sleep(3)
+
+    # 1) Generate some random data
+    sc_data = list(np.random.binomial(1,0.5,size=19))
+    print("Random Scan Chain Data: ",str(sc_data))
+
+    # 2) Create a Glue waveform that writes the data to the scan chain.
+    glue_wave = genpattern_SC_write(sc_data,1000)
+
+    # 3) Run the Glue waveform
+    out_1 = pr.run_pattern(glue_wave,outfile_tag="sc_1")[0]
+    out_2 = pr.run_pattern(glue_wave,outfile_tag="sc_2")[0]
+
+    # 4) Check that the data we read back is correct.
+    # "sc_1_PXI1Slot16_NI6583_se_io.glue"
+    # "sc_2_PXI1Slot16_NI6583_se_io.glue"
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    scanout_bits = gc.get_clocked_bitstream(gc.read_glue(out_2), "S_CLK", "S_DOUT")
+    print("Received:",str(scanout_bits))
+
+
+def _ROUTINE_Comparator_Smoke_Test():
+    """Comparator Smoke Test uwu"""
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.INSTR["AWG"].config_AWG_as_DC(0)
+    time.sleep(3)
+
+    smoke_test_ascii = ".\\asic_config\\SPROCKET2\\comparator_smoke_test_pattern.txt"
+    if gc.ascii2Glue(smoke_test_ascii, 1, "smoke_test_pattern") == -1:
+        return
+    smoke_test_pattern = "smoke_test_pattern_se_io.glue"
+
+    #Config: TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    print(SC_PATTERN)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    #Smoke 1: Expected output -- CompOut = 0
+    smoke_1 = pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_1")[0]
+
+    #Smoke 2: Expected output -- CompOut = 1
+    sg.INSTR["AWG"].set_Vin_mV(1000)
+    smoke_2 = pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_2")[0]
+
+    print("Smoke Test 1/2 (expected result: all 0's)")
+    print(gc.get_bitstream(gc.read_glue(smoke_1),"CompOut"))
+    print("Smoke Test 2/2 (expected result: all 1's)")
+    print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
+
+
+
+def _ROUTINE_Leakage_Test():
+    """Pulse a voltage on the CDAC output to see how fast it leaks away."""
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.INSTR["AWG"].config_AWG_as_DC(0)
+    time.sleep(3)
+
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    #Note that when calc is low, any capClk pulse leads to a capHib pulse.
+    #We include Rst = 1 so that capHib is not gated.
+    adc_op_glue = genpattern_from_waves_dict({"calc":[0]*1000,"DACclr":[1]*100+[0]*900, "Qequal":[0]*101+[1]*899,"capClk":[1]*1000,"Rst_ext":[1]*1000})
+
+    #Run the ADC
+    adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+    #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+
+
+
+def _ROUTINE_Qequal_Charging_Test():
+    """Apply a short pulse on Qequal to see how much charge is shared."""
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.INSTR["AWG"].config_AWG_as_DC(0)
+    time.sleep(3)
+
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    qequal_cyc = 500#int(input("How many cycles should Qequal be asserted?"))
+
+
+    write_file = open(f"output\\Qequal_Charging_Results_on_"+time.strftime("%Y_%m_%d")+".csv",'w')
+    write_file.write("qequal_cyc,Vcompinm\n")
+
+    for qequal_cyc in range(1,30,1):
+
+        this_qequal_cyc_max_result = 0
+        
+        for vin in range(10,600,10):
+            sg.INSTR["AWG"].set_Vin_mV(vin)
+
+        
+            #Note that when calc is low, any capClk pulse leads to a capHib pulse.
+            #We include Rst = 1 so that capHib is not gated.
+            adc_op_glue = genpattern_from_waves_dict({"calc":   [0]*2000,
+                                                  "capClk": [1]*1000+[0]*1000,
+                                                  "Rst_ext":[1]*2000,
+                                                  "DACclr": [1]*1000+[0]*1000,
+                                                  "Qequal": [0]*1001+[1]*(qequal_cyc)+[0]*(999-qequal_cyc)})
+
+            
+
+            #Run the ADC
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+
+            compout = gc.get_bitstream(gc.read_glue(adc_op_result),"CompOut")
+
+            compout_avg = sum(compout)/len(compout)
+
+            print(f"<DBG> vin {vin} compout_avg {compout_avg} ")
+            
+            if compout_avg < 0.9 and vin > this_qequal_cyc_max_result:
+                this_qequal_cyc_max_result = vin
+
+        write_file.write(f"{qequal_cyc},{this_qequal_cyc_max_result}\n")
+
+
+    write_file.close()
+
+
+    
+
+def _ROUTINE_Comparator_Offset_Tuning():
+    """Determine comparator offset for DACclr state."""
+
+
+    
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.INSTR["AWG"].config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_from_waves_dict({"DACclr":[1]*1000, "Qequal":[0]*1000})
+    
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+
+    
+    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
+    with open("output\\Comparator_Sweep.csv","w") as write_file:
+        write_file.write("Vin(mV),CompOut\n")
+    
+        for vin in range(0,200,10):
+            
+            #Set the input voltage:
+            sg.INSTR["AWG"].set_Vin_mV(vin)
+
+            #Setup a trigger for easy viewing:
+            sg.INSTR["Scope"].setup_trigger(2,0.6) #600mV trigger on DACclr.
+            
+            #Run the ADC
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+
+            compout = gc.get_bitstream(gc.read_glue(adc_op_result),"CompOut")
+
+            if any([i > 0 for i in compout]):
+                result = 1
+            else:
+                result = 0
+            
+            write_file.write(str(vin)+","+str(result)+"\n")
+
+
+def _ROUTINE_Front_End_Demo():
+    """Demo Front End w/ Analog Pileup"""
+
+   
+
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+    # - Default scope setup: Ch1 connected to P1.0 (CCD trigger), Ch2 connected to halt_sample (silk as "Charge")
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    
+    pm = int(input("pulse magnitude (mV)?"))
+    
+    
+    sg.INSTR["AWG"].config_AWG_as_Pulse(pm, pulse_width_us=0.25, pulse_period_us=0.3)
+    time.sleep(3)
+
+    
+    sg.INSTR["Scope"].setup_trigger(1,0.6)
+    
+    fe_glue = genpattern_Front_End_demo(1)
+
+    pr.run_pattern(fe_glue,outfile_tag="fe_result")
+    
+    
+def _ROUTINE_Front_End_Sweep():
+    """SWEEP Front End w/ Analog Pileup"""
+
+   
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    
+    sg.INSTR["AWG"].config_AWG_as_Pulse(10, pulse_width_us=0.25, pulse_period_us=0.3)
+    time.sleep(3)
+    fe_glue = genpattern_Front_End_demo(1)
+    
+    with open("output\\FE_Sweep.csv","w") as write_file:
+        write_file.write("Pulse Mag(mV),CompOut\n")
+        for pulse_mag in range(10,300,10):
+        
+        
+            sg.INSTR["AWG"].set_pulse_mag(pulse_mag)
+
+            sg.INSTR["Scope"].setup_trigger(3,0.6)
+            
+            pr.run_pattern(fe_glue,outfile_tag="fe_result")
+            
+            CompInp_wave = sg.INSTR["Scope"].get_wave(2)
+            Rst_wave = sg.INSTR["Scope"].get_wave(3)
+        
+            result = CompInp_wave[falling_edge_idx(Rst_wave,2)-5]
+        
+            print(result)
+            
+            
+            write_file.write(str(pulse_mag)+","+str(result)+"\n")
+    
+
+def _ROUTINE_fpga_offset_debug():
+    """Debug FPGA readback offset when reading a pattern multiple times."""
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.INSTR["AWG"].config_AWG_as_DC(0)
+    time.sleep(3)
+
+    token_pattern = [1,0,1,0,1,1,0,0,1,1,1,1]
+
+    debug_glue = genpattern_from_waves_dict({"DACclr":[0]*20+token_pattern+[0]*20}) 
+
+    for i in range(10):
+
+        #Run the ADC to capture a reading.
+        debug_result = pr.run_pattern(debug_glue,outfile_tag="debug")[0]
+        #"debug_PXI1Slot16_NI6583_se_io.glue"
+
+        dacclr_wave = gc.get_bitstream(gc.read_glue(debug_result),"DACclr")
+
+
+        for j in range(40):
+            #print(dacclr_wave[j:j+len(token_pattern)], token_pattern)
+            if dacclr_wave[j:j+len(token_pattern)] == token_pattern:
+                
+                print(f"TOKEN OFFSET: {j}")

@@ -11,19 +11,19 @@ USE_SCOPE = True
 
 
 INSTR = {"SMU_A" : {"type" : "NIDCPower", 
-                    "slot" : "PXI2Slot2"},
+                    "slot" : "PXI1Slot2"},
          "SMU_B" : {"type" : "NIDCPower",
-                    "slot" : "PXI2Slot3"},
+                    "slot" : "PXI1Slot3"},
          "PSU_A" : {"type" : "NIDCPower",
-                    "slot" : "PXI2Slot7"},
+                    "slot" : "PXI1Slot7"},
          "PSU_B" : {"type" : "NIDCPower",
-                    "slot" : "PXI2Slot8"},
+                    "slot" : "PXI1Slot8"},
          "Scope" : {"type" : "Oscilloscope",
                     "io"   : "VISA",
                     "resource" : "USB0::0x0957::0x1745::MY48080042::INSTR"},
          "AWG"   : {"type" : "AWG",
                     "io"   : "VISA",
-                    "resource" : "GPIB0::10::INSTR"
+                    "resource" : "GPIB1::10::INSTR"
                     },
          "PSU_C" : {"type" : "Supply",
                     "io"   : "Prologix",
@@ -44,8 +44,8 @@ INSTR = {"SMU_A" : {"type" : "NIDCPower",
 
 #DEFAULT_OSCILLOSCOPE_RESOURCE = 
 
-DEFAULT_FPGA_BITFILE_MAP = {"PXI2Slot4":"NI7972_NI6583_40MHz"}
-DEFAULT_IOSPEC = ".\\asic_config\\SPROCKET2\\sprocket2_iospec.txt"
+DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot4":"NI7972_NI6583_40MHz"}
+DEFAULT_IOSPEC = ".\\spacely-asic-config\\SPROCKET2\\sprocket2_iospec.txt"
 
 # AWG (Arbitrary Waverform Generator)
 # 

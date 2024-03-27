@@ -1,6 +1,6 @@
 //SPROCKET2 iospec
 
-HARDWARE PXI2Slot4/NI6583/se_io BEGIN
+HARDWARE PXI1Slot4/NI6583/se_io BEGIN
 
 //Scan Chain signals
 S_CLK,I,11
