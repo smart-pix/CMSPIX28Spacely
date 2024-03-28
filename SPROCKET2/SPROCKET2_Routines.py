@@ -81,11 +81,15 @@ def ROUTINE_Full_Conversion(pulse_mag = None):
 
     print("NOTE: ENSURE THAT AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.")
     
-    if pulse_mag is not None:
+    if pulse_mag is None:
         pm = int(input("pulse magnitude (mV)?"))  
 
     df.set("time_scale_factor",10)
     df.set("tsf_sample_phase", 2)
+    df.set("Range2",1)
+    df.set("CapTrim",0)
+    df.set("n_skip",10)
+    df.set("check_halt_sample",False)
     
     fc_glue = setup_full_conversion(df)
 
@@ -187,7 +191,7 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     
     for pulse_mag in PULSE_MAG_RANGE:
     
-        if check_halt_sample:
+        if df.get("check_halt_sample"):
             (result, halt_sample) = get_full_conversion_result(fc_glue, pulse_mag, df)
             print(f"RESULT: {result} (halt_sample={halt_sample})")
             df.write(f"{pulse_mag},{result},{halt_sample}\n")
@@ -259,15 +263,15 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):
     results = []
     
     for _ in range(df.get("NUM_SAMPLES")):
-    
-        (result, halt_sample) = get_full_conversion_result(fc_glue, None, df)
-
-        results.append(result)
 
         if df.get("check_halt_sample"):
+            (result, halt_sample) = get_full_conversion_result(fc_glue, None, df)
             print(f"RESULT: {result} (halt_sample={halt_sample})")
         else:
+            result = get_full_conversion_result(fc_glue, None, df)
             print(f"RESULT: {result} (no_scope)")
+
+        results.append(result)
     
     
     #Process results
@@ -839,9 +843,68 @@ def _ROUTINE_FE_Bias_Sweep_Exp():
     print(results_raw)
             
 
+# Calls ROUTINE_Full_Conv_Histogram
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+def ROUTINE_Noise_Histogram_vs_tsf_sample_phase():
+    """Run a Noise Histogram while Sweeping tsf_sample_phase for R0 and R2"""
+    
+    e = Experiment("Noise vs tsf_sample_phase 3_27_2024")
+    
+    TSF_SAMPLE_PHASE_SWEEP = [2,3,4]
+    
+    #Generic parameters
+    e.set("n_skip",10)
+    e.set("SINGLE_PULSE_MODE",False)
+    e.set("time_scale_factor",10)     
+    e.set("NUM_SAMPLES",10000)
+    e.set("CapTrim",25)
+
+    e.set("tsf_sample_phase",2) 
+    
+    #Set up a summary df.
+    summary_file = e.new_data_file("Summary")
+    summary_file.write("Region,tsf_sample_phase,mean,stddev\n")
+    
+    
+    results_raw = []
+    
+    for region in [0,2]:
+
+        for t in TSF_SAMPLE_PHASE_SWEEP:
+
+            file_tag = f"R{region} tsf_samp {t}"
+            df = e.new_data_file(file_tag)
+
+            ## SET UP tsf_sample_phase
+            df.set("tsf_sample_phase",t)
+
+            ## SET UP operating region
+            if region == 0:
+                #Set Region 0 Parameters
+                df.set("VIN_mV",6)
+                df.set("Range2",1)
+            elif region == 2:
+                #Set Region 2 Parameters
+                df.set("VIN_mV",60)
+                df.set("Range2",0)
+        
+        
+            (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df)
+
+            #Close the sub-data-file for this point.    
+            df.close()
+
+            results_raw.append((mean,stddev))
+            
+            summary_file.write(f"{region},{t},{mean},{stddev}\n")
+            
+    summary_file.close()
+    print(results_raw)
+            
+
 
 # Calls ROUTINE_FC_Avg_XF (or it should)
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_FC_Avg_XF_4quad():
     """Single experiment to collect FC Avg XF across all 4 gain regions"""
     
@@ -903,7 +966,7 @@ def ROUTINE_FC_Avg_XF_4quad():
 
 
 ### CAUTION!!! This routine does not follow the new format, it may have legacy bugs.  
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
     """Capture the Full Conversion Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
 
@@ -1015,13 +1078,13 @@ def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
                                  row_param_name="Vin")
 
 # Independent Routine
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
 def ROUTINE_unstick_VDD_ASIC():
     unstick_VDD_ASIC()
 
 
 # Independent Routine
-#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
 def ROUTINE_PGL_Variation_Analysis():
 
     #unstick_VDD_ASIC()

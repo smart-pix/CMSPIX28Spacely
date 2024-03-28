@@ -41,7 +41,7 @@ def setup_full_conversion(df):
     
     # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
     # Default amplitude for starting out = 5 mV. If you want to change this you have to do it yourself.
-    sg.INSTR["AWG"].config_AWG_as_Pulse(5e-3, pulse_width_us=0.25*df.get("tsf_sample_phase"), pulse_period_us=period_us)
+    sg.INSTR["AWG"].config_AWG_as_Pulse(5, pulse_width_us=0.25*df.get("tsf_sample_phase"), pulse_period_us=period_us)
     #time.sleep(3)
 
     ## (3) SETUP THE SCAN CHAIN
@@ -59,6 +59,10 @@ def setup_full_conversion(df):
 # Core function which performs a full-channel conversion by running a Glue wave and returns the result. 
 def get_full_conversion_result(fc_glue, pulse_mag, df):
 
+    if pulse_mag is not None:
+        sg.INSTR["AWG"].set_pulse_mag(pulse_mag)
+        time.sleep(0.1)
+
     check_halt_sample = df.get("check_halt_sample")
     if check_halt_sample == None:
         check_halt_sample = False
@@ -66,10 +70,6 @@ def get_full_conversion_result(fc_glue, pulse_mag, df):
     #If we want to check halt_sample, we must use the Scope.
     if check_halt_sample:
         sg.INSTR["Scope"].setup_trigger(1,0.6)
-
-    if pulse_mag is not None:
-        sg.INSTR["AWG"].set_pulse_mag(pulse_mag)
-        time.sleep(1)
 
     #Run the Glue wave on the ASIC
     fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
