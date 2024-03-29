@@ -342,7 +342,7 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
            
     #############################################################################
     
-    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV", "USE_SCOPE"]):
+    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
         return -1
     
     df.set("check_halt_sample",False)
@@ -724,9 +724,10 @@ def ROUTINE_FE_Bias_Sweep_Exp2():
     sweeps["Ib2"] = [-5e-6,-8e-6,-10e-6,-12e-6,-20e-6]
     sweeps["Ibuf"] = [-30e-6, -50e-6, -60e-6, -70e-6,-120e-6]
     sweeps["Icomp"] = [-10e-6,-18e-6, -20e-6,-22e-6,-40e-6]
+    sweeps["Ibdig"] = [0.2,0.3,0.4,0.5,0.6,0.7]
     
     
-    e = Experiment("Bias_Sweep_Experiment_3_27_2024")
+    e = Experiment("Ibdig_Sweep_Experiment_3_29_2024")
     
     #This experiment in Region3 only.
     #e.set("VIN_mV",4)
@@ -748,7 +749,7 @@ def ROUTINE_FE_Bias_Sweep_Exp2():
     
     results_raw = []
     
-    for swept_source in ["Ib1", "Ib2", "Ibuf", "Icomp"]:
+    for swept_source in ["Ibdig"]:
         
         for i in range(len(sweeps[swept_source])):
         
@@ -759,7 +760,13 @@ def ROUTINE_FE_Bias_Sweep_Exp2():
                 else:
                     #For not selected sources, get their level from the default. 
                     I_PORT[source].set_current(I_LEVEL[source])
-                    
+
+            if "Ibdig" == swept_source:
+                V_PORT[swept_source].set_voltage(sweeps[swept_source][i])
+            else:
+                V_PORT["Ibdig"].set_voltage(V_LEVEL["Ibdig"])
+
+
             sg.log.notice(f"Setting {swept_source} to {sweeps[swept_source][i]}...")
             
             prefix = f"{swept_source}({sweeps[swept_source][i]})"
@@ -845,25 +852,51 @@ def _ROUTINE_FE_Bias_Sweep_Exp():
 
 # Calls ROUTINE_Full_Conv_Histogram
 #<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
-def ROUTINE_Noise_Histogram_vs_tsf_sample_phase():
-    """Run a Noise Histogram while Sweeping tsf_sample_phase for R0 and R2"""
+def ROUTINE_Meas_vs_timing_param():
+    """Take some measurements while varying ADC timing parameters"""
     
-    e = Experiment("Noise vs tsf_sample_phase 3_27_2024")
+    #Dollar store enum 
+    HIST_TYPE = "Hist"
+    XF_TYPE = "XF"
+
+
+    ############################
+    ## CONFIGURE THESE PARAMS ##
+    ############################
+
+    TYPE_OF_EXPERIMENT = XF_TYPE
+
+
     
-    TSF_SAMPLE_PHASE_SWEEP = [2,3,4]
+
+    e = Experiment("XF vs tsf_sample_phase 3_29_2024")
+    
+
+    sweep = {}
+    sweep["tflip1"] = [1,2,3,4]
+    
     
     #Generic parameters
     e.set("n_skip",10)
     e.set("SINGLE_PULSE_MODE",False)
-    e.set("time_scale_factor",10)     
-    e.set("NUM_SAMPLES",10000)
+    e.set("time_scale_factor",10) 
+    if TYPE_OF_EXPERIMENT == HIST_TYPE:
+        e.set("NUM_SAMPLES",10000)
     e.set("CapTrim",25)
 
-    e.set("tsf_sample_phase",2) 
+
+
+    if TYPE_OF_EXPERIMENT not in [HIST_TYPE, XF_TYPE]:
+        print("Unknown type of experiment...")
+        return -1
     
-    #Set up a summary df.
-    summary_file = e.new_data_file("Summary")
-    summary_file.write("Region,tsf_sample_phase,mean,stddev\n")
+    
+
+    if TYPE_OF_EXPERIMENT == HIST_TYPE:
+        #Set up a summary df.
+        summary_file = e.new_data_file("Summary")
+        summary_file.write("Region,tsf_sample_phase,mean,stddev\n")
+
     
     
     results_raw = []
@@ -881,25 +914,43 @@ def ROUTINE_Noise_Histogram_vs_tsf_sample_phase():
             ## SET UP operating region
             if region == 0:
                 #Set Region 0 Parameters
-                df.set("VIN_mV",6)
                 df.set("Range2",1)
+
+                if TYPE_OF_EXPERIMENT == HIST_TYPE:
+                    df.set("VIN_mV",6)
+                elif TYPE_OF_EXPERIMENT == XF_TYPE:
+                    df.set("VIN_STEP_uV",100)
+                    df.set("VIN_STEP_MAX_mV",10)
+                    df.set("VIN_STEP_MIN_mV",2)
+                    df.set("NUM_AVERAGES",10)
+                
             elif region == 2:
                 #Set Region 2 Parameters
-                df.set("VIN_mV",60)
                 df.set("Range2",0)
+                if TYPE_OF_EXPERIMENT == HIST_TYPE:
+                    df.set("VIN_mV",60)
+                elif TYPE_OF_EXPERIMENT == XF_TYPE:
+                    df.set("VIN_STEP_uV",1000)
+                    df.set("VIN_STEP_MAX_mV",100)
+                    df.set("VIN_STEP_MIN_mV",2)
+                    df.set("NUM_AVERAGES",10)
         
-        
-            (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df)
+            if TYPE_OF_EXPERIMENT == HIST_TYPE:
+                (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df)
+            elif TYPE_OF_EXPERIMENT == XF_TYPE:
+                ROUTINE_FC_Avg_XF(e, df)
 
             #Close the sub-data-file for this point.    
             df.close()
 
-            results_raw.append((mean,stddev))
-            
-            summary_file.write(f"{region},{t},{mean},{stddev}\n")
-            
-    summary_file.close()
-    print(results_raw)
+            if TYPE_OF_EXPERIMENT == HIST_TYPE:
+                results_raw.append((mean,stddev))
+
+                summary_file.write(f"{region},{t},{mean},{stddev}\n")
+
+    if TYPE_OF_EXPERIMENT == HIST_TYPE:       
+        summary_file.close()
+        print(results_raw)
             
 
 
