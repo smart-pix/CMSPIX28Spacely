@@ -401,8 +401,7 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
 
 
 ### CAUTION!!! This routine does not follow the new format, it may have legacy bugs.    
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_Full_Conversion_vs_ArbParam():
+def _ROUTINE_Full_Conversion_vs_ArbParam():
     """Perform a single conversion while varying a parameter."""
 
     ARB_PARAM_NAME = ""
@@ -468,7 +467,7 @@ def ROUTINE_Full_Conversion_vs_ArbParam():
     write_file.close()
     
 #Independent Routine, does not do full conversions.
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_Vref_Loopback_Experiment():
     """Use the TPI as a buffer to loop back Vref_fe to the ADC for measurement."""
     
@@ -539,7 +538,7 @@ def ROUTINE_Vref_Loopback_Experiment():
     #df.close()
     
 # Calls ROUTINE_FC_Avg_XF
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_Sweep_vs_Vreffe_Experiment():
     """Run a Full Conversion Sweep for different values of Vref_fe"""
     
@@ -587,7 +586,7 @@ def ROUTINE_Sweep_vs_Vreffe_Experiment():
         
  
 # Calls ROUTINE_FC_Avg_XF
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_Sweep_vs_trigdelay_Experiment():
     """Run a Full Conversion Sweep for different values of trig_delay"""
     
@@ -669,7 +668,7 @@ def _ROUTINE_Nskip_Noise_Experiment():
     summary_file.close()
   
 # Calls ROUTINE_Full_Conversion_Histogram
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_FC_Histo_4quad():
 
     unstick_VDD_ASIC()
@@ -715,7 +714,7 @@ def ROUTINE_FC_Histo_4quad():
     
  
 # Calls ROUTINE_FC_Avg_XF
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_FE_Bias_Sweep_Exp2():
     """Execute FC Avg XF while sweeping FE Bias Currents"""
     
@@ -851,7 +850,7 @@ def _ROUTINE_FE_Bias_Sweep_Exp():
             
 
 # Calls ROUTINE_Full_Conv_Histogram
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_Meas_vs_timing_param():
     """Take some measurements while varying ADC timing parameters"""
     
@@ -864,89 +863,112 @@ def ROUTINE_Meas_vs_timing_param():
     ## CONFIGURE THESE PARAMS ##
     ############################
 
-    TYPE_OF_EXPERIMENT = XF_TYPE
+    TYPE_OF_EXPERIMENT = [XF_TYPE, HIST_TYPE]
 
 
     
 
-    e = Experiment("XF vs tsf_sample_phase 3_29_2024")
+    e = Experiment("trig_delay grand sweep 3_29_2024")
     
 
     sweep = {}
-    sweep["tflip1"] = [1,2,3,4]
+    #sweep["tsf_sample_phase"] = [5,6]
+    sweep["trig_delay"] = [i for i in range(-8,26)]
+    #sweep["tflip1"] = [1,2,3,4]
+    #sweep["Rst_early"] = [-2,-1,0,1,2]
     
     
     #Generic parameters
     e.set("n_skip",10)
     e.set("SINGLE_PULSE_MODE",False)
     e.set("time_scale_factor",10) 
-    if TYPE_OF_EXPERIMENT == HIST_TYPE:
-        e.set("NUM_SAMPLES",10000)
+    if HIST_TYPE in TYPE_OF_EXPERIMENT:
+        e.set("NUM_SAMPLES",1000)
     e.set("CapTrim",25)
 
+    e.set("tsf_sample_phase",2)
 
 
-    if TYPE_OF_EXPERIMENT not in [HIST_TYPE, XF_TYPE]:
-        print("Unknown type of experiment...")
-        return -1
+
+    #if TYPE_OF_EXPERIMENT not in [HIST_TYPE, XF_TYPE]:
+    #    print("Unknown type of experiment...")
+    #    return -1
     
     
 
-    if TYPE_OF_EXPERIMENT == HIST_TYPE:
+    if HIST_TYPE in TYPE_OF_EXPERIMENT:
         #Set up a summary df.
         summary_file = e.new_data_file("Summary")
-        summary_file.write("Region,tsf_sample_phase,mean,stddev\n")
+        summary_file.write("Region,sweep_param,value,mean,stddev\n")
 
     
     
     results_raw = []
     
-    for region in [0,2]:
+    for region in [0,2,3]:
 
-        for t in TSF_SAMPLE_PHASE_SWEEP:
 
-            file_tag = f"R{region} tsf_samp {t}"
-            df = e.new_data_file(file_tag)
+        for sweep_param in sweep.keys():
 
-            ## SET UP tsf_sample_phase
-            df.set("tsf_sample_phase",t)
-
-            ## SET UP operating region
-            if region == 0:
-                #Set Region 0 Parameters
-                df.set("Range2",1)
-
-                if TYPE_OF_EXPERIMENT == HIST_TYPE:
-                    df.set("VIN_mV",6)
-                elif TYPE_OF_EXPERIMENT == XF_TYPE:
-                    df.set("VIN_STEP_uV",100)
-                    df.set("VIN_STEP_MAX_mV",10)
-                    df.set("VIN_STEP_MIN_mV",2)
-                    df.set("NUM_AVERAGES",10)
+            for sweep_val in sweep[sweep_param]:
                 
-            elif region == 2:
-                #Set Region 2 Parameters
-                df.set("Range2",0)
-                if TYPE_OF_EXPERIMENT == HIST_TYPE:
-                    df.set("VIN_mV",60)
-                elif TYPE_OF_EXPERIMENT == XF_TYPE:
-                    df.set("VIN_STEP_uV",1000)
-                    df.set("VIN_STEP_MAX_mV",100)
-                    df.set("VIN_STEP_MIN_mV",2)
-                    df.set("NUM_AVERAGES",10)
-        
-            if TYPE_OF_EXPERIMENT == HIST_TYPE:
-                (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df)
-            elif TYPE_OF_EXPERIMENT == XF_TYPE:
-                ROUTINE_FC_Avg_XF(e, df)
+                ## Set up df parameters for histograms
+                if HIST_TYPE in TYPE_OF_EXPERIMENT:
+                    file_tag = f"Histo R{region} {sweep_param} {sweep_val}"
+                    df1 = e.new_data_file(file_tag)
+                    df1.set(sweep_param,sweep_val)
 
-            #Close the sub-data-file for this point.    
-            df.close()
+                    if region == 0:
+                        df1.set("Range2",1)
+                        df1.set("VIN_mV",6)
+                    elif region == 2:
+                        df1.set("Range2",0)
+                        df1.set("VIN_mV",60)
+                    elif region == 3:
+                        df1.set("Range2",0)
+                        df1.set("VIN_mV",400)
 
-            if TYPE_OF_EXPERIMENT == HIST_TYPE:
-                results_raw.append((mean,stddev))
+                ## Set up df parameters for XF
+                if XF_TYPE in TYPE_OF_EXPERIMENT:
+                    file_tag = f"XF R{region} {sweep_param} {sweep_val}"
+                    df2 = e.new_data_file(file_tag)
+                    df2.set(sweep_param,sweep_val)
+                
+                    if region == 0:
+                        df2.set("Range2",1)
+                        df2.set("VIN_STEP_uV",100)
+                        df2.set("VIN_STEP_MAX_mV",10)
+                        df2.set("VIN_STEP_MIN_mV",2)
+                        df2.set("NUM_AVERAGES",10)
+                    if region == 2:
+                        df2.set("Range2",0)
+                        df2.set("VIN_STEP_uV",1000)
+                        df2.set("VIN_STEP_MAX_mV",100)
+                        df2.set("VIN_STEP_MIN_mV",2)
+                        df2.set("NUM_AVERAGES",10)
+                    if region == 3:
+                        df2.set("Range2",0)
+                        df2.set("VIN_STEP_uV",5000)
+                        df2.set("VIN_STEP_MAX_mV",1000)
+                        df2.set("VIN_STEP_MIN_mV",2)
+                        df2.set("NUM_AVERAGES",10)
+                
+                ## Actually run the experiment
+                if HIST_TYPE in TYPE_OF_EXPERIMENT:
+                    (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df1)
+                    #Close the sub-data-file for this point.    
+                    df1.close()
+                if XF_TYPE in TYPE_OF_EXPERIMENT:
+                    ROUTINE_FC_Avg_XF(e, df2)
+                    #Close the sub-data-file for this point.    
+                    df2.close()
 
-                summary_file.write(f"{region},{t},{mean},{stddev}\n")
+                
+                ## Histo only: Update the summary file.
+                if HIST_TYPE in TYPE_OF_EXPERIMENT:
+                    results_raw.append((mean,stddev))
+
+                    summary_file.write(f"{region},{sweep_param},{sweep_val},{mean},{stddev}\n")
 
     if TYPE_OF_EXPERIMENT == HIST_TYPE:       
         summary_file.close()
@@ -955,7 +977,7 @@ def ROUTINE_Meas_vs_timing_param():
 
 
 # Calls ROUTINE_FC_Avg_XF (or it should)
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_FC_Avg_XF_4quad():
     """Single experiment to collect FC Avg XF across all 4 gain regions"""
     
@@ -1017,8 +1039,8 @@ def ROUTINE_FC_Avg_XF_4quad():
 
 
 ### CAUTION!!! This routine does not follow the new format, it may have legacy bugs.  
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
-def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
+
+def _ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
     """Capture the Full Conversion Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
 
     VIN_STEP_mV = 10
@@ -1129,13 +1151,13 @@ def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
                                  row_param_name="Vin")
 
 # Independent Routine
-#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_unstick_VDD_ASIC():
     unstick_VDD_ASIC()
 
 
 # Independent Routine
-#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_PGL_Variation_Analysis():
 
     #unstick_VDD_ASIC()

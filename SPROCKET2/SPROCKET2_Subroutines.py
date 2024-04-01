@@ -30,6 +30,7 @@ from Spacely_Utils import *
 def setup_full_conversion(df):
 
     if not df.check(["tsf_sample_phase","Range2","CapTrim","n_skip","time_scale_factor"]):
+        print("df metadata check for setup_full_conversion() failed!")
         return -1
 
     ## (1) UNSTICK VDD_ASIC IF LATCHED
@@ -51,7 +52,7 @@ def setup_full_conversion(df):
 
 
     ## (4) GENERATE GLUE WAVEFORM
-    fc_glue = genpattern_Full_Conversion(time_scale_factor=df.get("time_scale_factor"),tsf_sample_phase=df.get("tsf_sample_phase"), n_samp=df.get("n_skip"), trig_delay=0)
+    fc_glue = genpattern_Full_Conversion(df)
 
     return fc_glue
 
@@ -402,8 +403,18 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     return "genpattern_adc_op_se_io.glue"
 
 
-def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0, trig_delay=0, n_samp = 10, tsf_reset=1):
+def genpattern_Full_Conversion(df):
 
+
+    time_scale_factor = df.get("time_scale_factor",missing_ok=True, default=10)
+    tsf_sample_phase = df.get("tsf_sample_phase",missing_ok=True, default=2)
+    StoC_Delay = df.get("StoC_Delay",missing_ok=True, default=0)
+    sample_phase_stretch = df.get("sample_phase_stretch",missing_ok=True, default=0)
+    trig_delay = df.get("trig_delay",missing_ok=True, default=0)
+    n_samp = df.get("n_samp",missing_ok=True, default=10)
+    tsf_reset = df.get("tsf_reset",missing_ok=True, default=1)
+    tflip1 = df.get("tflip1",missing_ok=True, default=2)
+    Rst_early = df.get("Rst_early",missing_ok=True,default=0)
 
     #Initialize wave dictionary
     waves = {}
@@ -458,33 +469,30 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay
         waves["DACclr"] = waves["DACclr"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
         waves["Rst_ext"] = waves["Rst_ext"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
         waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*(20*tsf_sample_phase + 2*sample_phase_stretch)
-
-    #Add clock cycles equal to post_one_shot_delay
-    #if post_one_shot_delay > 0:
-    #    waves["mclk"] = waves["mclk"] + [0]*(1*post_one_shot_delay)
-    #    waves["calc"] = waves["calc"] + [0]*(1*post_one_shot_delay)
-    #    waves["capClk"] = waves["capClk"] + [0]*(1*post_one_shot_delay)
-    #    waves["Qequal"] = waves["Qequal"] + [0]*(1*post_one_shot_delay)
-    #    waves["DACclr"] = waves["DACclr"] + [0]*(1*post_one_shot_delay)
-    #    waves["Rst_ext"] = waves["Rst_ext"] + [0]*(1*post_one_shot_delay)
-    #    waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*(1*post_one_shot_delay)
         
 
 
     ### CONVERSION PHASE ###
+        
+    n1 = max(Rst_early,0) #Number of cycles Rst is earlier than everyone else, if it is.
+    n2 = max(-1*Rst_early,0) #Number of cylces Rst is later than everyone else, if it is.
+
+    ## PROOF
+    # Either n1 or n2 is non-zero. If n1 is zero, then n2 + tflip1-n2 = tflip1. 
+    # If n2 is zero, then, n1 + tflip1 = n1+tflip1
 
     #So far, read has been exactly equal to calc. 
     waves["read_ext"] = waves["calc"]
 
     #bufsel->0 and Rst->1. Two cycles later, read->1
     #waves["read_ext"] = waves["read_ext"] + [0,0,1]
-    waves["read_ext"] = waves["read_ext"] +         [0,0,1]
-    waves["capClk"] = waves["capClk"] +     [0,0,0]
-    waves["Qequal"] = waves["Qequal"] +     [0,0,0]
-    waves["DACclr"] = waves["DACclr"] +     [0,0,0]
-    waves["Rst_ext"] = waves["Rst_ext"] +   [1,1,1]
-    waves["bufsel_ext"] = waves["bufsel_ext"] + [0,0,0]
-    waves["mclk"] = waves["mclk"] + [0,0,0]
+    waves["read_ext"] = waves["read_ext"] +     [0]*n1 +     [0]*tflip1 + [1]
+    waves["capClk"] = waves["capClk"] +      [0]*n1 + [0]*tflip1 + [0]
+    waves["Qequal"] = waves["Qequal"] +     [0]*n1 +  [0]*tflip1 + [0]
+    waves["DACclr"] = waves["DACclr"] +     [0]*n1 + [0]*tflip1 + [0]
+    waves["Rst_ext"] = waves["Rst_ext"] +    [1]*n1 + [0]*n2 + [1]*(tflip1-n2) + [1]
+    waves["bufsel_ext"] = waves["bufsel_ext"] +  [1]*n1 +[0]*tflip1 + [0]
+    waves["mclk"] = waves["mclk"] +  [0]*n1 +[0]*tflip1 + [0]
 
     
     #StoC_Delay
@@ -556,7 +564,12 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay
         waves["phi1_ext"][i] = 1
     
     #Option to delay phi1_ext relative to mclk. 
-    waves["phi1_ext"] = [0]*(trig_delay) + waves["phi1_ext"] 
+    if trig_delay > 0:
+        waves["phi1_ext"] = [0]*(trig_delay) + waves["phi1_ext"]
+    elif trig_delay < 0:
+        for k in waves.keys():
+            if k != "phi1_ext":
+                waves[k] = [0]*abs(trig_delay) + waves[k]
     
     
     #TWEAKS TO HELP DEBUG 
