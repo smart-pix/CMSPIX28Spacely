@@ -26,6 +26,24 @@ from Spacely_Utils import *
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # These are mini functions that execute a small part of a routine.
 
+def set_basic_gain_region_params(df, region):
+    if region == 0:
+        df.set("Range2",1)
+        df.set("n_skip",10)
+        
+    elif region == 1:
+        df.set("Range2",1)
+        df.set("n_skip",1)
+        
+    elif region == 2:
+        df.set("Range2",0)
+        df.set("n_skip",10)
+
+    elif region == 3:
+        df.set("Range2",0)
+        df.set("n_skip",1)
+        
+
 # Core function to set up the system to take full conversions. 
 def setup_full_conversion(df):
 
@@ -104,11 +122,24 @@ def falling_edge_idx(wave, number=1, thresh=0.6):
     falling_edge_count = 0
 
     for i in range(1,len(wave)):
-        if wave[i] < thresh and wave[i-1] > thresh:
+        if wave[i] <= thresh and wave[i-1] > thresh:
             falling_edge_count = falling_edge_count + 1
             
             if falling_edge_count == number:
                 return i
+            
+
+def rising_edge_idx(wave, number=1, thresh=0.6):
+
+    rising_edge_count = 0
+
+    for i in range(1,len(wave)):
+        if wave[i] >= thresh and wave[i-1] < thresh:
+            rising_edge_count = rising_edge_count + 1
+
+            if rising_edge_count == number:
+                return i
+        #print(wave[i-1],wave[i],rising_edge_count)
 
 
 def unstick_VDD_ASIC():
@@ -411,7 +442,7 @@ def genpattern_Full_Conversion(df):
     StoC_Delay = df.get("StoC_Delay",missing_ok=True, default=0)
     sample_phase_stretch = df.get("sample_phase_stretch",missing_ok=True, default=0)
     trig_delay = df.get("trig_delay",missing_ok=True, default=0)
-    n_samp = df.get("n_samp",missing_ok=True, default=10)
+    n_skip = df.get("n_skip",missing_ok=True, default=10)
     tsf_reset = df.get("tsf_reset",missing_ok=True, default=1)
     tflip1 = df.get("tflip1",missing_ok=True, default=2)
     Rst_early = df.get("Rst_early",missing_ok=True,default=0)
@@ -455,7 +486,7 @@ def genpattern_Full_Conversion(df):
     #else:
     #    n_samples = 10
     
-    n_samples = n_samp
+    n_samples = n_skip
 
     for i in range(n_samples):
         #w/ time_scale_factor = 1, the period of mclk is 20 ticks or 2 MHz

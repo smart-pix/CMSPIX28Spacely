@@ -171,7 +171,7 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
            
     #############################################################################
     
-    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
+    if not df.check(["tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
         return -1
     
     df.set("check_halt_sample", False) 
@@ -252,7 +252,7 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):
     
     df.set("check_halt_sample",False)
     
-    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","NUM_SAMPLES"]):
+    if not df.check(["tsf_sample_phase","Range2","CapTrim","n_skip","NUM_SAMPLES"]):
         return
     
     fc_glue = setup_full_conversion(df)
@@ -342,7 +342,7 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
            
     #############################################################################
     
-    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
+    if not df.check(["tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
         return -1
     
     df.set("check_halt_sample",False)
@@ -357,12 +357,12 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
     
     VIN_RANGE = [i/1000 for i in range(int(1000*VIN_MIN_mV),int(1000*VIN_MAX_mV),VIN_STEP_uV)]
 
-    SINGLE_PULSE_MODE = df.get("SINGLE_PULSE_MODE")
+    
     
     fc_glue = setup_full_conversion(df)
     
 
-    if not SINGLE_PULSE_MODE:
+    if df.get("check_halt_sample"):
         df.write("Vin,Avg Result,Std Dev,Avg Halt_Sample\n")
     else:
         df.write("Vin,Avg Result, Std Dev\n")
@@ -725,21 +725,51 @@ def ROUTINE_FE_Bias_Sweep_Exp2():
     sweeps["Icomp"] = [-10e-6,-18e-6, -20e-6,-22e-6,-40e-6]
     sweeps["Ibdig"] = [0.2,0.3,0.4,0.5,0.6,0.7]
     
+
+    #Dollar store enum 
+    HIST_TYPE = "Hist"
+    XF_TYPE = "XF"
+
+
+    ############################
+    ## CONFIGURE THESE PARAMS ##
+    ############################
+
+    TYPE_OF_EXPERIMENT = XF_TYPE
+
+    REGION = 0
     
-    e = Experiment("Ibdig_Sweep_Experiment_3_29_2024")
+    e = Experiment("Ibdig_Sweep_Experiment_4_1_2024")
     
     #This experiment in Region3 only.
     #e.set("VIN_mV",4)
-    e.set("SINGLE_PULSE_MODE",True)
-    e.set("Range2",0)
-    e.set("n_skip",1)
+    if REGION == 3:
+        e.set("SINGLE_PULSE_MODE",True)
+        e.set("Range2",0)
+        e.set("n_skip",1)
+
+        e.set("VIN_STEP_uV",5000)
+        e.set("VIN_STEP_MIN_mV",5)
+        e.set("VIN_STEP_MAX_mV",1000)
+        e.set("VIN_mV",400)
+
+    elif REGION == 0:
+        e.set("SINGLE_PULSE_MODE",False)
+        e.set("Range2",1)
+        e.set("n_skip",10)
+
+        e.set("VIN_STEP_uV",100)
+        e.set("VIN_STEP_MIN_mV",2)
+        e.set("VIN_STEP_MAX_mV",10)
+        e.set("VIN_mV",4)
+
+
+
     e.set("USE_SCOPE",False)
     
-    e.set("VIN_STEP_uV",5000)
-    e.set("VIN_STEP_MIN_mV",5)
-    e.set("VIN_STEP_MAX_mV",1000)
     
     
+    e.set("NUM_SAMPLES",1000)
     e.set("time_scale_factor",10)
     e.set("tsf_sample_phase",2)      
     e.set("NUM_AVERAGES",1)
@@ -772,7 +802,11 @@ def ROUTINE_FE_Bias_Sweep_Exp2():
             df = e.new_data_file(prefix)
         
             #Run full conversion sweep
-            result = ROUTINE_FC_Avg_XF(e,df)
+            if TYPE_OF_EXPERIMENT == XF_TYPE:
+                result = ROUTINE_FC_Avg_XF(e,df)
+            if TYPE_OF_EXPERIMENT == HIST_TYPE:
+                result = ROUTINE_Full_Conversion_Histogram(e,df)
+
             
             if result == -1: #Abort on abnormal return status
                 return 
@@ -861,40 +895,55 @@ def ROUTINE_Meas_vs_timing_param():
 
     ############################
     ## CONFIGURE THESE PARAMS ##
-    ############################
+    #############################################################
 
-    TYPE_OF_EXPERIMENT = [XF_TYPE, HIST_TYPE]
+    TYPE_OF_EXPERIMENT = [XF_TYPE,HIST_TYPE]
 
+    REGIONS = [0,1,2,3]
 
     
 
-    e = Experiment("trig_delay grand sweep 3_29_2024")
+    e = Experiment("Cryo Characterization v2 4_4_2024")
     
 
     sweep = {}
-    #sweep["tsf_sample_phase"] = [5,6]
-    sweep["trig_delay"] = [i for i in range(-8,26)]
-    #sweep["tflip1"] = [1,2,3,4]
+    #sweep["Vref_fe"] = [0.4, 0.5, 0.6, 0.65, 0.7, 0.75]
+    #sweep["CapTrim"] = [0,10,20,25,30,40,50,60]
+    
+    #sweep["tsf_sample_phase"] = [2,3,4,5]
+    #sweep["Ibdig"] = [0.3,0.4,0.5,0.6,0.7,0.8]
+    #sweep["fake_param"] = [1,2,3]
+    #sweep["trig_delay"] = [i for i in range(-5,5)]
+    #sweep["tsf_reset"] = [1, 3, 5]
+    #sweep["tflip1"] = [1,2,3,4,5,6,7,8,9,10,11,12]
     #sweep["Rst_early"] = [-2,-1,0,1,2]
+
+    ## Generic parameters
     
+    e.set("tflip1",5)
+
+    #Number of averages per point in Avg XF transfer function
+    e.set("NUM_AVERAGES",25)
     
-    #Generic parameters
-    e.set("n_skip",10)
-    e.set("SINGLE_PULSE_MODE",False)
-    e.set("time_scale_factor",10) 
-    if HIST_TYPE in TYPE_OF_EXPERIMENT:
-        e.set("NUM_SAMPLES",1000)
+    #Number of samples to put into your histogram
+    e.set("NUM_SAMPLES",10000)
+
     e.set("CapTrim",25)
-
     e.set("tsf_sample_phase",2)
-
-
-
-    #if TYPE_OF_EXPERIMENT not in [HIST_TYPE, XF_TYPE]:
-    #    print("Unknown type of experiment...")
-    #    return -1
+    e.set("time_scale_factor",10)
     
+    #############################################################
+
+    num_experiments = len(REGIONS)*len(TYPE_OF_EXPERIMENT)*max(1,sum([len(sweep[x]) for x in sweep.keys()]))
     
+    num_pts = 0
+    if XF_TYPE in TYPE_OF_EXPERIMENT:
+        num_pts = num_pts + len(REGIONS)*max(1,sum([len(sweep[x]) for x in sweep.keys()]))*100*e.get("NUM_AVERAGES")
+    if HIST_TYPE in TYPE_OF_EXPERIMENT:
+        num_pts = num_pts + len(REGIONS)*max(1,sum([len(sweep[x]) for x in sweep.keys()]))*e.get("NUM_SAMPLES")
+
+    sg.log.notice(f"Total of {num_experiments} experiments will be run!")
+    sg.log.notice(f"Approximately {num_pts} will be collected, which will take {round(num_pts/18e3)} hours.")
 
     if HIST_TYPE in TYPE_OF_EXPERIMENT:
         #Set up a summary df.
@@ -902,57 +951,78 @@ def ROUTINE_Meas_vs_timing_param():
         summary_file.write("Region,sweep_param,value,mean,stddev\n")
 
     
+    # Allow us to NOT do sweep.
+    if sweep == {}:
+        sweep["default"] = [None]
     
     results_raw = []
     
-    for region in [0,2,3]:
-
+    for region in REGIONS:
 
         for sweep_param in sweep.keys():
 
             for sweep_val in sweep[sweep_param]:
-                
+ 
+                ## Set up basic parameters that are always the same for certain gain regions.
+
+
                 ## Set up df parameters for histograms
                 if HIST_TYPE in TYPE_OF_EXPERIMENT:
-                    file_tag = f"Histo R{region} {sweep_param} {sweep_val}"
+                    if sweep_param == "default":
+                        file_tag = f"Histo R{region}"
+                    else:
+                        file_tag = f"Histo R{region} {sweep_param} {sweep_val}"
+
                     df1 = e.new_data_file(file_tag)
                     df1.set(sweep_param,sweep_val)
 
+                    set_basic_gain_region_params(df1,region)
+
                     if region == 0:
-                        df1.set("Range2",1)
-                        df1.set("VIN_mV",6)
+                        df1.set("VIN_mV",4)
+                    elif region == 1:
+                        df1.set("VIN_mV",40)
                     elif region == 2:
-                        df1.set("Range2",0)
-                        df1.set("VIN_mV",60)
+                        df1.set("VIN_mV",40)
                     elif region == 3:
-                        df1.set("Range2",0)
                         df1.set("VIN_mV",400)
 
-                ## Set up df parameters for XF
+                ## Set up df parameters for Avg XF
                 if XF_TYPE in TYPE_OF_EXPERIMENT:
-                    file_tag = f"XF R{region} {sweep_param} {sweep_val}"
+                    if sweep_param == "default":
+                        file_tag = f"XF R{region}"
+                    else:
+                        file_tag = f"XF R{region} {sweep_param} {sweep_val}"
                     df2 = e.new_data_file(file_tag)
                     df2.set(sweep_param,sweep_val)
+
+                    set_basic_gain_region_params(df2,region)
                 
                     if region == 0:
-                        df2.set("Range2",1)
                         df2.set("VIN_STEP_uV",100)
                         df2.set("VIN_STEP_MAX_mV",10)
                         df2.set("VIN_STEP_MIN_mV",2)
-                        df2.set("NUM_AVERAGES",10)
-                    if region == 2:
-                        df2.set("Range2",0)
+                    if region == 1:
                         df2.set("VIN_STEP_uV",1000)
                         df2.set("VIN_STEP_MAX_mV",100)
                         df2.set("VIN_STEP_MIN_mV",2)
-                        df2.set("NUM_AVERAGES",10)
+                    if region == 2:
+                        df2.set("VIN_STEP_uV",1000)
+                        df2.set("VIN_STEP_MAX_mV",100)
+                        df2.set("VIN_STEP_MIN_mV",2)
                     if region == 3:
-                        df2.set("Range2",0)
                         df2.set("VIN_STEP_uV",5000)
                         df2.set("VIN_STEP_MAX_mV",1000)
                         df2.set("VIN_STEP_MIN_mV",2)
-                        df2.set("NUM_AVERAGES",10)
                 
+                # Set up special bias currents if needed...
+                if sweep_param in V_PORT.keys():
+                    V_PORT[sweep_param].set_voltage(sweep_val)
+
+                if sweep_param in I_PORT.keys():
+                    I_PORT[sweep_param].set_current(sweep_val)
+
+
                 ## Actually run the experiment
                 if HIST_TYPE in TYPE_OF_EXPERIMENT:
                     (mean, stddev) = ROUTINE_Full_Conversion_Histogram(e,df1)
@@ -963,6 +1033,13 @@ def ROUTINE_Meas_vs_timing_param():
                     #Close the sub-data-file for this point.    
                     df2.close()
 
+
+                # Restore current/voltage to its original value.
+                if sweep_param in V_PORT.keys():
+                    V_PORT[sweep_param].set_voltage(V_LEVEL[sweep_param])
+
+                if sweep_param in I_PORT.keys():
+                    I_PORT[sweep_param].set_current(I_LEVEL[sweep_param])
                 
                 ## Histo only: Update the summary file.
                 if HIST_TYPE in TYPE_OF_EXPERIMENT:
@@ -1052,7 +1129,7 @@ def _ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
 
     PARAM_RANGE = [1,2,3,4,5]# [i for i in range(1,10,1)]
     
-    SINGLE_PULSE_MODE = True
+    
 
 
 
@@ -1077,10 +1154,10 @@ def _ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
     
         tsf_sample_phase = param
     
-        if SINGLE_PULSE_MODE:
-            period_us = 50
-        else:
-            period_us = 0.25*tsf_sample_phase+0.05
+        #if SINGLE_PULSE_MODE:
+        #    period_us = 50
+        #else:
+        #    period_us = 0.25*tsf_sample_phase+0.05
     
         # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
         sg.INSTR["AWG"].config_AWG_as_Pulse(VIN_RANGE[0], pulse_width_us=0.025*(10*tsf_sample_phase), pulse_period_us=period_us)
@@ -1164,7 +1241,7 @@ def ROUTINE_PGL_Variation_Analysis():
 
     ## SETUP
     # Create a new Experiment
-    e = Experiment("PGL Variation Analysis 3_27_2024")
+    e = Experiment("Cryo PGL Variation Analysis 4_3_2024")
     
     df1 = e.new_data_file("Results")
     df2 = e.new_data_file("Raw Data")
@@ -1187,7 +1264,7 @@ def ROUTINE_PGL_Variation_Analysis():
     sg.INSTR["Scope"].set_bandwidth_limit(True,chan_num=1)
     
     #Range of vref_fe values we will check. 
-    VREF_FE_RANGE_mV = [400, 450, 500, 550, 600, 650, 700, 750]
+    VREF_FE_RANGE_mV = [550,650,750] #[400, 450, 500, 550, 600, 650, 700, 750]
     
     #Number of times we will sample PGL slope for each value of vref_fe
     NUM_SAMP = e.get("NUM_SAMP")
@@ -1250,3 +1327,109 @@ def ROUTINE_PGL_Variation_Analysis():
     df1.close()
     df2.close()
 
+
+
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+def ROUTINE_AWG_Timing_Analysis():
+
+
+    print("""Please Ensure: Scope Channel 1 = phi1_ext (trigger), Scope Channel 2 = AWG output""")
+
+    e = Experiment("AWG Timing Analysis v4")
+
+    df = e.new_data_file("Results")
+
+    df.set("pulse_mag_mV", 1000)
+    df.set("tsf_sample_phase",2)
+    df.set("num_pulses",100)
+    df.set("trig_level",0.5)
+    df.set("scope_timebase_s",500e-9)
+    df.set("bandwidth_limit_ch1",True)
+
+    sg.INSTR["Scope"].DEBUG_MODE = True
+    sg.INSTR["Scope"].enable_channels([1,4])
+    sg.INSTR["Scope"].set_scale(1.0, chan_num = 1)
+    sg.INSTR["Scope"].set_scale(0.5, chan_num = 4)
+    sg.INSTR["Scope"].set_voltage_offset(3.0)
+    sg.INSTR["Scope"].set_time_offset(2000e-9)
+    sg.INSTR["Scope"].set_timebase(df.get("scope_timebase_s"))
+    sg.INSTR["Scope"].io.set_timeout(2000)
+    sg.INSTR["Scope"].set_bandwidth_limit(df.get("bandwidth_limit_ch1"),chan_num=1)
+
+
+    #Configure the AWG wit
+    sg.INSTR["AWG"].config_AWG_as_Pulse(df.get("pulse_mag_mV"), pulse_width_us=0.25*df.get("tsf_sample_phase"), pulse_period_us=0.25*df.get("tsf_sample_phase") + 0.05)
+
+    waves = {}
+
+    waves["bufsel_ext"] = [1]*100
+    waves["phi1_ext"] = [0]*40
+    waves["Rst_ext"] = [1]*10 + [1]*40 + [0]*10
+
+    waves["phi1_ext"] = waves["phi1_ext"] + ([1]*10*df.get("tsf_sample_phase") + [0]*10*df.get("tsf_sample_phase"))*4
+
+    pulse_glue = genpattern_from_waves_dict(waves)
+
+    results = [[],[],[],[]]
+
+    for _ in range(df.get("num_pulses")):
+
+        #Set up scope trigger
+        sg.INSTR["Scope"].setup_trigger(1,df.get("trig_level"))
+        time.sleep(0.5)
+        
+        #Pulse Rst
+        pulse_result = sg.pr.run_pattern(pulse_glue,outfile_tag="fc_result")[0]
+        
+        #Get scope waveform
+        
+        trig_wave = sg.INSTR["Scope"].get_wave(1)
+        AWG_wave = sg.INSTR["Scope"].get_wave(4)
+
+        if trig_wave == None or AWG_wave == None:
+            continue
+
+        AWG_thresh = min(AWG_wave) + 0.25
+
+        #print(AWG_wave)
+        #print(AWG_thresh)
+
+        for i in [1,2,3,4]:
+            trig_edge = rising_edge_idx(trig_wave, number=2, thresh=df.get("trig_level"))
+            AWG_edge = falling_edge_idx(AWG_wave, number=2, thresh=AWG_thresh)
+
+            #print(AWG_edge)
+            #input("")
+            scope_points_per_division = len(trig_wave)/10
+
+            scope_points_per_ns = scope_points_per_division / (df.get("scope_timebase_s") * 1e9)
+
+            if trig_edge != None:
+                trig_edge_time = trig_edge / scope_points_per_ns
+            else: 
+                trig_edge_time = None
+            if AWG_edge != None:
+                AWG_edge_time = AWG_edge / scope_points_per_ns
+            else: 
+                AWG_edge_time = None
+
+            delta = AWG_edge_time - trig_edge_time
+            #print(f"Trig Edge: {trig_edge_time} ns")
+            #print(f"AWG Edge: {AWG_edge_time} ns") 
+            #input("")
+            results[i-1].append(delta)
+
+
+    for i in [1,2,3,4]:
+        histo = binned_histogram(results[i-1], bin_size = 0.5)
+        
+        print(histo)
+        
+        #df.write("Code,Count\n")
+        
+        #for code in histo.keys():
+        #    df.write(f"{code},{histo[code]}\n")
+
+        mean = np.mean(results)
+        stddev = np.std(results)
+        print(f"MEAN: {mean} STANDARD DEVIATION: {stddev} codes")
