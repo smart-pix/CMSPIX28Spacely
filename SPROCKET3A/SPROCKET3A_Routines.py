@@ -71,3 +71,10 @@ def ROUTINE_ZCU102_Demo_Game():
         else:
             print("")
             
+
+
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_gen_device():
+    """Generate a peary device"""
+
+    generate_peary_device("ZCU102_LED_Demo","/asic/projects/S/SParkDream/aquinn/ZCU102_LED_Demo/ZCU102_LED_Demo_mem_map.txt")
