@@ -78,3 +78,15 @@ def ROUTINE_gen_device():
     """Generate a peary device"""
 
     generate_peary_device("ZCU102_LED_Demo","/asic/projects/S/SParkDream/aquinn/ZCU102_LED_Demo/ZCU102_LED_Demo_mem_map.txt")
+
+
+
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
+def ROUTINE_i2c_debug():
+
+    bus = 1
+    component_addr = 0x40
+
+
+    for i in range(7):
+        sg.INSTR["car"].car_i2c_read(bus, component_addr, i, 1)
