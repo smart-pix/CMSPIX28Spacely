@@ -175,7 +175,6 @@ V_CURR_LIMIT = {# SMU_A
 V_PORT = {"vdda": None, # SMU_A
           "Vref_adc":  None, # SMU_A
           "Vdd12": None, # SMU_A
-          "Ib2": None,
           "VDDIO_LT": None, # PSU_A                  
           "VCC_LT":   None, # PSU_A
           "VCC_ASIC": None, # PSU_B

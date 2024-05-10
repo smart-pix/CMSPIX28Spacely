@@ -1433,3 +1433,44 @@ def ROUTINE_AWG_Timing_Analysis():
         mean = np.mean(results)
         stddev = np.std(results)
         print(f"MEAN: {mean} STANDARD DEVIATION: {stddev} codes")
+        
+        
+        
+        
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
+def ROUTINE_Get_Slope_All_Gain_Regions():
+    
+    #Plots will be saved in a folder with this name.
+    a = Analysis("MyAnalysis")
+    
+    # Give the user a chance to pick the correct files
+    df_to_load = filedialog.askopenfilenames()
+                
+    for df in df_to_load:
+        a.load_df(df)
+    
+    
+    for df in a.data.keys():
+    
+        if "R0" in df:
+            trend_x = [2.5,3.5]
+            bound_x = [0,5]
+        elif "R1" in df:
+            trend_x = [10, 30]
+            bound_x = [0,95]
+        elif "R2" in df:
+            trend_x = [10,30]
+            bound_x = [0,50]
+        elif "R3" in df:
+            trend_x = [200,600]
+            bound_x = [0,900]
+            
+            
+        a.exclude_outliers_by_x("Vin","Avg Result",df,bound_x)
+        a.exclude_outliers_by_trendline("Vin","Avg Result",df,trend_x)
+        
+        a.make_plots("Vin","Avg Result","Scatter Plot", sources=df, 
+                                                        save_path=f"./output/MyAnalysis/{df}_Scatter.png",
+                                                        title=f"{df} Transfer Function (Avg Result vs Vin)",
+                                                        trendline=True)
+        
