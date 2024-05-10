@@ -17,12 +17,22 @@ def spi_write(opcode_grp, address, data, length):
     sg.INSTR["car"].set_memory("spi_address",address)
 
     #Set WnR bit
-    
+    sg.INSTR["car"].set_memory("opcode", opcode_grp | 1<<WnR_bit)
+
     #Set data to write
+    sg.INSTR["car"].set_memory("write_data", data)
 
     #Initiate SPI transaction
+    sg.INSTR["car"].spi_data_transaction()
 
     #Check SPI status register to see if write is successful
+    status = sg.INSTR["car"].get_memory("spi_status_register")
+    if status & success:
+        return 0
+    else:
+        return -1
+
+def spi_data_transaction():
     
 
 
