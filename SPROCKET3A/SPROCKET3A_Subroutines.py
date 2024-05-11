@@ -49,7 +49,12 @@ def spi_write(opcode_grp, address, data, length):
     # Read in spi_done to see if the SPI transaction was successful (might need to read this in a loop
     # until it is set to 1, and timeout and return -1 if we loop through it too many times)
     # This timeout time would technically be the longest number of SPI cycles it would take to send a SPI write command.
-    sg.INSTR["car"].get_memory("spi_done")
+    done = sg.INSTR["car"].get_memory("spi_done")
+
+    if done == 1:
+        return 0
+    else:
+        return -1
 
 
 
@@ -70,15 +75,21 @@ def spi_read(opcode_grp, address, length):
     # Set spi_data_len (this will trigger the SPI transaction)
     sg.INSTR["car"].set_memory("spi_data_len",length)
 
-    # I think that we will need a way for Spacely to know when it can start reading in the AXI register
-    # spi_read_data since spi_done will only be 1 after all the data has been read back. 
+    done = sg.INSTR["car"].get_memory("spi_done")
 
-    # Read from spi_read_data
-    # Will need a bit of extra logic here depending on how much data we need to read. Since this is a generic subroutine,
-    # we can't just hardcode it and we will need to read the spi_read_data register multiple times and concatenate the data
-    # into the single "data" variable that we can return
-    data = sg.INSTR["car"].get_memory("spi_read_data")
+    # We can only read from spi_read_data if the SPI transaction is done
+    if (done == 1):
 
-    return data
+        # Read from spi_read_data
+        # Will need a bit of extra logic here depending on how much data we need to read. Since this is a generic subroutine,
+        # we can't just hardcode it and we will need to read the spi_read_data register multiple times and concatenate the data
+        # into the single "data" variable that we can return
+        data = sg.INSTR["car"].get_memory("spi_read_data")
+        return data
+
+    else:
+        return -1
+
+    
 
     
