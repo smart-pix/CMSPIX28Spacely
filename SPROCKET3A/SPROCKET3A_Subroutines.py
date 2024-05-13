@@ -41,7 +41,21 @@ def spi_write(opcode_grp, address, data, length):
     # Will need a bit of extra logic here depending on how much data we need to write. Since this is a generic subroutine,
     # we can't just hardcode it and it will look similar to spi_controller_SP3A_tb in the spacely-caribou-common-blocks repo:
     # spacely-caribou-common-blocks/spi_controller_interface/testbench/ folder
-    sg.INSTR["car"].set_memory("spi_write_data",data)
+
+    # Convert the data to a binary string (this is assuming that the "data" variable is an integer or decimal representation of the binary data)
+    binary_data = bin(data)[2:].zfill(length)
+
+    # Reverse the string to make it easier to index
+    binary_data = binary_data[::-1]   
+
+    # Create chunks of data that are word size (32 bits) to write them to the AXI register
+    for i in range(0, length, 32):
+        chunk = binary_data[i:i+32]
+        if len(chunk) < 32:
+            chunk = chunk + "0"*(32-len(chunk)) # Pad the chunk with zeros if it is less than 32 bits
+        chunk = chunk[::-1] # Reverse the chunk to write it to the AXI register
+        chunk = int(chunk, 2) # Convert the chunk to an integer (Note: not sure what data type we need to write to the AXI register)
+        sg.INSTR["car"].set_memory("spi_write_data",chunk)
 
     # Set spi_data_len (this will trigger the SPI transaction)
     sg.INSTR["car"].set_memory("spi_data_len",length)
@@ -84,8 +98,14 @@ def spi_read(opcode_grp, address, length):
         # Will need a bit of extra logic here depending on how much data we need to read. Since this is a generic subroutine,
         # we can't just hardcode it and we will need to read the spi_read_data register multiple times and concatenate the data
         # into the single "data" variable that we can return
-        data = sg.INSTR["car"].get_memory("spi_read_data")
-        return data
+        
+        data = ""
+        for i in range(0, length, 32):
+            chunk = sg.INSTR["car"].get_memory("spi_read_data") # Read data in number format from AXI register
+            chunk = bin(chunk)[2:].zfill(32)
+            data = chunk + data # The data comes in in little endian format, so we need to concatenate it in reverse order
+        
+        return int(data, 2) # Convert the binary string to an integer
 
     else:
         return -1
