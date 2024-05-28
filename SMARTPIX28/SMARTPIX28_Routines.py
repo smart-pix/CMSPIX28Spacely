@@ -11,7 +11,9 @@ def ROUTINE_basicLoopback():
 
     #Define the routine's purpose in a docstring like above, this will appear
     #when you call the routine in Spacely.
-
+    reg_wrdout = int(sg.INSTR["car"].get_memory("reg_wrdout"))
+    print(reg_wrdout)
+    
     pass
 
 
