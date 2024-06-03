@@ -142,8 +142,8 @@ def ROUTINE_basic_signals():
 
     #EXAMPLE:
     #50 cycles = 78.125 ns
-    spi_write(COMP_RISE_CALC, 0)
-    spi_write(COMP_FALL_CALC, 50)
+    # spi_write(COMP_RISE_CALC, 0)
+    # spi_write(COMP_FALL_CALC, 50)
 
     input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
     
