@@ -1,18 +1,10 @@
 # ExampleASIC Config File
 #
 # This file contains all the static configuration info that describes how
-# your ASIC test stand is set up, for example PSU and SMU voltages.
+# your ASIC test stand is set up, for example power supply voltages.
 
 
-#These global variables define whether we will initialize specific pieces of
-#equipment that can be controlled by Spacely.
-USE_ARDUINO = False  #(Arduino Portenta)
-USE_NI      = True   #(NI Chassis)
-USE_AWG     = False  #(Arbitrary Wave Gen)
-USE_SCOPE   = False  #(Oscilloscope)
-
-
-
+# When using the NI-PXI system, we define a bitfile to use in the Config file.
 # This dict gives a default FPGA bitfile for each slot that you are using.
 # "NI7972_NI6583_40MHz" is a bitfile that has been generated for the NI7972
 # FPGA running at a clock speed of 40 MHz with the I/O card NI6583.
@@ -20,25 +12,25 @@ USE_SCOPE   = False  #(Oscilloscope)
 DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot4":"NI7972_NI6583_40MHz"}
 
 
+# We almost always want to default to the iospec present in the same directory.
+DEFAULT_IOSPEC = ".\\spacely-asic-config\\ExampleASIC\\ExampleASIC_iospec.txt"
 
-DEFAULT_IOSPEC = ".\\asic_config\\ExampleASIC\\ExampleASIC_iospec.txt"
 
+# # # # # # # # # # # # # # # # # # # 
+#  Setting up INSTRUMENT Dictionary #
+# # # # # # # # # # # # # # # # # # #
 
-# # # # # # # # # # # # # 
-#  Setting up SMU/PSUs  #
-# # # # # # # # # # # # #
+# Almost all of the test instruments controlled by Spacely are accessed through
+# the INSTR dictionary. 
+# After initialization, an instrument handle can be accessed as, for example:
+#    sg.INSTR["SMU_A"]
+# (sg = Spacely Globals)
 
-#First, define which NI slot an SMU or PSU sits in.
-mySMU = "PXI1Slot2"
-myPSU = "PXI1Slot7"
-
-#Define what order these instruments should be powered on in:
-INSTR_INIT_SEQUENCE = [mySMU, myPSU]
-
-#Create a dictionary called "INSTR". When Spacely initializes the instruments,
-#it will put them into this dictionary for easy referencing.
-INSTR = {mySMU:None,
-         myPSU:None}
+INSTR = {"SMU_A" : {"type" : "NIDCPower", 
+                    "slot" : "PXI1Slot2"},
+         "SMU_B" : {"type" : "NIDCPower",
+                    "slot" : "PXI1Slot3"}
+        }
 
 
 # # # # # # # # # # # # # # # # # # # # # # #
@@ -57,11 +49,11 @@ I_SEQUENCE = ["Ibias"]
 # 2) Define the instrument + channel that will be used for each rail:
 
 # Example: VDD is on myPSU channel 0, etc.
-V_INSTR = {"VDD": myPSU,
-           "Vref":mySMU}
+V_INSTR = {"VDD": "SMU_A",
+           "Vref": "SMU_B"}
 V_CHAN  = {"VDD": 0,
            "Vref":1}
-I_INSTR = {"Ibias":mySMU}
+I_INSTR = {"Ibias":"SMU_B"}
 I_CHAN  = {"Ibias":0}
 
 

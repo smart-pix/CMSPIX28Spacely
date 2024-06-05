@@ -1,6 +1,6 @@
 // ExampleASIC iospec
 //
-// The iospec defines which pins on the NI (typically 0~31) are used for which ASIC signals.
+// When using NI-PXI, the iospec defines which pins on the NI (typically 0~31) are used for which ASIC signals.
 
 
 // All I/O definitions need to be inside a "HARDWARE XYZ BEGIN ... END" block to tell which NI hardware we're talking about.
