@@ -23,7 +23,18 @@ def set_clock_divide_factor(clock_divide_factor):
 
 
 
+SPI_REG = {"comp_rise_calc":  [1, 256, 14]}
+
+def spi_write_reg(reg_name, data):
+    return spi_write(SPI_REG[reg_name][0], SPI_REG[reg_name][1], data, SPI_REG[reg_name][2])
+
+def spi_read_reg(reg_name):
+    return spi_read(SPI_REG[reg_name][0], SPI_REG[reg_name][1], SPI_REG[reg_name][2])
+
 # Returns: 0 on success, negative number on failure.
+# Arguments:
+#   opcode_grp - Integer opcode group (2b binary number)
+#   address    - Integer address (10b binary number)
 def spi_write(opcode_grp, address, data, length):
 
     """Write data to a SPI Register on the ASIC"""
@@ -35,7 +46,7 @@ def spi_write(opcode_grp, address, data, length):
     sg.INSTR["car"].set_memory("spi_address",address)
 
     # Set spi_opcode
-    sg.INSTR["car"].set_memory("spi_opcode",opcode_grp)
+    sg.INSTR["car"].set_memory("spi_opcode_group",opcode_grp)
 
     # Set spi_write_data 
     # Will need a bit of extra logic here depending on how much data we need to write. Since this is a generic subroutine,
@@ -84,7 +95,7 @@ def spi_read(opcode_grp, address, length):
     sg.INSTR["car"].set_memory("spi_address",address)
 
     # Set spi_opcode
-    sg.INSTR["car"].set_memory("spi_opcode",opcode_grp)
+    sg.INSTR["car"].set_memory("spi_opcode_group",opcode_grp)
 
     # Set spi_data_len (this will trigger the SPI transaction)
     sg.INSTR["car"].set_memory("spi_data_len",length)

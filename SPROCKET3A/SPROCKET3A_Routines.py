@@ -74,6 +74,30 @@ def ROUTINE_ZCU102_Demo_Game():
 
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_bit_bang_test():
+
+    #0 = output, 1 = input
+    sg.INSTR["car"].set_memory("gpio_direction",0x0)
+
+    METHOD = int(input("Bitbang method?"))
+
+    sg.log.info("Begin Bit Banging")
+    try:
+        while True:
+            if METHOD == 1:
+                sg.INSTR["car"].set_memory("gpio_data",0x2)
+                sg.INSTR["car"].set_memory("gpio_data",0x0)
+            elif METHOD == 2:
+                x = sg.INSTR["car"].get_memory("gpio_data")
+                sg.INSTR["car"].set_memory("gpio_data", 0x2 ^ x)
+    except KeyboardInterrupt:
+        sg.log.debug("Interrupted")
+
+    sg.log.info("End Bit Banging")
+        
+    
+
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
 def ROUTINE_i2c_debug():
 
     bus = 1
@@ -86,7 +110,7 @@ def ROUTINE_i2c_debug():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_check_fw():
     """Write + readback a single value to FW to make sure the firmware is flashed."""
 
@@ -107,29 +131,32 @@ def ROUTINE_check_fw():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_check_spi_loopback():
     """Write a register over SPI and read back its value to confirm the SPI interface is working."""
-    pass
-    # spi_write(xyz, 123)
-    # val = spi_read(xyz)
-    # if val != 123:
-    #   sg.log.error("Failed!")
+
+    spi_write_reg("comp_rise_calc",33)
+
+    val = spi_read_reg("comp_rise_calc")
+
+    if val == 33:
+        sg.log.info("SPI Loopback Passed!")
+    else:
+        sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
 
 
-
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_scan_chain_loopback():
     """Write 10b of data into the scan chain and read it back (slide 16)"""
     pass
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_config_chain_loopback():
     """Write 29b of data into the scan chain and read it back (slide 18)"""
     pass
 
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_basic_signals():
     """Program some basic patterns in the pattern generator and observe outputs"""
 
@@ -147,3 +174,36 @@ def ROUTINE_basic_signals():
 
     input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
     
+
+
+
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+def ROUTINE_axi_shell():
+    """Microshell to interact with the AXI registers and debug the design."""
+
+
+    AXI_REGISTERS = ["spi_read_write", "spi_address", "spi_data_len",
+                     "spi_opcode_group", "spi_write_data", "spi_read_data",
+                     "clock_divide_factor", "spi_done"]
+
+
+    while True:
+
+        # Print register contents
+        i = 0
+        for reg in AXI_REGISTERS:
+            reg_contents = sg.INSTR["car"].get_memory(reg)
+            print(f"{i}. {reg : <16} -- {reg_contents}")
+            i = i+1
+
+        write_reg_num = input("write which?")
+
+        if write_reg_num == "q":
+            return
+
+        write_reg = AXI_REGISTER[int(write_reg_num)]
+
+        write_val = int(input("val?"))
+
+        sg.INSTR["car"].set_memory(write_reg, write_val)
+        
