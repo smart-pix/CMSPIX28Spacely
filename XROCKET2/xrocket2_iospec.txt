@@ -1,4 +1,4 @@
-HARDWARE PXI1Slot16/NI6583/se_io BEGIN
+HARDWARE PXI1Slot11/NI6583/se_io BEGIN
 
 //Config Chain
 configRst,I,31,1
@@ -15,21 +15,21 @@ DoneAE,O,7
 DonePCA,O,4
 
 
-//Scan Chain
+//Scan Chain,
 scanClk,I,11
 scanEn,I,12
 scanLoad,I,13
 scanIn,I,10
 scanOut,O,5
 
-ClkAE,I,3
+clkAE,I,3
 dataLatchClkAE,I,2
 
-ClkPCA,I,9
+clkPCA,I,9
 dataLatchClkPCA,I,8
-END
+//END
 
-HARDWARE PXI1Slot16/NI6583/lvds BEGIN
+HARDWARE PXI1Slot11/NI6583/lvds BEGIN
 serialOutTRP,O,5
 serialOutTLP,O,8
 END

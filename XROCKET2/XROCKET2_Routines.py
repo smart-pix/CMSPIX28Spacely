@@ -1,17 +1,18 @@
 # XROCKET2-Specific Routines
 
-import sys
-import platform
-import os
+#import sys
+#import platform
+#import os
 import numpy as np
-import serial.tools.list_ports
-import atexit
-import argparse
-from datetime import datetime
-from prettytable.colortable import PrettyTable
-from si_prefix import si_format
-from statistics import mean, NormalDist
-import csv
+#import serial.tools.list_ports
+#import atexit
+#import argparse
+#from datetime import datetime
+#from prettytable.colortable import PrettyTable
+#from si_prefix import si_format
+#from statistics import mean, NormalDist
+#import csv
+import time
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -21,7 +22,8 @@ from matplotlib import colors
 #Import utilities from py-libs-common
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
-from fnal_libawg import AgilentAWG
+from fnal_libIO import *
+from fnal_libinstrument import *
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
 
@@ -38,6 +40,511 @@ XROCKET2_SCAN_CHAIN_BITS = 20480
 class XR2_Config_Setting():
     def __init__(self):
         pass
+
+def initialize():
+
+    waves = {}
+
+    waves["count"] = [0]
+    waves["testcase"] = ["."]
+    waves["testnum"] = [0]
+
+    waves["capClkEN"] = [0]
+    waves["scanClk"] = [0]
+    waves["serialClkEN"] = [0]
+    waves["configClkEN"] = [0]
+    waves["expected_serialOut_AE"] = [0]
+    waves["expected_serialOut_PCA"] = [0]
+
+    waves["reset"] = [1]
+    waves["scanEn"] = [0]
+    waves["clkPCA"] = [0]
+    waves["scanClk"] = [0]
+    waves["serialClkEN"] = [0]
+    waves["configClkEN"] = [0]
+    waves["reset"] = [0]
+
+
+#<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
+def ROUTINE_resetDUT():
+
+    waves = {}
+
+    waves["reset"] = [1] * 5
+    waves["clkAE"] = [0] * 5
+    waves["clkPCA"] = [0] * 5
+
+    waves["reset"] = waves["reset"] + [0,0]
+    waves["clkAE"] = waves["clkAE"] + [0,1]
+    waves["clkPCA"] = waves["clkPCA"] + [0,1]
+
+    waves["reset"] = waves["reset"] + [1]
+    waves["clkAE"] = waves["clkAE"] + [0]
+    waves["clkPCA"] = waves["clkPCA"] + [0]
+
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_scanChain():
+
+
+    SCAN_CHAIN_BITS = 2 * 1024 * 10
+    waves = {
+        "scanClk": [],
+        "scanEn": [],
+        "scanLoad": [],
+        "scanIn": []
+    }
+
+    with open('spacely-asic-config\\XROCKET2\\testdata\\AE_datain.scrambled.mem', 'r') as AE_memfile:
+        f_AE = AE_memfile.read()
+        AE_datain = f_AE.split()
+
+    with open('spacely-asic-config\\XROCKET2\\testdata\\PCA_datain.scrambled.mem', 'r') as PCA_memfile:
+        f_PCA = PCA_memfile.read()
+        PCA_datain = f_PCA.split()
+
+    # Initial setup
+    waves["scanClk"] = [1]  # scanClk enabled
+    waves["scanEn"] = [1]      # scanEn enabled
+    waves["scanLoad"] = [0]    # scanLoad initial state
+
+    # Loading PCA ScanChain
+    testcase = "Loading PCA"
+    for i in range(1024):
+        for j in range(10):
+            waves["scanIn"].append(PCA_datain[i][9 - j])
+            waves["scanLoad"].append(0)
+            waves["scanClk"].append([1, 0])  # Clock cycle
+
+        waves["scanLoad"].append(1)
+        waves["scanClk"].append([0, 1])  # Negative edge cycle
+        waves["scanEn"].append(1)
+
+    # Loading AE ScanChain
+    testcase = "Loading AE"
+    for i in range(1024):
+        for j in range(10):
+            waves["scanIn"].append(AE_datain[i][9 - j])
+            waves["scanLoad"].append(0)
+            waves["scanClk"].append([1, 0])  # Clock cycle
+
+        waves["scanLoad"].append(1)
+        waves["scanClk"].append([0, 1])  # Negative edge cycle
+        waves["scanEn"].append(1)
+
+    # Finalizing the scan operation
+    for j in range(10):
+        waves["scanLoad"].append(0)
+        waves["scanClk"].append([1, 0])  # Clock cycle
+
+    waves["scanLoad"].append(1)
+    waves["scanClk"].append([0, 1])  # Negative edge cycle
+
+    # Disabling the scan clock and scan enable signals
+    waves["scanClk"].append(0)
+    waves["scanEn"].append(0)
+    waves["scanLoad"].append(0)
+
+    # Generate glue wave and send to ASIC, then plot results
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+
+    # ROUTINE_resetDUT()
+
+
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
+def ROUTINE_config_loopback():
+    #unstick_VDD_ASIC()
+    
+    CONFIG_CHAIN_BITS = 4 + (8*2048)
+    #Quarter_CONFIG_CHAIN_BITS = CONFIG_CHAIN_BITS/4
+    
+    waves = {}
+    waves["configClk"] = []
+    waves["configRst"] = []
+    waves["loadShadowReg"] =[]
+    waves["configIn"] = []
+
+
+    for i in range(2*CONFIG_CHAIN_BITS):
+        waves["configClk"] = waves["configClk"] + [0,1]
+        waves["configRst"] = waves["configRst"] + [1,1]
+        waves["loadShadowReg"] = waves["loadShadowReg"] + [0,0]
+
+    for i in range(int(CONFIG_CHAIN_BITS/2)):
+        waves["configIn"] = waves["configIn"] + [1,1,1,1,0,0,0,0]
+    
+    glue_wave = genpattern_from_waves_dict(waves)
+    
+    result_glue = sg.pr.run_pattern(glue_wave,outfile_tag="result")[0]
+    #result_glue = sg.pr.read_glue(glue_wave,outfile_tag="result")
+    
+    sg.gc.plot_glue(result_glue)
+
+    # ROUTINE_resetDUT()
+
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
+def ROUTINE_scanChainCheck():
+    
+    waves = {
+        "scanClk": [],
+        "scanEn": [],
+        "scanLoad": [],
+        "scanIn": [],
+        "scanOut": [],
+    }
+
+    with open('spacely-asic-config\\XROCKET2\\testdata\\AE_datain.scrambled.mem', 'r') as AE_memfile:
+        f_AE = AE_memfile.read()
+        AE_datain = f_AE.split()
+        print(len(AE_datain))
+
+    # with open('spacely-asic-config\\XROCKET2\\testdata\\PCA_datain.scrambled.mem', 'r') as PCA_memfile:
+    #     f_PCA = PCA_memfile.read()
+    #     PCA_datain = f_PCA.split()
+
+    # Initial setup
+    # waves["scanClk"] = waves["scanClk"] + [0, 1]
+    # waves["scanEn"] = waves["scanEn"] + [0, 1]
+    # waves["scanLoad"] = waves["scanLoad"] + ([0, 0])
+
+    # Loading Data through ScanChain (2048 * 10)
+    for _ in range(4):  # Repeat twice as per the task
+        for i in range(1024):
+            for j in range(10):
+                waves["scanIn"] = waves["scanIn"] + [AE_datain[i][j]]*2
+                waves["scanLoad"] = waves["scanLoad"] + ([0, 0])
+                waves["scanClk"] = waves["scanClk"] + [0, 1]
+                waves["scanEn"].append(1)
+            waves["scanLoad"] = waves["scanLoad"] + ([1, 1])
+            waves["scanClk"] = waves["scanClk"] + [1, 0]
+            waves["scanEn"].append(1)
+
+    # Checking Outputs
+    # for _ in range(2):  # Repeat twice as per the task
+    #     for i in range(1024):
+    #         waves["scanIn"].append(0)
+    #         for j in range(10):
+    #             waves["scanLoad"] = waves["scanLoad"] + ([0, 0])
+    #             # waves["scanClk"].append([0, 1])
+    #             waves["scanEn"].append(1)
+    #             # Note: This is where mismatch checking would occur
+    #             # Since we don't have scanOut values, let's just log the wave
+    #             # waves["scanOut"].append("check")  # Placeholder for output checking
+    #             # In actual usage, compare scanOut to AE_datain[i][j]
+    #         waves["scanLoad"].append(1)
+    #         waves["scanClk"].append([0, 1])
+    #         waves["scanEn"].append(1)
+
+    # Final state
+    # waves["scanClk"].append(0)
+    # waves["scanEn"].append(0)
+    # waves["scanLoad"].append(0)
+
+    # Generate glue wave and send to ASIC, then plot results
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+def ROUTINE_checkAE():
+    
+    waves = {
+        "clkAE": [],
+        "dataLatchClkAE": [],
+        "serialClk": [],
+        # "expected_serialOut_AE": []
+    }
+
+    # Initial setup
+    # waves["reset"] = waves["reset"] + [0]
+    # waves["clkAE"] = waves["clkAE"] + [1]
+    # waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [1]
+    # waves["scanClk"] = waves["scanClk"] + [1]
+
+    # for _ in range(32):
+    #     for __ in range (5):
+    #         waves["clkAE"] = waves["clkAE"] + [1,0]
+    #         waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [1,1,0,1]
+    #         waves["scanClk"] = waves["scanClk"] + [1,0]
+    
+    # waves["clkAE"] = waves["clkAE"] + [0,1]
+    # waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [0,0]
+    # waves["scanClk"] = waves["scanClk"] + [0,1]
+            
+
+
+    # with open('spacely-asic-config\\XROCKET2\\testdata\\AE_data.mem', 'r') as AE_memfile:
+    #     f_AE = AE_memfile.read()
+    #     AE_dataout = f_AE.split()
+    #     print(len(AE_dataout))
+
+
+    # # with open('spacely-asic-config\\XROCKET2\\testdata\\PCA_datain.scrambled.mem', 'r') as PCA_memfile:
+    # #     f_PCA = PCA_memfile.read()
+    # #     PCA_datain = f_PCA.split()    
+
+    # Initial setup
+    waves["clkAE"] = waves["clkAE"] + [1]
+    waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [0]
+    waves["serialClk"] = waves["serialClk"] + [0]
+
+    # ROUTINE_scanChain() #- Placeholder for the scan chain function, assume it has been run
+
+    # Clock AE toggling for 30 cycles
+    for _ in range(30):
+        waves["clkAE"] = waves["clkAE"] + [0, 1]
+    
+    # # Latching and writing data
+    # waves["clkAE"] = waves["clkAE"] + [0]
+    # waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [0]
+    # # Placeholder for writeArray() and writecompressed() operations
+
+
+
+    # # Enable serial clock
+    # waves["serialClkEN"] = waves["serialClkEN"] + [1]
+
+    # # Expected serial output AE
+    # # waves["expected_serialOut_AE"] = waves["expected_serialOut_AE"] + [AE_dataout[0][0]]*2
+    # waves["dataLatchClkAE"] = waves["dataLatchClkAE"] + [1]
+
+    # # Check Serial Data
+    # for i in range(32):
+    #     for j in range(5):
+    #         if i == 0 and j == 0:
+    #             j += 1  # Skip Header
+    #         # waves["expected_serialOut_AE"].append(AE_dataout[i][j])
+    #         waves["serialClkEN"] = waves["serialClkEN"] + [1]
+    
+    # # waves["expected_serialOut_AE"] = waves["expected_serialOut_AE"] + [0]
+    # waves["serialClkEN"] = waves["serialClkEN"] + [0]
+
+    # # # Ensure vertical alignment of all waveforms
+    # # max_len = max(len(waves[key]) for key in waves)
+    # # for key in waves:
+    # #     waves[key].append([waves[key]] * (max_len - len(waves[key])))
+
+    # ROUTINE_writeArray(AE_dataout)
+    # ROUTINE_writecompressed(AE_dataout)
+
+    # # Generate glue wave and send to ASIC, then plot results
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+def ROUTINE_checkPCA(PCA_dataout):
+
+    waves = {
+        "clkPCA": [],
+        "dataLatchClkPCA": [],
+        "serialClkEN": [],
+        "expected_serialOut_PCA": []
+    }
+
+    # with open('spacely-asic-config\\XROCKET2\\testdata\\AE_datain.scrambled.mem', 'r') as AE_memfile:
+    #     f_AE = AE_memfile.read()
+    #     AE_datain = f_AE.split()
+
+    with open('spacely-asic-config\\XROCKET2\\testdata\\PCA_dataout.mem', 'r') as PCA_memfile:
+        f_PCA = PCA_memfile.read()
+        PCA_dataout = f_PCA.split()
+
+    # Initial setup
+    waves["clkPCA"].append(0)
+    waves["dataLatchClkPCA"].append(0)
+    waves["serialClkEN"].append(0)
+    waves["expected_serialOut_PCA"].append(0)
+
+    # scanChain() - Placeholder for the scan chain function, assume it has been run
+    # Perform scanChain here
+    waves["clkPCA"].append(0)
+    waves["dataLatchClkPCA"].append(0)
+    waves["serialClkEN"].append(0)
+    waves["expected_serialOut_PCA"].append(0)
+
+    # Toggling clkPCA for 30 cycles
+    for _ in range(30):
+        waves["clkPCA"].append(1)
+        waves["dataLatchClkPCA"].append(0)
+        waves["serialClkEN"].append(0)
+        waves["expected_serialOut_PCA"].append(0)
+        waves["clkPCA"].append(0)
+        waves["dataLatchClkPCA"].append(0)
+        waves["serialClkEN"].append(0)
+        waves["expected_serialOut_PCA"].append(0)
+    
+    # Latching and writing data
+    waves["clkPCA"].append(0)
+    waves["dataLatchClkPCA"].append(0)
+    waves["serialClkEN"].append(0)
+    waves["expected_serialOut_PCA"].append(0)
+    # Placeholder for writeArray_PCA() and writecompressed_PCA() operations
+
+    # Enable serial clock
+    waves["serialClkEN"].append(1)
+
+    # Expected serial output PCA
+    waves["expected_serialOut_PCA"].append(PCA_dataout[0][2])
+    waves["dataLatchClkPCA"].append(1)
+
+    # Check Serial Data
+    for i in range(32):
+        for j in range(7):
+            if i == 0 and j == 0:
+                j += 3  # Skip Header
+            if j < 7:  # Ensure we don't exceed bounds after skipping header
+                waves["expected_serialOut_PCA"].append(PCA_dataout[i][j])
+                waves["clkPCA"].append(0)
+                waves["dataLatchClkPCA"].append(0)
+                waves["serialClkEN"].append(1)
+
+    waves["serialClkEN"].append(0)
+    waves["expected_serialOut_PCA"].append(0)
+
+    # Ensure vertical alignment of all waveforms
+    max_len = max(len(waves[key]) for key in waves)
+    for key in waves:
+        waves[key].append([waves[key][-1]] * (max_len - len(waves[key])))
+
+    # Generate glue wave and send to ASIC, then plot results
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+    ROUTINE_resetDUT()
+
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+def ROUTINE_writeArray(array_data, filename="ArrayData_AE.txt"):
+    counter = 0
+    with open(filename, "w") as fp:
+        for i in range(5120):
+            fp.write(f"{array_data[i]:0b}")  # Writing the binary representation
+            counter += 1
+            if counter == 5:
+                fp.write(" ")
+                counter = 0
+    # No need to explicitly close the file, as the context manager handles it
+
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+def ROUTINE_writeArray_PCA(array_data, filename="ArrayData_PCA.txt"):
+    counter = 0
+    with open(filename, "w") as fp:
+        for i in range(10240):
+            fp.write(f"{array_data[i]:0b}")  # Writing the binary representation
+            counter += 1
+            if counter == 10:
+                fp.write(" ")
+                counter = 0
+    # No need to explicitly close the file, as the context manager handles it
+
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+def ROUTINE_writecompressed(compressed_data, filename="compressedData.txt"):
+    counter = 0
+    with open(filename, "w") as fp:
+        for i in range(150):
+            fp.write(f"{compressed_data[i]:0b}")  # Writing the binary representation
+            counter += 1
+            if counter == 5:
+                fp.write(" ")
+                counter = 0
+    # No need to explicitly close the file, as the context manager handles it
+
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+def ROUTINE_writecompressed_PCA(compressed_data, filename="compressedData_PCA.txt"):
+    counter = 0
+    with open(filename, "w") as fp:
+        for i in range(210):
+            fp.write(f"{compressed_data[i]:0b}")  # Writing the binary representation
+            counter += 1
+            if counter == 7:
+                fp.write(" ")
+                counter = 0
+    # No need to explicitly close the file, as the context manager handles it
+
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+def ROUTINE_VtestInput(Vin, period):
+    waves = {
+        "Vtest": [],
+        "soc": [],
+        "DACclr": [],
+        "CLK": []
+    }
+
+    # Initialize variables
+    Vtest = Vin
+    ClkLength = 1
+    testcase = "Inputing Vtest Data"
+
+    # Append initial state
+    waves["Vtest"].append(Vtest)
+    waves["soc"].append(0)
+    waves["DACclr"].append(1)
+    waves["CLK"].append(0)
+
+    # Initialize Device
+    waves["soc"].append(1)
+    waves["DACclr"].append(0)
+
+    # One Loop = 1 ADC Acquisition
+    for i in range(10):  # 10 Total Runs
+        for j in range(ClkLength):  # 1 + 2 + 3 + ... + 9 + 10 = 55 Total Cycles
+            waves["CLK"].append(0)  # Clock low on posedge
+        waves["CLK"].append(1)  # Clock high
+
+        # Clear CapHi & CapLo for next Run
+        for _ in range(period // 10):
+            waves["DACclr"].append(1)
+        for _ in range(period // 10):
+            waves["DACclr"].append(0)
+
+        # Increase Loop Length
+        ClkLength += 1
+
+        waves["CLK"].append(0)  # Clock low on negedge
+
+    waves["CLK"].append(0)  # Final clock low on posedge
+
+    # Ensure vertical alignment of all waveforms
+    max_len = max(len(waves[key]) for key in waves)
+    for key in waves:
+        waves[key].append([waves[key][-1]] * (max_len - len(waves[key])))
+
+    # Generate glue wave and send to ASIC, then plot results
+    glue_wave = genpattern_from_waves_dict(waves)
+    result_glue = sg.pr.run_pattern(glue_wave, outfile_tag="result")[0]
+    sg.gc.plot_glue(result_glue)
+
+#Sub-Routine
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+def ROUTINE_unstick_VDD_ASIC():
+    
+    while True:
+        VDD_ASIC_Current = V_PORT["VDD_ASIC"].get_current()
+        
+        if VDD_ASIC_Current < 50e-6:
+            break
+        
+        #rando = np.random.randint(0,350)
+        #voltage = 1 + float(rando)/1000
+        rando = np.random.randint(100,200)
+        voltage = 1.1 + float(rando)/1000
+
+        print(f"Setting VDD_ASIC={voltage}")
+        V_PORT["VDD_ASIC"].set_voltage(voltage)
+        
+    #Restore VDD_ASIC to set voltage.
+    V_PORT["VDD_ASIC"].set_voltage(V_LEVEL["VDD_ASIC"])
+    print("DONE!")
+
+
 
 
 # TEST #1: Config Chain Loopback
@@ -315,6 +822,3 @@ def scan_chain_color_map(scan_chain_csv, offset):
     plt.colorbar(grid)
     plt.show()
     
-
-
-ROUTINES = [XROCKET2_Config_Chain, XROCKET2_Scan_Chain, XROCKET2_Serial_Readout, XROCKET2_Vtest_Readout, XROCKET2_DNL_Trim, XROCKET2_ascii_scan_chain_demo, ]
