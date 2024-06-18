@@ -81,8 +81,19 @@ def ROUTINE_basicLoopback():
     pass
 
 
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_drivePin():
+
+    sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+    print(sw_write32_0)
+    
+    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", 1 if sw_write32_0 == 0 else 0)
+    print(sw_write32_0)
+
+    sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+    print(sw_write32_0)
 
 
 # IMPORTANT! If you want to be able to run a routine easily from
 # spacely, put its name in the "ROUTINES" list:
-ROUTINES = [ROUTINE_basicLoopback]
+ROUTINES = [ROUTINE_basicLoopback, ROUTINE_drivePin]
