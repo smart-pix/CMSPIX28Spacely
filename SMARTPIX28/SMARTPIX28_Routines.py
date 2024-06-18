@@ -11,6 +11,24 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
+# short custom scripts
+
+# Function to convert each hex value to a binary string with proper bit width
+def hex_to_bin(hex_str):
+    bit_width, hex_value = hex_str.split("'h") # get the bit length and hex value
+    bit_width = int(bit_width) # convert bit length to an int
+    decimal_value = int(hex_value, 16) # Convert the hexadecimal number to an integer
+    binary_str = bin(decimal_value)[2:].zfill(bit_width) # Convert the hexadecimal number to an integer
+    return binary_str
+
+def gen_sw_write32_0(hex_list):
+    # Convert the list of hex values to a single binary string
+    binary_str = ''.join(hex_to_bin(hex_str) for hex_str in hex_list)
+    # Convert the binary string to an integer
+    resulting_int = int(binary_str, 2)
+    # return
+    # print(binary_str, resulting_int)
+    return resulting_int
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_basicLoopback():
@@ -86,8 +104,15 @@ def ROUTINE_drivePin():
 
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
     print(sw_write32_0)
-    
-    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", 1 if sw_write32_0 == 0 else 0)
+
+    # temp = 1 if sw_write32_0 == 0 else 0
+    # temp = 570425610
+    clk_divide = "6'h28" # "6'hA"
+    hex_list = ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", clk_divide] 
+    temp = gen_sw_write32_0(hex_list)
+    print(temp)
+
+    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
     print(sw_write32_0)
 
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
