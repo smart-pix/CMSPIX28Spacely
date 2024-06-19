@@ -71,7 +71,7 @@ def ROUTINE_clk_divide():
     hex_lists = []
 
     # 1st parameter of the hex code (right to left)
-    # this number divides the original 400 MHz down for the bclk and bclk_ana
+    # this number divides the original 400 MHz down for the BxCLK_ana and BxCLK
     # 400 MHz / clk_divide
     clk_divides = range(10, 41)
 
