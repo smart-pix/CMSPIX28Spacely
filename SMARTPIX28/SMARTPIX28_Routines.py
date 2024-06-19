@@ -100,25 +100,40 @@ def ROUTINE_basicLoopback():
 
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_drivePin():
-
+def ROUTINE_clk_divide():
+    
+    # check register initial value and store it
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    print(sw_write32_0)
+    print(f"Starting register value sw_write32_0 = {sw_write32_0}")
+    sw_write32_0_init = sw_write32_0
+    
+    # loop over clk_divides from 10 to 40
+    for divide in range(10, 41):
+      
+        # get clk_divide value
+        clk_divide = "6'h" + hex(divide).strip("0x")
 
-    # temp = 1 if sw_write32_0 == 0 else 0
-    # temp = 570425610
-    clk_divide = "6'h28" # "6'hA"
-    hex_list = ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", clk_divide] 
-    temp = gen_sw_write32_0(hex_list)
-    print(temp)
+        # create hex list
+        hex_list = ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", clk_divide]
 
-    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
-    print(sw_write32_0)
+        # convert hex list to input to set memory
+        temp = gen_sw_write32_0(hex_list)
 
+        # do write
+        sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
+
+        # read back
+        sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+        print(f"Wrote {temp} and register reads {sw_write32_0}. clk_divide = {divide} ({clk_divide})")
+
+        # sleep between consecutive writes
+        time.sleep(1)  
+
+    print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
+    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    print(sw_write32_0)
-
+    print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
 
 # IMPORTANT! If you want to be able to run a routine easily from
 # spacely, put its name in the "ROUTINES" list:
-ROUTINES = [ROUTINE_basicLoopback, ROUTINE_drivePin]
+# ROUTINES = [ROUTINE_basicLoopback, ROUTINE_clk_divide] # NOTE. Anthony commented this out on 06/19/24 because it seemed to have no impact.
