@@ -31,11 +31,14 @@ def gen_sw_write32_0(hex_list):
     return resulting_int
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
-def ROUTINE_sw_write32_0(hex_lists = None):
+def ROUTINE_sw_write32_0(
+        hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
+        cleanup = False
+):
 
     # check if hex_lists is none. if so then put a default value in
-    if hex_lists == None:
-        hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ]
+    #if hex_lists == None:
+    #    hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ]
 
     # check register initial value and store it
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
@@ -57,11 +60,12 @@ def ROUTINE_sw_write32_0(hex_lists = None):
 
         # sleep between consecutive writes
         time.sleep(1)
-
-    print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
-    sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
-    sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
+    
+    if cleanup:
+        print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
+        sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
+        sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+        print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
 
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
@@ -120,6 +124,40 @@ def ROUTINE_clk_delay():
     print(f"Writing {len(hex_lists)} hex lists to register sw_write32_0")
 
     # call ROUTINE_sw_write32_0
+    ROUTINE_sw_write32_0(hex_lists)
+
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
+def ROUTINE_loopback_static():
+    
+    # hex lists 
+    # hex_lists = [
+    #     ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)
+    #     ["4'h2", "4'h3", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 3 (read)
+    # ]
+    # ROUTINE_sw_write32_0(hex_lists)
+
+    # print value of read register
+    sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+    print(f"sw_read32_0 = {sw_read32_0}")
+    print(f"sw_read32_1 = {sw_read32_1}")
+    
+    # print(gen_sw_write32_0(hex_lists[0][2:]))
+
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+def ROUTINE_scanChain_counter():
+
+    # hex lists                                                                                                                    
+    hex_lists = [
+        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)                                       
+        ["4'h2", "4'h6", "8'h0", "16'h1"], # write op code 6 (array 0) writing to address 0 (8'h0) value 1 (16'h1)
+        #["4'h2", "4'h6", "8'h1", "16'h3"], # write op code 6 (array 0) writing to address 1 (8'h1) value 3 (16'h3)
+        #["4'h2", "4'h6", "8'h2", "16'h7"], # write op code 6 (array 0) writing to address 2 (8'h7) value 7 (16'h7)
+        #["4'h2", "4'h6", "8'h3", "16'hf"], # write op code 6 (array 0) writing to address 3 (8'hf) value 2 (16'hf)
+        #["4'h2", "4'h6", "8'h5", "16'hff"], # write op code 6 (array 0) writing to address 5 (8'hf) value 2 (16'hff)
+        ["4'h2", "4'hb", "7'h0", "1'h1", "4'h1", "6'h3", "6'h8"], # execute with op code b with test number 2 enabled 
+    ]
+
     ROUTINE_sw_write32_0(hex_lists)
 
 # IMPORTANT! If you want to be able to run a routine easily from
