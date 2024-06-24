@@ -1,6 +1,8 @@
 # Raw glue and vcd waveforms should not be uploaded to Git.
 *.glue
 *.vcd
+# Temp backup files should not be uploaded to Git.
+*.py~
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
