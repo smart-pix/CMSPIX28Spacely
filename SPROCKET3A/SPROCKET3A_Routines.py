@@ -6,6 +6,37 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
+
+def onstartup():
+    print("~ ~ SP3A CaR Board Default Setup ~ ~")
+    init_car = input("Initializing CaR Board ('n' to skip)>>>")
+
+    sg.INSTR["car"].debug_memory = True
+    
+    if not 'n' in init_car:
+        sg.INSTR["car"].init_car()
+    
+    set_cmos_voltage = input("Setting CMOS In/Out Voltage = 1.2V ('n' to skip)>>>")
+    if not 'n' in set_cmos_voltage:
+        sg.INSTR["car"].set_input_cmos_level(1.2)
+        sg.INSTR["car"].set_output_cmos_level(1.2)
+
+    config_si5345 = input("Configuring SI5345 w/ config option 1 ('n' to skip)>>>")
+    if not 'n' in config_si5345:
+        sg.INSTR["car"].configureSI5345(1)
+
+    #Enable external SPI clock
+    sg.INSTR["car"].set_memory("use_ext_spi_clk",1)
+
+    #Set all AXI GPIOs as outputs
+    sg.INSTR["car"].set_memory("gpio_direction",0)
+
+    assert_reset()
+    time.sleep(0.1)
+    deassert_reset()
+        
+    print("Finished SP3A CaR Board Default Setup")
+
 def random_coords():
     return [random.randint(0,9),random.randint(0,9)]
 
@@ -135,28 +166,42 @@ def ROUTINE_check_fw():
 def ROUTINE_check_spi_loopback():
     """Write a register over SPI and read back its value to confirm the SPI interface is working."""
 
-    spi_write_reg("comp_rise_calc",33)
+    spi_write_reg("comp_fall_bufsel",33)
 
-    val = spi_read_reg("comp_rise_calc")
+    val = spi_read_reg("comp_fall_bufsel")
 
     if val == 33:
         sg.log.info("SPI Loopback Passed!")
     else:
         sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
 
-
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+def ROUTINE_spi_address_mapping():
+    """Go through all the SPI addresses and see what we can read"""
+
+    for address in range(256):
+        for opcode in range(4):
+            spi_write(opcode, address, 7,14)
+            time.sleep(0.1)
+    
+    for address in range(256):
+        for opcode in range(4):
+            val = spi_read(opcode, address, 14)
+            time.sleep(0.1)
+            print(opcode,address,val)
+
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_scan_chain_loopback():
     """Write 10b of data into the scan chain and read it back (slide 16)"""
     pass
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_config_chain_loopback():
     """Write 29b of data into the scan chain and read it back (slide 18)"""
     pass
 
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_basic_signals():
     """Program some basic patterns in the pattern generator and observe outputs"""
 
@@ -177,15 +222,16 @@ def ROUTINE_basic_signals():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
 
-    AXI_REGISTERS = ["spi_read_write", "spi_address", "spi_data_len",
+    
+    spi_registers = ["spi_read_write", "spi_address", "spi_data_len",
                      "spi_opcode_group", "spi_write_data", "spi_read_data",
-                     "clock_divide_factor", "spi_done"]
-
+                     "clock_divide_factor", "use_ext_spi_clk", "spi_done"]
+    AXI_REGISTERS = spi_registers
 
     while True:
 
@@ -201,7 +247,7 @@ def ROUTINE_axi_shell():
         if write_reg_num == "q":
             return
 
-        write_reg = AXI_REGISTER[int(write_reg_num)]
+        write_reg = AXI_REGISTERS[int(write_reg_num)]
 
         write_val = int(input("val?"))
 
