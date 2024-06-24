@@ -130,11 +130,11 @@ def ROUTINE_clk_delay():
 def ROUTINE_loopback_static():
     
     # hex lists 
-    # hex_lists = [
-    #     ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)
-    #     ["4'h2", "4'h3", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 3 (read)
-    # ]
-    # ROUTINE_sw_write32_0(hex_lists)
+    hex_lists = [
+        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)
+        ["4'h2", "4'h3", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 3 (read)
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
 
     # print value of read register
     sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
@@ -142,7 +142,7 @@ def ROUTINE_loopback_static():
     print(f"sw_read32_0 = {sw_read32_0}")
     print(f"sw_read32_1 = {sw_read32_1}")
     
-    # print(gen_sw_write32_0(hex_lists[0][2:]))
+    print(f"Expected in sw_read32_0", hex_lists[0][2:], gen_sw_write32_0(hex_lists[0][2:]))
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_scanChain_counter():
