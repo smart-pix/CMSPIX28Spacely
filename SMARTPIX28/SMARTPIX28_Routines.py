@@ -56,7 +56,10 @@ def ROUTINE_sw_write32_0(
 
         # read back
         sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-        print(f"Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
+
+        # verify
+        successful = (sw_write32_0 == temp)
+        print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
 
         # sleep between consecutive writes
         time.sleep(1)
@@ -140,9 +143,19 @@ def ROUTINE_loopback_static():
     sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
     sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
     print(f"sw_read32_0 = {sw_read32_0}")
-    print(f"sw_read32_1 = {sw_read32_1}")
-    
+    print(f"sw_read32_1 = {sw_read32_1}")    
     print(f"Expected in sw_read32_0", hex_lists[0][2:], gen_sw_write32_0(hex_lists[0][2:]))
+
+    # send status clear
+    hex_lists = [
+        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+    print(f"sw_read32_0 = {sw_read32_0}")
+    print(f"sw_read32_1 = {sw_read32_1}")
+
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_scanChain_counter():
