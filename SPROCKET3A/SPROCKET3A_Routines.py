@@ -8,8 +8,14 @@ from Spacely_Utils import *
 
 
 def onstartup():
+
+    gen_fw("simple_serial","/asic/projects/S/SParkDream/aquinn/peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/simple_serial/simple_serial.fw_description")
+    
     print("~ ~ SP3A CaR Board Default Setup ~ ~")
     init_car = input("Initializing CaR Board ('n' to skip)>>>")
+
+    if 'n' in init_car:
+        return
 
     sg.INSTR["car"].debug_memory = True
     
@@ -26,7 +32,7 @@ def onstartup():
         sg.INSTR["car"].configureSI5345(1)
 
     #Enable external SPI clock
-    sg.INSTR["car"].set_memory("use_ext_spi_clk",1)
+    #sg.INSTR["car"].set_memory("use_ext_spi_clk",1)
 
     #Set all AXI GPIOs as outputs
     sg.INSTR["car"].set_memory("gpio_direction",0)
@@ -150,9 +156,9 @@ def ROUTINE_check_fw():
 
     TEST_VAL = 0b1010101010
 
-    car.set_memory("spi_address",TEST_VAL)
+    car.set_memory("spi_write_data",TEST_VAL)
 
-    val = car.get_memory("spi_address")
+    val = car.get_memory("spi_write_data")
 
     if val == TEST_VAL:
         sg.log.info("FW check passed!")
@@ -166,29 +172,49 @@ def ROUTINE_check_fw():
 def ROUTINE_check_spi_loopback():
     """Write a register over SPI and read back its value to confirm the SPI interface is working."""
 
-    spi_write_reg("comp_fall_bufsel",33)
+    for test_val in [33, 102, 1]:
+        spi_write_reg("comp_fall_bufsel",33)
+    
+        val = spi_read_reg("comp_fall_bufsel")
 
-    val = spi_read_reg("comp_fall_bufsel")
+        if val == 0:
+            sg.log.warning("Read back 0. Retrying...")
+            val = spi_read_reg("comp_fall_bufsel")
 
-    if val == 33:
-        sg.log.info("SPI Loopback Passed!")
-    else:
-        sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
+        if val == 33:
+            sg.log.info("SPI Loopback Passed!")
+        else:
+            sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
+            return
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_spi_address_mapping():
-    """Go through all the SPI addresses and see what we can read"""
+    """Sweep through possible SPI commands"""
 
-    for address in range(256):
-        for opcode in range(4):
-            spi_write(opcode, address, 7,14)
-            time.sleep(0.1)
+    pattern_1 = 0b101010101
+    pattern_2 = 0b101010001
+
+    for offset in range(4,12,1):
+        write_pattern = pattern_1 << offset
+        read_pattern = pattern_2 << offset
+        print(f"Write Bitstring: {bin(write_pattern)} ")
+
+        sg.INSTR["car"].set_memory("spi_write_data", write_pattern)
+        sg.INSTR["car"].set_memory("spi_data_len", 32)
+        sg.INSTR["car"].set_memory("spi_trigger",1)
+
+        time.sleep(0.1)
+        print("Return Data:",bin(sg.INSTR["car"].get_memory("spi_read_data")))
+
+        print(f"Read Bitstring: {bin(read_pattern)} ")
+
+        sg.INSTR["car"].set_memory("spi_write_data", read_pattern)
+        sg.INSTR["car"].set_memory("spi_data_len", 32)
+        sg.INSTR["car"].set_memory("spi_trigger",1)
+
+        time.sleep(0.1)
+        print("Return Data:",bin(sg.INSTR["car"].get_memory("spi_read_data")))
     
-    for address in range(256):
-        for opcode in range(4):
-            val = spi_read(opcode, address, 14)
-            time.sleep(0.1)
-            print(opcode,address,val)
 
 #<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_scan_chain_loopback():
@@ -228,9 +254,8 @@ def ROUTINE_axi_shell():
 
 
     
-    spi_registers = ["spi_read_write", "spi_address", "spi_data_len",
-                     "spi_opcode_group", "spi_write_data", "spi_read_data",
-                     "clock_divide_factor", "use_ext_spi_clk", "spi_done"]
+    spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
+                     "spi_transaction_count", "spi_status"]
     AXI_REGISTERS = spi_registers
 
     while True:
@@ -239,10 +264,17 @@ def ROUTINE_axi_shell():
         i = 0
         for reg in AXI_REGISTERS:
             reg_contents = sg.INSTR["car"].get_memory(reg)
+
+            if reg == "spi_status":
+                reg_contents = SPI_Status(reg_contents)
+            
             print(f"{i}. {reg : <16} -- {reg_contents}")
             i = i+1
 
-        write_reg_num = input("write which?")
+        write_reg_num = input("write which?").strip()
+
+        if write_reg_num == "":
+            continue
 
         if write_reg_num == "q":
             return

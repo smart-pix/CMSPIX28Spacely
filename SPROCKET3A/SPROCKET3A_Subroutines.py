@@ -8,6 +8,24 @@ from Spacely_Utils import *
 
 DEBUG_SPI = True
 
+
+def SPI_Status(status_num):
+    if status_num & 3 == 0:
+        status = "IDLE"
+    elif status_num & 3 == 1:
+        status = "TRANSACTION"
+    elif status_num & 3 == 2:
+        status = "DONE"
+    else:
+        status = "ERROR"
+    if status_num & (1 << 2) == 1:
+        status = status + ", Triggered"
+    else:
+        status = status + ", No Trigger Pending"
+
+    return status
+        
+
 #NOTE: Remember that reset_b is active-low, so setting the GPIO to 1 will deassert.
 def deassert_reset():
     gpio_val = sg.INSTR["car"].get_memory("gpio_data")
@@ -90,16 +108,74 @@ def spi_read_tx_reg(byte_num):
     return spi_read(3,byte_num,8)
 
 def spi_write_reg(reg_name, data):
-    return spi_write(SPI_REG[reg_name][0], SPI_REG[reg_name][1], data, SPI_REG[reg_name][2])
+    return spi_cmd(opcode_grp=SPI_REG[reg_name][0], address=SPI_REG[reg_name][1], length=SPI_REG[reg_name][2], WnR=1, data=data)
 
 def spi_read_reg(reg_name):
-    return spi_read(SPI_REG[reg_name][0], SPI_REG[reg_name][1], SPI_REG[reg_name][2])
+    return spi_cmd(opcode_grp=SPI_REG[reg_name][0], address=SPI_REG[reg_name][1], length=SPI_REG[reg_name][2], WnR=0)
 
+
+
+
+def spi_cmd(opcode_grp, address, length, WnR, data=0):
+
+    if length+14 > 32:
+        sg.log.warning("WARNING: Attempting SPI write > 32 bits, check FW compatibility.")
+    
+    #First, build the SPI command which consists of:
+    #{0} {WE (1b)} {opcode (2b)} {Address (8b)}
+    cmd = 0
+    cmd = cmd | WnR << 10 # WE
+    cmd = cmd | opcode_grp << 8
+    cmd = cmd | address
+                     
+    # Add 2 delay cycles
+    cmd = cmd << 2
+
+    spi_bitstring = cmd | (data) << 14
+
+    if DEBUG_SPI:
+        sg.log.debug(f"SPI Cmd:        {bin(cmd)} (dec: {cmd})")
+        sg.log.debug(f"SPI Data:       {bin(data)} (dec: {data})")
+        sg.log.debug(f"Full Bitstring: {bin(spi_bitstring)} ")
+
+        prev_count = sg.INSTR["car"].get_memory("spi_transaction_count")
+        sg.log.debug(f"SPI Prev. Transaction Count: {prev_count}")
+
+    spi_wait_for_idle()
+    
+    sg.INSTR["car"].set_memory("spi_write_data", spi_bitstring)
+    sg.INSTR["car"].set_memory("spi_data_len", 14+length)
+    sg.INSTR["car"].set_memory("spi_trigger",1)
+
+    #Check that the SPI transaction is complete.
+    spi_wait_for_idle()
+
+    if DEBUG_SPI:
+        count = sg.INSTR["car"].get_memory("spi_transaction_count")
+        sg.log.debug(f"SPI New  Transaction Count: {count}")
+
+    # Left-shift by 15 bits to account for the cycles taken by the command word.
+    return sg.INSTR["car"].get_memory("spi_read_data") >> 15
+
+
+#Polls spi_status until the status is IDLE and not triggered.
+def spi_wait_for_idle():
+    while True:
+        status = sg.INSTR["car"].get_memory("spi_status")
+
+        if DEBUG_SPI:
+            sg.log.debug(f"spi_status - {status}")
+
+        if status == 0:
+            break
+
+        time.sleep(0.1)
+        
 # Returns: 0 on success, negative number on failure.
 # Arguments:
 #   opcode_grp - Integer opcode group (2b binary number)
 #   address    - Integer address (10b binary number)
-def spi_write(opcode_grp, address, data, length):
+def spi_write_luc(opcode_grp, address, data, length):
     """Write data to a SPI Register on the ASIC"""
 
     if DEBUG_SPI:
@@ -150,7 +226,7 @@ def spi_write(opcode_grp, address, data, length):
 
 
 # Returns: Unsigned int representing the value read on success, negative number on failure.
-def spi_read(opcode_grp, address, length):
+def spi_read_luc(opcode_grp, address, length):
     """Read data from a SPI Register on the ASIC"""
 
     if DEBUG_SPI:
