@@ -1,7 +1,7 @@
-#ExampleASIC Routines File
-#
-# This file contains any custom code that you want to write for your ASIC,
-# for example routines to read or write to registers, or to run tests.
+'''
+Author: Anthony Badea
+Date: June, 2024
+'''
 
 # python
 import time
@@ -10,8 +10,6 @@ import time
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
-
-# short custom scripts
 
 # Function to convert each hex value to a binary string with proper bit width
 def hex_to_bin(hex_str):
@@ -35,10 +33,6 @@ def ROUTINE_sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
         cleanup = False
 ):
-
-    # check if hex_lists is none. if so then put a default value in
-    #if hex_lists == None:
-    #    hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ]
 
     # check register initial value and store it
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
@@ -129,52 +123,318 @@ def ROUTINE_clk_delay():
     # call ROUTINE_sw_write32_0
     ROUTINE_sw_write32_0(hex_lists)
 
+
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_test_loopback_CFG_STATIC():
+def ROUTINE_startup_tests():
     
+    # boolean to store overall test pass or fail
+    tests = [
+        ["ROUTINE_test_OP_CODE_NOOP", ROUTINE_test_OP_CODE_NOOP()],
+        ["ROUTINE_test_OP_CODE_RST_FW", ROUTINE_test_OP_CODE_RST_FW()],
+        ["ROUTINE_test_OP_CODE_CFG_STATIC", ROUTINE_test_OP_CODE_CFG_STATIC()],
+        ["ROUTINE_test_OP_CODE_CFG_ARRAY", ROUTINE_test_OP_CODE_CFG_ARRAY()],
+        ["ROUTINE_test_OP_CODE_R_DATA_ARRAY", ROUTINE_test_OP_CODE_R_DATA_ARRAY()]
+    ]
+    
+    # print out results
+    for test, result in tests:
+        print(f"{test} : {'Pass' if result else 'Fail'}")
+    
+    # print overall startup test 
+    startup_test_result = all([i[1] for i in tests])
+
+    print(f"Full startup test: {'Pass' if startup_test_result else 'Fail'}")
+
+
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+def ROUTINE_test_OP_CODE_NOOP():
+    '''
+    test case for:
+    - OP_CODE_NOOP
+    '''
+    
+    # boolean to store overall test pass or fail
+    PASS = True
+    
+    print("Executing test routine for OP_CODE_NOOP")
+    print("*******************************************")
+
     # send a FW reset
     hex_lists = [
-        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op 1 (firmware reset)
-        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+        ["4'h2", "4'h0", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 0 (no operation)
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    
+    print("Pass" if PASS else "Fail")
+    print("*******************************************")
+    print("\n\n")
+
+    return PASS
+
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+def ROUTINE_test_OP_CODE_RST_FW():
+    ''' 
+    test case for:
+    - OP_CODE_W_RST_FW
+    '''
+    
+    PASS = True
+
+    print("Executing test routine for OP_CODE_W_RST_FW")
+    print("*******************************************")
+
+    # send a FW reset
+    hex_lists = [
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
     ]
     ROUTINE_sw_write32_0(hex_lists)
 
+    # store expected values
+    sw_read32_0_expected = gen_sw_write32_0(hex_lists[0][2:])
+    sw_read32_1_expected = 1 # 1 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L179
+    
+    # print value of read register
+    sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+
+    # store pass/fail
+    sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
+    sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
+
+    # print result
+    print(f"Expected value and actual read from sw_read32_0: {sw_read32_0_expected} and {sw_read32_0} -> {'Pass' if sw_read32_0_pass else 'Fail'}")
+    print(f"Expected value and actual read from sw_read32_1: {sw_read32_1_expected} and {sw_read32_1} -> {'Pass' if sw_read32_1_pass else 'Fail'}")
+    
+    # add to PASS
+    PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+    print("Pass" if PASS else "Fail")
+    print("*******************************************")
+    print("\n\n")
+
+    return PASS
+
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+def ROUTINE_test_OP_CODE_CFG_STATIC():
+    '''
+    test case for:
+    - OP_CODE_W_CFG_STATIC_0 and OP_CODE_R_CFG_STATIC_0
+    - OP_CODE_W_CFG_STATIC_1 and OP_CODE_R_CFG_STATIC_1
+    '''
+    
+    # boolean to store overall test pass or fail
+    PASS = True
+
+    print("Executing test routine for OP_CODE_W_CFG_STATIC_0, OP_CODE_R_CFG_STATIC_0, OP_CODE_W_CFG_STATIC_1, and OP_CODE_R_CFG_STATIC_1")
+    print("*****************************************************************************************************************************")
+
+    # send a FW reset
+    hex_lists = [
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
+        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    print("\n\n")
+
     # op codes
     OP_CODES = [
-        ["4'h2", "4'h3"], # [OP_CODE_W_CFG_STATIC_0, OP_CODE_R_CFG_STATIC_0]
-        ["4'h4", "4'h5"] # [OP_CODE_W_CFG_STATIC_1, OP_CODE_R_CFG_STATIC_1]
+        [["OP_CODE_W_CFG_STATIC_0", "4'h2"], ["OP_CODE_R_CFG_STATIC_0", "4'h3"]],
+        [["OP_CODE_W_CFG_STATIC_1", "4'h4"], ["OP_CODE_R_CFG_STATIC_1", "4'h5"]]
     ]
     
-    for write, read in OP_CODES:
+    for [write_name, write_code], [read_name, read_code] in OP_CODES:
 
-        print(f"Sending OP_CODES: {write}, {read}")
+        print("-------------------------------------------------------------------------------")
+        print(f"Executing test routine for {write_name} and {read_name}")
 
         # hex lists 
         hex_lists = [
-            ["4'h2", write, "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)
-            ["4'h2", read, "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 3 (read)
+            ["4'h2", write_code, "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code (write)
+            ["4'h2", read_code, "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"],  # write op code (read)
         ]
         ROUTINE_sw_write32_0(hex_lists)
+        
+        # store expected values
+        sw_read32_0_expected = gen_sw_write32_0(hex_lists[0][2:])
+        if read_name == "OP_CODE_R_CFG_STATIC_0":
+            sw_read32_1_expected = 6 # 110 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L180-L181
+        else:
+            sw_read32_1_expected = 24 # 11000 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L182-L183
+        
+        # print value of read register
+        sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+        sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+
+        # store pass/fail
+        sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
+        sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
+
+        # print result
+        print(f"Expected value and actual read from sw_read32_0: {sw_read32_0_expected} and {sw_read32_0} -> {'Pass' if sw_read32_0_pass else 'Fail'}")
+        print(f"Expected value and actual read from sw_read32_1: {sw_read32_1_expected} and {sw_read32_1} -> {'Pass' if sw_read32_1_pass else 'Fail'}")
+        
+        # add to PASS
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # print status clear
+        print("Sending OP_CODE_W_STATUS_FW_CLEAR to clean up.")
+
+        # send status clear
+        hex_lists = [
+            ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+
+        # store expected values
+        sw_read32_0_expected = 0
+        sw_read32_1_expected = 0
+
+        # read value of register
+        sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+        sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+        
+        # store pass/fail
+        sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
+        sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
+
+        # print result
+        print(f"Expected value and actual read from sw_read32_0: {sw_read32_0_expected} and {sw_read32_0} -> {'Pass' if sw_read32_0_pass else 'Fail'}")
+        print(f"Expected value and actual read from sw_read32_1: {sw_read32_1_expected} and {sw_read32_1} -> {'Pass' if sw_read32_1_pass else 'Fail'}")
+        print("-------------------------------------------------------------------------------")
+        print("\n\n")
+
+        # add to PASS
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+    
+    print("Pass" if PASS else "Fail")
+    print("*****************************************************************************************************************************")
+    print("\n\n")
+    
+    return PASS
+
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+def ROUTINE_test_OP_CODE_CFG_ARRAY():
+    '''
+    test case for:
+    - OP_CODE_W_CFG_ARRAY_0 and OP_CODE_R_CFG_ARRAY_0
+    - OP_CODE_W_CFG_ARRAY_1 and OP_CODE_R_CFG_ARRAY_1
+    '''
+    
+    # boolean to store overall test pass or fail
+    PASS = True
+
+    print("Executing test routine for OP_CODE_W_CFG_ARRAY_0, OP_CODE_R_CFG_ARRAY_0, OP_CODE_W_CFG_ARRAY_1, and OP_CODE_R_CFG_ARRAY_1")
+    print("*****************************************************************************************************************************")
+
+    # send a FW reset
+    hex_lists = [
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
+        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    print("\n\n")
+
+    # op codes
+    OP_CODES = [
+        [["OP_CODE_W_CFG_ARRAY_0", "4'h6"], ["OP_CODE_R_CFG_ARRAY_0", "4'h7"]],
+        [["OP_CODE_W_CFG_ARRAY_1", "4'h8"], ["OP_CODE_R_CFG_ARRAY_1", "4'h9"]]
+    ]
+    
+    for [write_name, write_code], [read_name, read_code] in OP_CODES:
+
+        print("-------------------------------------------------------------------------------")
+        print(f"Executing test routine for {write_name} and {read_name}")
+
+        # hex lists 
+        hex_lists = [
+            ["4'h2", write_code, "8'h0", "16'h1"], # write op code (write)
+            ["4'h2", read_code, "8'h0", "16'h1"],  # write op code (read)
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # store expected values
+        sw_read32_0_expected = gen_sw_write32_0(hex_lists[0][2:])
+        if read_name == "OP_CODE_R_CFG_ARRAY_0":
+            sw_read32_1_expected = 96 # 1100000 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L184-L185
+        else:
+            sw_read32_1_expected = 384 # 110000000 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L186-L187
 
         # print value of read register
         sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
         sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
-        print(f"sw_read32_0 = {sw_read32_0}")
-        print(f"sw_read32_1 = {sw_read32_1}")    
-        print(f"Expected in sw_read32_0", hex_lists[0][2:], gen_sw_write32_0(hex_lists[0][2:]))
+
+        # store pass/fail
+        sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
+        sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
+
+        # print result
+        print(f"Expected value and actual read from sw_read32_0: {sw_read32_0_expected} and {sw_read32_0} -> {'Pass' if sw_read32_0_pass else 'Fail'}")
+        print(f"Expected value and actual read from sw_read32_1: {sw_read32_1_expected} and {sw_read32_1} -> {'Pass' if sw_read32_1_pass else 'Fail'}")
         
+        # add to PASS
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # print status clear
+        print("Sending OP_CODE_W_STATUS_FW_CLEAR to clean up.")
+
         # send status clear
         hex_lists = [
-            ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+            ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
         ]
         ROUTINE_sw_write32_0(hex_lists)
+
+        # store expected values
+        sw_read32_0_expected = 0
+        sw_read32_1_expected = 0
+
+        # read value of register
         sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
         sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
-        print(f"sw_read32_0 = {sw_read32_0}")
-        print(f"sw_read32_1 = {sw_read32_1}")
         
+        # store pass/fail
+        sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
+        sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
 
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+        # print result
+        print(f"Expected value and actual read from sw_read32_0: {sw_read32_0_expected} and {sw_read32_0} -> {'Pass' if sw_read32_0_pass else 'Fail'}")
+        print(f"Expected value and actual read from sw_read32_1: {sw_read32_1_expected} and {sw_read32_1} -> {'Pass' if sw_read32_1_pass else 'Fail'}")
+        print("-------------------------------------------------------------------------------")
+        print("\n\n")
+
+        # add to PASS
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+    
+    print("Pass" if PASS else "Fail")
+    print("*****************************************************************************************************************************")
+    print("\n\n")
+    
+    return PASS
+
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+def ROUTINE_test_OP_CODE_R_DATA_ARRAY():
+
+    '''
+    test case for:
+    - OP_CODE_R_DATA_ARRAY_0
+    - OP_CODE_R_DATA_ARRAY_1
+    '''
+    
+    # boolean to store overall test pass or fail
+    PASS = True
+
+    print("Executing test routine for OP_CODE_R_DATA_ARRAY_0 and OP_CODE_R_DATA_ARRAY_1")
+    print("*****************************************************************************************************************************")
+
+
+    print("Pass" if PASS else "Fail")
+    print("*****************************************************************************************************************************")
+    print("\n\n")
+    return PASS
+
+
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_scanChain_counter():
 
     # hex lists                                                                                                                    
