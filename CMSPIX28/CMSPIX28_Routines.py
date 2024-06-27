@@ -190,7 +190,7 @@ def ROUTINE_test_OP_CODE_RST_FW():
     ROUTINE_sw_write32_0(hex_lists)
 
     # store expected values
-    sw_read32_0_expected = gen_sw_write32_0(hex_lists[0][2:])
+    sw_read32_0_expected = 0 # reset should set this to zero
     sw_read32_1_expected = 1 # 1 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L179
     
     # print value of read register
