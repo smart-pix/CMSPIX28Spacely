@@ -63,7 +63,6 @@ def ROUTINE_sw_write32_0(
         
         # convert hex list to input to set memory
         temp = gen_sw_write32_0(hex_list)
-
         # do write
         sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
 
@@ -75,7 +74,7 @@ def ROUTINE_sw_write32_0(
         print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
 
         # sleep between consecutive writes
-        time.sleep(1)
+        # time.sleep(0.1)
     
     if cleanup:
         print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
@@ -344,30 +343,40 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
     # send op code to set up bxclk to 40 MHz
     hex_lists = [
         ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
-        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)
+        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h2", "6'h28"], # write op code 2 (write)
     ]
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ibh")
     
     # send configurations to the chip from OP_CODE_W_CFG_STATIC_0, OP_CODE_W_CFG_STATIC_1, OP_CODE_W_CFG_ARRAY_0, OP_CODE_W_CFG_ARRAY_1 which are relevant for desired test
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 48
-    hex_lists = []
-    sw_read32_0_expected_list = []
-    for iW in range(0, nwrites, 2):
+    nwrites = 96 # updated from 48
+    #hex_lists = []
+    #sw_read32_0_expected_list = []
 
-        # create configurations to write. set all 32 bit words to the same
-        ls16bits_hex = "16'h1" # least significant 16 bits
-        ms16bits_hex = "16'h3" # most significant 16 bits
-        hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW)[2:], ls16bits_hex])
-        hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW+1)[2:], ms16bits_hex])
+    hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(nwrites)]
+    hex_lists[95] = ["4'h2", "4'h6", "8'h0", "16'h8001"]
+    hex_lists[48] = ["4'h2", "4'h6", "8'h2f", "16'hc003"]
+    hex_lists[47] = ["4'h2", "4'h6", "8'h30", "16'he007"]
+    hex_lists[3] = ["4'h2", "4'h6", "8'h5f", "16'hffff"]
+    hex_lists[2] = ["4'h2", "4'h6", "8'h5f", "16'hffff"]
+    hex_lists[1] = ["4'h2", "4'h6", "8'h5f", "16'hffff"]
+    hex_lists[0] = ["4'h2", "4'h6", "8'h5f", "16'h8001"]
+    sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
+    # for iW in range(0, nwrites, 2):
 
-        # combine into 32 bit word
-        ls16bits_int = int(ls16bits_hex.split("'h")[1], 16)
-        ms16bits_int = int(ms16bits_hex.split("'h")[1], 16)
-        word32bit = (ms16bits_int << 16) | ls16bits_int
-        word32bit = int_to_32bit_hex(word32bit)
-        sw_read32_0_expected_list.append(word32bit)
+    #     # create configurations to write. set all 32 bit words to the same
+    #     ls16bits_hex = "16'hff" # least significant 16 bits
+    #     ms16bits_hex = "16'h3" # most significant 16 bits
+    #     hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW)[2:], ls16bits_hex])
+    #     hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW+1)[2:], ms16bits_hex])
+
+    #     # combine into 32 bit word
+    #     ls16bits_int = int(ls16bits_hex.split("'h")[1], 16)
+    #     ms16bits_int = int(ms16bits_hex.split("'h")[1], 16)
+    #     word32bit = (ms16bits_int << 16) | ls16bits_int
+    #     word32bit = int_to_32bit_hex(word32bit)
+    #     sw_read32_0_expected_list.append(word32bit)
 
     # write and read
     ROUTINE_sw_write32_0(hex_lists)
@@ -381,7 +390,7 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
             "4'hd",  # op code d for execute
             "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             "6'h00", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            "1'h1",  # 1 bit for w_execute_cfg_test_loopback
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h1",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
             "6'h04", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
             "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
@@ -389,10 +398,13 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
     ]
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")    
-    
+
+    # wait enough time to push 768 clk cycles and/or pull the test done bit 
+    time.sleep(1)
+
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    nwords = 24 # 24 words * 32 bits/word = 768 bits
+    nwords = 48 # 24 words * 32 bits/word = 768 bits 
     words = []
     for iW in range(nwords):
 
@@ -413,8 +425,14 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
 
         # store data
         words.append(sw_read32_0)
-
+        
+    # print out words
     print(len(words), words)
+    
+
+    # convert long sequence to string
+    fullSequence = "".join(reversed([int_to_32bit(i) for i in words]))
+    print(fullSequence)
 
     print_test_footer(PASS)
     return PASS
