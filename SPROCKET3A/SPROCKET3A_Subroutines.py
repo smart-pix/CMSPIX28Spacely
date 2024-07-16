@@ -78,8 +78,8 @@ SPI_REG["comp_fall_Rst"]                  =[1,5,14]
 SPI_REG["comp_rise_bufsel"]               =[1,6,14]
 SPI_REG["comp_fall_bufsel"]               =[1,7,14]
 SPI_REG["DACclr_pattern_delay"]           =[1,8,14]
-SPI_REG["Qequal_pattern_delay"]           =[1,15,14]
-SPI_REG["global_counter_period"]          =[1,16,14]
+SPI_REG["Qequal_pattern_delay"]           =[1,9,14]
+SPI_REG["global_counter_period"]          =[1,10,14]
 SPI_REG["DACclr_pattern"]                 =[2,0,192]
 SPI_REG["Qequal_pattern"]                 =[2,1,192]
 SPI_REG["scanOut"]                        =[2,2,20] #10b data + 10b array addr
@@ -118,6 +118,9 @@ def spi_read_reg(reg_name):
 
 def spi_cmd(opcode_grp, address, length, WnR, data=0):
 
+    MAGIC_DATA_SHIFT_WRITE = 14 #14
+    MAGIC_DATA_SHIFT_READ = 15  #15
+
     if length+14 > 32:
         sg.log.warning("WARNING: Attempting SPI write > 32 bits, check FW compatibility.")
     
@@ -131,7 +134,7 @@ def spi_cmd(opcode_grp, address, length, WnR, data=0):
     # Add 2 delay cycles
     cmd = cmd << 2
 
-    spi_bitstring = cmd | (data) << 14
+    spi_bitstring = cmd | (data) << MAGIC_DATA_SHIFT_WRITE
 
     if DEBUG_SPI:
         sg.log.debug(f"SPI Cmd:        {bin(cmd)} (dec: {cmd})")
@@ -144,7 +147,7 @@ def spi_cmd(opcode_grp, address, length, WnR, data=0):
     spi_wait_for_idle()
     
     sg.INSTR["car"].set_memory("spi_write_data", spi_bitstring)
-    sg.INSTR["car"].set_memory("spi_data_len", 14+length)
+    sg.INSTR["car"].set_memory("spi_data_len", MAGIC_DATA_SHIFT_READ+length)
     sg.INSTR["car"].set_memory("spi_trigger",1)
 
     #Check that the SPI transaction is complete.
@@ -154,8 +157,19 @@ def spi_cmd(opcode_grp, address, length, WnR, data=0):
         count = sg.INSTR["car"].get_memory("spi_transaction_count")
         sg.log.debug(f"SPI New  Transaction Count: {count}")
 
-    # Left-shift by 15 bits to account for the cycles taken by the command word.
-    return sg.INSTR["car"].get_memory("spi_read_data") >> 15
+    
+    return_data = sg.INSTR["car"].get_memory("spi_read_data")
+
+    if DEBUG_SPI:
+        sg.log.debug(f"SPI Return Bits: {bin(return_data)}")
+
+    # Right-shift by 15 bits to account for the cycles taken by the command word.
+    return_data = return_data >> MAGIC_DATA_SHIFT_READ
+
+    if DEBUG_SPI:
+        sg.log.debug(f"Data:            {bin(return_data)} (dec: {return_data})")
+    
+    return  return_data
 
 
 #Polls spi_status until the status is IDLE and not triggered.
@@ -171,100 +185,35 @@ def spi_wait_for_idle():
 
         time.sleep(0.1)
         
-# Returns: 0 on success, negative number on failure.
-# Arguments:
-#   opcode_grp - Integer opcode group (2b binary number)
-#   address    - Integer address (10b binary number)
-def spi_write_luc(opcode_grp, address, data, length):
-    """Write data to a SPI Register on the ASIC"""
 
-    if DEBUG_SPI:
-        sg.log.debug("SPI Cmd: "+spi_cmd_to_string(opcode_grp, address, 1, data, length))
+#This function gets a set of samples from the FW Arbitrary_Pattern_Generator() and saves them as a GlueWave.
+def get_glue_wave(n_samples):
 
-    # Set spi_read_write
-    sg.INSTR["car"].set_memory("spi_read_write",1) # "1" to write
+    #Set the # of samples to collect and run the Arbitrary Pattern Gen
+    sg.INSTR["car"].set_memory("apg_n_samples",n_samples)
+    sg.INSTR["car"].set_memory("apg_run",1)
 
-    # Set spi_address
-    sg.INSTR["car"].set_memory("spi_address",address)
-
-    # Set spi_opcode
-    sg.INSTR["car"].set_memory("spi_opcode_group",opcode_grp)
-
-    # Set spi_write_data 
-    # Will need a bit of extra logic here depending on how much data we need to write. Since this is a generic subroutine,
-    # we can't just hardcode it and it will look similar to spi_controller_SP3A_tb in the spacely-caribou-common-blocks repo:
-    # spacely-caribou-common-blocks/spi_controller_interface/testbench/ folder
-
-    # Convert the data to a binary string (this is assuming that the "data" variable is an integer or decimal representation of the binary data)
-    binary_data = bin(data)[2:].zfill(length)
-
-    # Reverse the string to make it easier to index
-    binary_data = binary_data[::-1]   
-
-    # Create chunks of data that are word size (32 bits) to write them to the AXI register
-    for i in range(0, length, 32):
-        chunk = binary_data[i:i+32]
-        if len(chunk) < 32:
-            chunk = chunk + "0"*(32-len(chunk)) # Pad the chunk with zeros if it is less than 32 bits
-        chunk = chunk[::-1] # Reverse the chunk to write it to the AXI register
-        chunk = int(chunk, 2) # Convert the chunk to an integer (Note: not sure what data type we need to write to the AXI register)
-        sg.INSTR["car"].set_memory("spi_write_data",chunk)
-
-    # Set spi_data_len (this will trigger the SPI transaction)
-    sg.INSTR["car"].set_memory("spi_data_len",length)
-
-    # Read in spi_done to see if the SPI transaction was successful (might need to read this in a loop
-    # until it is set to 1, and timeout and return -1 if we loop through it too many times)
-    # This timeout time would technically be the longest number of SPI cycles it would take to send a SPI write command.
-    done = sg.INSTR["car"].get_memory("spi_done")
-
-    if done == 1:
-        return 0
-    else:
-        return -1
+    #Wait for the APG to finish running.
+    while True:
+        status = sg.INSTR["car"].get_memory("apg_status")
+        if status == 0:
+            break
+        else:
+            sg.log.debug(f"APG Status: {status}")
+            time.sleep(0.5)
 
 
+    #Read back all the samples
+    samples = []
 
-# Returns: Unsigned int representing the value read on success, negative number on failure.
-def spi_read_luc(opcode_grp, address, length):
-    """Read data from a SPI Register on the ASIC"""
+    for n in range(n_samples):
+        samples.append(sg.INSTR["car"].get_memory("apg_read_channel"))
 
-    if DEBUG_SPI:
-        sg.log.debug("SPI Cmd: "+spi_cmd_to_string(opcode_grp, address, 0, None, length))
-    
-    # Set spi_read_write
-    sg.INSTR["car"].set_memory("spi_read_write",0) # "0" to read
 
-    # Set spi_address
-    sg.INSTR["car"].set_memory("spi_address",address)
-
-    # Set spi_opcode
-    sg.INSTR["car"].set_memory("spi_opcode_group",opcode_grp)
-
-    # Set spi_data_len (this will trigger the SPI transaction)
-    sg.INSTR["car"].set_memory("spi_data_len",length)
-
-    done = sg.INSTR["car"].get_memory("spi_done")
-
-    # We can only read from spi_read_data if the SPI transaction is done
-    if (done == 1):
-
-        # Read from spi_read_data
-        # Will need a bit of extra logic here depending on how much data we need to read. Since this is a generic subroutine,
-        # we can't just hardcode it and we will need to read the spi_read_data register multiple times and concatenate the data
-        # into the single "data" variable that we can return
+    APG_CLOCK_FREQUENCY = 10e6
+    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
-        data = ""
-        for i in range(0, length, 32):
-            chunk = sg.INSTR["car"].get_memory("spi_read_data") # Read data in number format from AXI register
-            chunk = bin(chunk)[2:].zfill(32)
-            data = chunk + data # The data comes in in little endian format, so we need to concatenate it in reverse order
-        
-        return int(data, 2) # Convert the binary string to an integer
+    glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/Caribou")
 
-    else:
-        return -1
-
-    
-
-    
+    sg.gc.write_glue(glue,"apg_samples.glue")
+    sg.gc.plot_glue(glue)

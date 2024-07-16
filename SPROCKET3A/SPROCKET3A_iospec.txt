@@ -1,0 +1,11 @@
+
+
+HARDWARE Caribou/Caribou/Caribou BEGIN
+
+capClk,O,0
+calc,O,1
+fullReadout,O,2
+array_serialClk,O,3
+
+
+END

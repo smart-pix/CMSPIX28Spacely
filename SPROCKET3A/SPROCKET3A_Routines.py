@@ -17,7 +17,7 @@ def onstartup():
     if 'n' in init_car:
         return
 
-    sg.INSTR["car"].debug_memory = True
+    sg.INSTR["car"].debug_memory = False
     
     if not 'n' in init_car:
         sg.INSTR["car"].init_car()
@@ -243,20 +243,31 @@ def ROUTINE_basic_signals():
     # spi_write(COMP_RISE_CALC, 0)
     # spi_write(COMP_FALL_CALC, 50)
 
-    input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
+    #input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
     
 
+    # TEST 1: Check FULL_READOUT
+    
+    spi_write_reg("FULL_READOUT",0)
+
+    glue = get_glue_wave(10)
+
+    spi_write_reg("FULL_READOUT",1)
+
+    glue = get_glue_wave(10)
 
 
 #<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
-
+    apg_registers = ["apg_run", "apg_write_channel", "apg_read_channel",
+                     "apg_sample_count","apg_n_samples","apg_write_buffer_len",
+                     "apg_next_read_sample","apg_wave_ptr","apg_status"]
     
     spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
                      "spi_transaction_count", "spi_status"]
-    AXI_REGISTERS = spi_registers
+    AXI_REGISTERS = spi_registers + apg_registers
 
     while True:
 
@@ -284,4 +295,63 @@ def ROUTINE_axi_shell():
         write_val = int(input("val?"))
 
         sg.INSTR["car"].set_memory(write_reg, write_val)
-        
+
+
+
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+def ROUTINE_spi_shell():
+    """Microshell to interact with the AXI registers and debug the design."""
+
+    
+    SPI_REGISTERS = list(SPI_REG.keys())
+
+    while True:
+
+        # Print register contents
+        i = 0
+        for reg in SPI_REGISTERS:
+            #reg_contents = sg.INSTR["car"].get_memory(reg)
+
+            #if reg == "spi_status":
+            #    reg_contents = SPI_Status(reg_contents)
+            
+            print(f"{i}. {reg : <16} ")
+            i = i+1
+
+        write_reg_num = input("which reg?").strip()
+
+        if write_reg_num == "":
+            continue
+
+        if write_reg_num == "q":
+            return
+
+        try:
+            this_reg = SPI_REGISTERS[int(write_reg_num)]
+        except ValueError:
+            print("ERROR")
+            continue
+
+        operation = input("op (r/w)?").strip()
+
+        if operation == "w":
+
+            try:
+                write_val = int(input("val?"))
+            except ValueError:
+                print("ERROR")
+                continue
+
+            spi_write_reg(this_reg,write_val)
+
+        else:
+            print(spi_read_reg(this_reg))
+
+
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+def ROUTINE_get_glue_wave():
+
+    N = input("How many samples do you want to take?")
+    N = int(N)
+
+    get_glue_wave(N)
