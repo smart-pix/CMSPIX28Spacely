@@ -355,3 +355,8 @@ def ROUTINE_get_glue_wave():
     N = int(N)
 
     get_glue_wave(N)
+
+
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+def ROUTINE_write_tx_config():
+    spi_write_tx_config(TX_REG_DEFAULTS)

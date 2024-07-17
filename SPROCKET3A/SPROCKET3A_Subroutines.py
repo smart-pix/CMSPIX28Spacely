@@ -88,6 +88,175 @@ SPI_REG["done"]                           =[2,4,192]
 
 
 
+TX_REG_MAP = {
+    "txDataRate" : [0,0],
+    "fecMode"    : [1,1],
+    "txRxMode"   : [2,3],
+    "txEnable"   : [4,4],
+    "rxEnable"   : [5,5],
+    "enableDes"  : [6,6],
+    "enableSer"  : [7,7],
+    "enablePhaseShifter":[8,8],
+    "rxLockMode" : [9,9],
+    "frameAlignerReady": [10,10],
+    "pllCdrMode" : [11,11],
+    "fecBypass"  : [12,12],
+    "interleaverBypass" : [13,13],
+    "scramblerBypass" : [14,14],
+    "skipCycle" :[15,15],
+    "txEC" : [16,17],
+    "txIC" : [18,19],
+    "disSER" : [24,24],
+    "disCLK" : [25,25],
+    "disEXT" : [26,26],
+    "disVCO" : [27,27],
+    "disDES" : [28,28],
+    "disEOM" : [29,29],
+    "refClk_enableRx" : [32,32],
+    "refClk_enableTermination" : [33,33],
+    "refClk_setCommonMode" : [34,34],
+    "toser_rxLoopbackSel" :[40,40],
+    "LJCDR_dataMuxCfg" : [41,42],
+    "toLineDrv_enLineDrv" : [43,43],
+    "eclk640MEnable" : [44,44],
+    "clkTreeADisable" :[45,45],
+    "clkTreeBDisable" :[46,46],
+    "clkTreeCDisable" :[47,47],
+    "tolineDrv_modDAC":[48,54],
+    "tolineDrv_enEmp" :[55,55],
+    "tolineDrv_empDAC":[56,62],
+    "tolineDrv_empDurReduce":[63,63],
+    "CLKGBiasGenConfig":[64,67],
+    "CLKGCDRFeedForwardPropCur":[68,71],
+    "CLKGCDRFeedForwardPropCurWhenLocked":[72,75],
+    "CLKGCDRIntCur":[76,79],
+    "CLKGCDRIntCurWhenLocked":[80,83],
+    "CLKGCDRPropCur":[84,87],
+    "CLKGCDRPropCurWhenLocked":[88,91],
+    "CLKGCalibrationEndOfCount":[92,95],
+    "CLKGCapBankSelect":[96,104],
+    "CLKGFeedForwardCap":[105,107],
+    "CLKGFeedForwardCapWhenLocked":[108,110],
+    "CLKGFLLIntCur":[112,115],
+    "CLKGFLLIntCurWhenLocked":[116,119],
+    "CLKGLockFilterLockThrCounter":[120,123],
+    "CLKGLockFilterReLockThrCounter":[124,127],
+    "CLKGLockFilterUnLockThrCounter":[128,131],
+    "CLKGPLLIntCur":[132,135],
+    "CLKGPLLIntCurWhenLocked":[136,139],
+    "CLKGPLLPropCur":[140,143],
+    "CLKGPLLPropCurWhenLocked":[144,147],
+    "CLKGPLLRes":[148,151],
+    "CLKGPLLResWhenLocked":[152,155],
+    "CLKGVcoDAC":[156,159],
+    "CLKG_BIASGEN_CONFIG":[160,163],
+    "CLKGwaitCDRTime":[164,167],
+    "CLKGwaitPLLTime":[168,171],
+    "CLKGVcoRailMode":[172,172],
+    "CLKGLockFilterEnable":[173,173],
+    "CLKGCDRRes":[174,174],
+    "CLKGCOoverrideVc":[175,175],
+    "CLKGCapBankOverrideEnable":[176,176],
+    "CLKGDisableFrameAlignerLockControl":[177,177],
+    "CLKGCOConnectCDR":[184,184],
+    "CDRCOConnectPLL":[185,185],
+    "CDRCODisDESvbiasGen":[186,186],
+    "CDRCODisDataCounterRef":[187,187],
+    "CDRCOEnableCDR":[188,188],
+    "CDRCOEnableFD":[189,189],
+    "CDRCOEnablePLL":[190,190],
+    "CDRCORefClkSel":[191,191],
+    "CDRControlOverrideEnable":[192,192]
+}
+
+TX_REG_DEFAULTS = {
+    "txDataRate" : 1,   #10.24 GB/s 
+    "fecMode"    : 1,
+    "txRxMode"   : 3,
+    "txEnable"   : 1,
+    "rxEnable"   : 0, #There's no receiver.
+    "enableDes"  : 1,
+    "enableSer"  : 1,
+    "enablePhaseShifter": 0,
+    "rxLockMode" : 0,
+    "frameAlignerReady": 0,
+    "pllCdrMode" : 0,  #Use PLL
+    "fecBypass"  : 1, #Bypass everything complicated by default.
+    "interleaverBypass" : 1,
+    "scramblerBypass" : 1,
+    "skipCycle" :0,
+    "txEC" : 3,
+    "txIC" : 3,
+    "disSER" : 0,
+    "disCLK" : 0,
+    "disEXT" : 1,
+    "disVCO" : 0,
+    "disDES" : 0,
+    "disEOM" : 0,
+    "refClk_enableRx" : 1,
+    "refClk_enableTermination" : 1,
+    "refClk_setCommonMode" : 1,
+    "toser_rxLoopbackSel" : 0,
+    "LJCDR_dataMuxCfg" : 3, # ?? Maybe this is CLKG_dataMuxCfg which is a test feature.
+    "toLineDrv_enLineDrv" : 1, #Enable line driver
+    "eclk640MEnable" : 1,  #Enable 640 MHz clock output
+    "clkTreeADisable" : 0, #Primarily for TMR testing
+    "clkTreeBDisable" : 0,
+    "clkTreeCDisable" : 0,
+    "tolineDrv_modDAC": 127,
+    "tolineDrv_enEmp" : 0,
+    "tolineDrv_empDAC": 0,
+    "tolineDrv_empDurReduce": 0,
+    "CLKGBiasGenConfig": 8 , #bias current for charge pumps LSB=8uA
+    "CLKGCDRFeedForwardPropCur": 6,
+    "CLKGCDRFeedForwardPropCurWhenLocked": 6,
+    "CLKGCDRIntCur": 5,
+    "CLKGCDRIntCurWhenLocked": 5,
+    "CLKGCDRPropCur": 5,
+    "CLKGCDRPropCurWhenLocked": 5,
+    "CLKGCalibrationEndOfCount": 14, #cycles at end of VCO cal race
+    "CLKGCapBankSelect": 0,
+    "CLKGFeedForwardCap": 3,
+    "CLKGFeedForwardCapWhenLocked": 3,
+    "CLKGFLLIntCur": 5,
+    "CLKGFLLIntCurWhenLocked": 5,
+    "CLKGLockFilterLockThrCounter": 15,
+    "CLKGLockFilterReLockThrCounter": 15,
+    "CLKGLockFilterUnLockThrCounter": 15,
+    "CLKGPLLIntCur": 9,
+    "CLKGPLLIntCurWhenLocked": 9,
+    "CLKGPLLPropCur": 9,
+    "CLKGPLLPropCurWhenLocked": 9,
+    "CLKGPLLRes": 2,
+    "CLKGPLLResWhenLocked": 2,
+    "CLKGVcoDAC": 8, #VCO current DAC, LSB=8mA
+    "CLKG_BIASGEN_CONFIG":8,
+    "CLKGwaitCDRTime": 8,
+    "CLKGwaitPLLTime": 8,
+    "CLKGVcoRailMode": 1, #current mode, select w/ CLKGVcoDAC
+    "CLKGLockFilterEnable": 1,
+    "CLKGCDRRes": 1, #Enable filter resistor
+    "CLKGCOoverrideVc": 0,
+    "CLKGCapBankOverrideEnable": 0, #Overrides cap search during VCO cal
+    "CLKGDisableFrameAlignerLockControl": 0,
+    "CLKGCOConnectCDR": 0,
+    "CDRCOConnectPLL": 0,
+    "CDRCODisDESvbiasGen": 0,
+    "CDRCODisDataCounterRef": 0,
+    "CDRCOEnableCDR": 0,
+    "CDRCOEnableFD": 0,
+    "CDRCOEnablePLL": 0,
+    "CDRCORefClkSel": 0,
+    "CDRControlOverrideEnable": 0 #CDRCO* options only take effect when CDRControlOverrideEnable=1
+}
+
+
+EMULATE_SPI = True
+
+#This dictionary will emulate the contents of the SPI registers on the ASIC when EMULATE_SPI is set true.
+SPI_REGS_EMU = {}
+
+
 def spi_cmd_to_string(opcode_grp, address, WnR, data, length):
     """Creates a string representation of the properly formatted SPI command w/ given params"""
     opcode_str = format(opcode_grp, '02b')
@@ -101,11 +270,71 @@ def spi_cmd_to_string(opcode_grp, address, WnR, data, length):
 
     return 'XX'+WnR_str+opcode_str+address_str+data_str
 
+
+#Generate Transmitter Config values from a dictionary of register values,
+#and write it to the chip.
+def spi_write_tx_config(reg_values):
+
+    CFG_LINT = True
+
+    #Initialize cfg to 24 bytes of all zeroes.
+    tx_config = [0]*25
+
+    sg.log.debug("Compiling Tx Configuration...")
+    
+    for field in TX_REG_MAP.keys():
+        start_bit = TX_REG_MAP[field][0]
+        end_bit = TX_REG_MAP[field][1]
+        val = reg_values[field]
+        
+        for i in range(end_bit-start_bit+1):
+            byte = int((start_bit+i)/8)
+            offset = start_bit+i - 8*byte
+
+            if CFG_LINT:
+                #If there is already a 1 written where we are about to write
+                if tx_config[byte] & (1 << offset) > 0:
+                    sg.log.error(f"Tx Cfg Type 1 Error: {field} Overwrites at byte {byte} bit {offset} (raw_bit={start_bit+i})")
+                    return -1
+
+            #Grab the val from index [0], shift it by "offset" and OR it to the appropriate byte.
+            tx_config[byte] = tx_config[byte] | ((val & 1) << offset)
+
+            #Shift down val to put the next bit in index [0].
+            val = val >> 1
+
+        if CFG_LINT:
+
+            if val > 0:
+                sg.log.error(f"Tx Cfg Type 2 Error: {field} value {reg_values[field]} has a greater binary length than {end_bit-start_bit+1}")
+                return -1
+            
+
+    #if CFG_LINT:
+    #    for byte in tx_config:
+    #        print(bin(byte))
+            
+    sg.log.debug("Writing Tx Config to ASIC...")
+
+    for i in range(len(tx_config)):
+        spi_write_tx_reg(i, tx_config[i])
+
+    if CFG_LINT:
+        sg.log.debug("Reading back config to check for errors...")
+        for i in range(len(tx_config)):
+            read_byte = spi_read_tx_reg(i)
+            if read_byte != tx_config[i]:
+                sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_conifg[i]} and read {read_byte}")
+                return -1
+
+    sg.log.info("Writing Tx Config Successful!")
+    
+
 def spi_write_tx_reg(byte_num, data):
-    return spi_write(3,byte_num,data,8)
+    return spi_cmd(opcode_grp=3, address=byte_num, length=8, WnR=1, data=data)
 
 def spi_read_tx_reg(byte_num):
-    return spi_read(3,byte_num,8)
+    return spi_cmd(opcode_grp=3, address=byte_num, length=8, WnR=0)
 
 def spi_write_reg(reg_name, data):
     return spi_cmd(opcode_grp=SPI_REG[reg_name][0], address=SPI_REG[reg_name][1], length=SPI_REG[reg_name][2], WnR=1, data=data)
@@ -113,11 +342,28 @@ def spi_write_reg(reg_name, data):
 def spi_read_reg(reg_name):
     return spi_cmd(opcode_grp=SPI_REG[reg_name][0], address=SPI_REG[reg_name][1], length=SPI_REG[reg_name][2], WnR=0)
 
+#Emulate SPI read and write operations in software.
+def spi_cmd_emu(opcode_grp, address, length, WnR, data=0):
+    sg.log.warning("Writing to EMULATED SPI registers (not the ASIC)!")
 
+    key = str(opcode_grp)+str(address)
 
+    #Write
+    if WnR == 1:
+        SPI_REGS_EMU[key] = data
+
+    else:
+        if key in SPI_REGS_EMU.keys():
+            return SPI_REGS_EMU[key]
+        else:
+            return 0
+    
 
 def spi_cmd(opcode_grp, address, length, WnR, data=0):
 
+    if EMULATE_SPI:
+        return spi_cmd_emu(opcode_grp, address, length, WnR, data)
+    
     MAGIC_DATA_SHIFT_WRITE = 14 #14
     MAGIC_DATA_SHIFT_READ = 15  #15
 
