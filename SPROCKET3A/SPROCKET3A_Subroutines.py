@@ -7,6 +7,7 @@ import Spacely_Globals as sg
 from Spacely_Utils import *
 
 DEBUG_SPI = True
+EMULATE_SPI = False
 
 
 def SPI_Status(status_num):
@@ -251,7 +252,6 @@ TX_REG_DEFAULTS = {
 }
 
 
-EMULATE_SPI = True
 
 #This dictionary will emulate the contents of the SPI registers on the ASIC when EMULATE_SPI is set true.
 SPI_REGS_EMU = {}
