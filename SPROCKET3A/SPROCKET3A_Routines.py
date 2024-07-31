@@ -9,39 +9,73 @@ from Spacely_Utils import *
 
 def onstartup():
 
-    gen_fw("simple_serial","/asic/projects/S/SParkDream/aquinn/peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/simple_serial/simple_serial.fw_description")
-    
-    print("~ ~ SP3A CaR Board Default Setup ~ ~")
-    init_car = input("Initializing CaR Board ('n' to skip)>>>")
+   
 
-    if 'n' in init_car:
-        return
+    # GLOBAL CONFIG VARIABLES
+    assume_defaults = False
+
+    print("====================================")
+    print("=== Starting SP3A Default Setup ===")
+
+    if not assume_defaults:
+        do_setup = input("Press enter to begin or 'n' to skip >")
+        if 'n' in do_setup:
+            print("Skipping all setup!")
+            return
 
     sg.INSTR["car"].debug_memory = False
-    
-    if not 'n' in init_car:
-        sg.INSTR["car"].init_car()
-    
-    set_cmos_voltage = input("Setting CMOS In/Out Voltage = 1.2V ('n' to skip)>>>")
-    if not 'n' in set_cmos_voltage:
-        sg.INSTR["car"].set_input_cmos_level(1.2)
-        sg.INSTR["car"].set_output_cmos_level(1.2)
+        
+    print("Step 1: Initializing ZCU102")
 
-    config_si5345 = input("Configuring SI5345 w/ config option 1 ('n' to skip)>>>")
-    if not 'n' in config_si5345:
-        sg.INSTR["car"].configureSI5345(1)
-
-    #Enable external SPI clock
-    #sg.INSTR["car"].set_memory("use_ext_spi_clk",1)
-
-    #Set all AXI GPIOs as outputs
     sg.INSTR["car"].set_memory("gpio_direction",0)
+    print(">  Set all AXI GPIOs as outputs")
+
+    sg.INSTR["car"].setUsrclkFreq(int(320e6))
+    print(">  Initialized Usrclk to 320 MHz")
+    
+    init_car =  input("Step 2: Initializing CaR Board ('n' to skip)>>>")
+
+    if 'n' in init_car:
+        print("Skipped!")
+    else:
+
+        #Basic initialization of CaR board
+        sg.INSTR["car"].init_car()
+
+        #Init CMOS I/O voltages
+        print(">  Setting CMOS In/Out Voltage = 1.2V",end='')
+        if not assume_defaults: 
+            set_cmos_voltage = input("('n' to skip)")
+        if assume_defaults or not 'n' in set_cmos_voltage:
+            sg.INSTR["car"].set_input_cmos_level(1.2)
+            sg.INSTR["car"].set_output_cmos_level(1.2)
+
+        #Config Si5345
+        print(">  Configuring SI5345 w/ config option 2",end='')
+        if not assume_defaults:
+            config_si5345 = input("('n' to skip)")
+        if assume_defaults or not 'n' in config_si5345:
+            sg.INSTR["car"].configureSI5345(2)
+
+
+    print("Step 3: Initializing ASIC")
 
     assert_reset()
     time.sleep(0.1)
     deassert_reset()
+    print(">  Pulsed digital Reset")
+
+    spi_write_tx_config(TX_REG_DEFAULTS)
+    print(">  Wrote default transmitter configuration")
+
+    print("Step 4: Uplink Reset")
+    sg.INSTR["car"].set_memory("uplinkRst",1)
+    time.sleep(0.1)
+    sg.INSTR["car"].set_memory("uplinkRst",0)
+    print(">  Pulsed uplink reset")
         
-    print("Finished SP3A CaR Board Default Setup")
+    print("=== Finished SP3A Default Setup ===")
+    print("===================================")
 
 def random_coords():
     return [random.randint(0,9),random.randint(0,9)]
@@ -187,8 +221,7 @@ def ROUTINE_check_spi_loopback():
             sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
             return
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
-def ROUTINE_spi_address_mapping():
+def _ROUTINE_spi_address_mapping():
     """Sweep through possible SPI commands"""
 
     pattern_1 = 0b101010101
@@ -216,19 +249,16 @@ def ROUTINE_spi_address_mapping():
         print("Return Data:",bin(sg.INSTR["car"].get_memory("spi_read_data")))
     
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
-def ROUTINE_scan_chain_loopback():
+def _ROUTINE_scan_chain_loopback():
     """Write 10b of data into the scan chain and read it back (slide 16)"""
     pass
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
-def ROUTINE_config_chain_loopback():
+def _ROUTINE_config_chain_loopback():
     """Write 29b of data into the scan chain and read it back (slide 18)"""
     pass
 
 
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
-def ROUTINE_basic_signals():
+def _ROUTINE_basic_signals():
     """Program some basic patterns in the pattern generator and observe outputs"""
 
 
@@ -257,16 +287,19 @@ def ROUTINE_basic_signals():
     glue = get_glue_wave(10)
 
 
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
     apg_registers = ["apg_run", "apg_write_channel", "apg_read_channel",
                      "apg_sample_count","apg_n_samples","apg_write_buffer_len",
-                     "apg_next_read_sample","apg_wave_ptr","apg_status"]
+                     "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control"]
     
     spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
                      "spi_transaction_count", "spi_status"]
+
+    lpgbtfpga_registers = ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]
+    
     AXI_REGISTERS = spi_registers + apg_registers
 
     while True:
@@ -298,7 +331,7 @@ def ROUTINE_axi_shell():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_spi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -348,7 +381,7 @@ def ROUTINE_spi_shell():
             print(spi_read_reg(this_reg))
 
 
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_get_glue_wave():
 
     N = input("How many samples do you want to take?")
@@ -357,6 +390,94 @@ def ROUTINE_get_glue_wave():
     get_glue_wave(N)
 
 
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_write_tx_config():
     spi_write_tx_config(TX_REG_DEFAULTS)
+
+
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+def ROUTINE_Update_tx_config():
+
+    key_list = list(TX_REG_DEFAULTS.keys())
+
+    for i in range(len(key_list)):
+        print(f"{i}. {key_list[i]}")
+
+    user_choice = int(input("which # cfg to modify? >>>"))
+    user_val = int(input("New value >>>"))
+
+    spi_update_tx_reg(key_list[user_choice], user_val)
+    
+    #TX_REG_DEFAULTS[key_list[user_choice]] = user_val
+
+    #spi_write_tx_config(TX_REG_DEFAULTS)
+
+
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+def ROUTINE_get_rx_status():
+
+    rx_status_bin = sg.INSTR["car"].get_memory("lpgbtfpga_status")
+
+    uplinkrdy = rx_status_bin & 0x1
+    uplinkFEC = (rx_status_bin & 0x2) >> 1
+    uplinkEcData = (rx_status_bin & 0xC) >> 2
+    uplinkIcData = (rx_status_bin & 0x30) >> 4
+    uplinkPhase = (rx_status_bin & 0x1C0) >> 6
+
+    print("~ ~ ~ Rx Status ~ ~ ~")
+    print(f"(binary: {bin(rx_status_bin)})")
+    print(f"Uplink Ready:   {uplinkrdy}")
+    print(f"Uplink FEC Err: {uplinkFEC}")
+    print(f"Uplink EC Data: {bin(uplinkEcData)}")
+    print(f"Uplink IC Data: {bin(uplinkIcData)}")
+    print(f"Uplink Phase:   {uplinkPhase}")
+
+
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+def ROUTINE_set_array_serial_pattern():
+
+    user_pattern_str = input("Enter a binary pattern>>>")
+
+    #Split the user's pattern by characters:
+    user_pattern = []
+    for c in user_pattern_str:
+        if c == "1":
+            user_pattern.append(1)
+        elif c == "0":
+            user_pattern.append(0)
+
+    sg.INSTR["car"].set_memory("apg_n_samples",len(user_pattern))
+    for c in user_pattern:
+        #Note: Assumes that array_serial[0] is APG channel 0, which is true.
+        sg.INSTR["car"].set_memory("apg_write_channel",c)
+
+    #Enable looping
+    sg.INSTR["car"].set_memory("apg_control",1)
+
+    #Run
+    sg.INSTR["car"].set_memory("apg_run",1)
+
+    sg.log.info("APG Now Running!")
+
+
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+def ROUTINE_estimate_fpga_clocks():
+
+    counts = ["count_0", "count_1", "count_2", "count_3", "count_4"]
+    clks   = ["axi_clk", "mgt_refclk", "usrclk", "rxdata", "wave_clk"]
+    count_s1 = []
+    count_s2 = []
+    freq = []
+
+    for count in counts:
+        count_s1.append(sg.INSTR["car"].get_memory(count))
+
+    time.sleep(1)
+
+    for count in counts:
+        count_s2.append(sg.INSTR["car"].get_memory(count))
+
+    for i in range(len(counts)):
+        freq_estimate = (count_s2[i] - count_s1[i])/(count_s2[0] - count_s1[0]) * 100e6
+        print(f"{clks[i]} Est Freq = {freq_estimate}  (Samples: {count_s2[i]}, {count_s1[i]})")
+        

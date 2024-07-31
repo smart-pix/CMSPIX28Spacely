@@ -271,6 +271,30 @@ def spi_cmd_to_string(opcode_grp, address, WnR, data, length):
     return 'XX'+WnR_str+opcode_str+address_str+data_str
 
 
+def spi_update_tx_reg(reg_name, field_val):
+
+    start_bit = TX_REG_MAP[reg_name][0]
+    end_bit = TX_REG_MAP[reg_name][1]
+    byte = int((start_bit)/8)
+    offset = start_bit - 8*byte
+    offset_end = end_bit - 8*byte
+
+    old_val = spi_read_tx_reg(byte)
+    sg.log.debug(f"Updating Byte {byte}...")
+    sg.log.debug(f"Old Value: {bin(old_val)}")
+
+    for i in range(offset, offset_end+1):
+        old_val = old_val & (~(1 << i))
+        print(old_val)
+
+    old_val = old_val | (field_val << offset)
+
+    sg.log.debug(f"New Value: {bin(old_val)}")
+    spi_write_tx_reg(byte, old_val)
+    
+
+
+
 #Generate Transmitter Config values from a dictionary of register values,
 #and write it to the chip.
 def spi_write_tx_config(reg_values):
