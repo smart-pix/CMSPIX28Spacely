@@ -2,10 +2,24 @@
 
 HARDWARE Caribou/Caribou/Caribou BEGIN
 
+//ASIC Outputs
 capClk,O,0
-calc,O,1
-fullReadout,O,2
-array_serialClk,O,3
+read_delay,O,1
+calc,O,2
+phi2_global,O,3
+fullReadout,O,4
+phi1_global,O,5
+array_serialClk,O,6
+Qequal,O,7
+DACclr,O,8
+Bufsel,O,9
+Read,O,10
+Rst,O,11
+
+//ASIC Inputs
+array_serial_0,I,0
+done,I,1
+ILA_loopback,I,2
 
 
 END

@@ -51,11 +51,11 @@ def onstartup():
             sg.INSTR["car"].set_output_cmos_level(1.2)
 
         #Config Si5345
-        print(">  Configuring SI5345 w/ config option 2",end='')
+        print(">  Configuring SI5345 w/ config option 1",end='')
         if not assume_defaults:
             config_si5345 = input("('n' to skip)")
         if assume_defaults or not 'n' in config_si5345:
-            sg.INSTR["car"].configureSI5345(2)
+            sg.INSTR["car"].configureSI5345(1)
 
 
     print("Step 3: Initializing ASIC")
@@ -258,7 +258,8 @@ def _ROUTINE_config_chain_loopback():
     pass
 
 
-def _ROUTINE_basic_signals():
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+def ROUTINE_basic_signals():
     """Program some basic patterns in the pattern generator and observe outputs"""
 
 
@@ -276,18 +277,13 @@ def _ROUTINE_basic_signals():
     #input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
     
 
-    # TEST 1: Check FULL_READOUT
-    
-    spi_write_reg("FULL_READOUT",0)
-
-    glue = get_glue_wave(10)
-
+    spi_write_reg("global_counter_period",9600)
+    spi_write_reg("comp_rise_calc",1)
+    spi_write_reg("comp_fall_calc",3200)
     spi_write_reg("FULL_READOUT",1)
 
-    glue = get_glue_wave(10)
 
-
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -331,7 +327,7 @@ def ROUTINE_axi_shell():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_spi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -381,7 +377,7 @@ def ROUTINE_spi_shell():
             print(spi_read_reg(this_reg))
 
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_get_glue_wave():
 
     N = input("How many samples do you want to take?")
@@ -390,12 +386,12 @@ def ROUTINE_get_glue_wave():
     get_glue_wave(N)
 
 
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_write_tx_config():
     spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_Update_tx_config():
 
     key_list = list(TX_REG_DEFAULTS.keys())
@@ -413,7 +409,7 @@ def ROUTINE_Update_tx_config():
     #spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_get_rx_status():
 
     rx_status_bin = sg.INSTR["car"].get_memory("lpgbtfpga_status")
@@ -433,7 +429,7 @@ def ROUTINE_get_rx_status():
     print(f"Uplink Phase:   {uplinkPhase}")
 
 
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_set_array_serial_pattern():
 
     user_pattern_str = input("Enter a binary pattern>>>")
@@ -460,7 +456,7 @@ def ROUTINE_set_array_serial_pattern():
     sg.log.info("APG Now Running!")
 
 
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
 def ROUTINE_estimate_fpga_clocks():
 
     counts = ["count_0", "count_1", "count_2", "count_3", "count_4"]
