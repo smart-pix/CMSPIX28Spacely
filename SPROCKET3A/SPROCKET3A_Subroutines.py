@@ -6,7 +6,7 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
-DEBUG_SPI = True
+DEBUG_SPI = False
 EMULATE_SPI = False
 
 

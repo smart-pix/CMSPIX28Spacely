@@ -429,8 +429,41 @@ def ROUTINE_get_rx_status():
     print(f"Uplink Phase:   {uplinkPhase}")
 
 
+
+
+def run_pattern_apg(pattern_glue, loop=False):
+
+    #First, stop looping and wait for the pattern to end if necessary.
+    sg.INSTR["car"].set_memory("apg_control",0)
+
+    while True:
+        apg_status = sg.INSTR["car"].get_memory("apg_status")
+        if apg_status == 0:
+            break
+        else:
+            sg.log.debug(f"Waiting for APG idle (status={apg_status})...")
+
+    sg.INSTR["car"].set_memory("apg_n_samples",len(pattern_glue.vector))
+
+    #Write the pattern glue into memory.
+    for c in pattern_glue.vector:
+        sg.INSTR["car"].set_memory("apg_write_channel",c)
+
+
+    #Set up looping if requested
+    if loop:
+        sg.INSTR["car"].set_memory("apg_control",1)
+
+    #Run
+    sg.INSTR["car"].set_memory("apg_run",1)
+
+    sg.log.info("APG Now Running!")
+    
+    
+    
+
 #<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
-def ROUTINE_set_array_serial_pattern():
+def ROUTINE_run_array_serial_pattern():
 
     user_pattern_str = input("Enter a binary pattern>>>")
 
@@ -442,21 +475,24 @@ def ROUTINE_set_array_serial_pattern():
         elif c == "0":
             user_pattern.append(0)
 
-    sg.INSTR["car"].set_memory("apg_n_samples",len(user_pattern))
-    for c in user_pattern:
-        #Note: Assumes that array_serial[0] is APG channel 0, which is true.
-        sg.INSTR["car"].set_memory("apg_write_channel",c)
 
-    #Enable looping
-    sg.INSTR["car"].set_memory("apg_control",1)
+    pattern_glue = genpattern_from_waves_dict({"array_serial_0":user_pattern})
 
-    #Run
-    sg.INSTR["car"].set_memory("apg_run",1)
-
-    sg.log.info("APG Now Running!")
-
+    run_pattern_apg(sg.gc.read_glue(pattern_glue), True)
+    
 
 #<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+def ROUTINE_run_APG_test_pattern():
+
+    test_pattern = [0,1,2,3,4,5,6,7]
+
+    pattern_glue = GlueWave(test_pattern,None,"Caribou/Caribou/Caribou")
+
+    run_pattern_apg(pattern_glue,True)
+
+
+
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
 def ROUTINE_estimate_fpga_clocks():
 
     counts = ["count_0", "count_1", "count_2", "count_3", "count_4"]
