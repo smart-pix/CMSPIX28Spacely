@@ -348,7 +348,7 @@ def spi_write_tx_config(reg_values):
         for i in range(len(tx_config)):
             read_byte = spi_read_tx_reg(i)
             if read_byte != tx_config[i]:
-                sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_conifg[i]} and read {read_byte}")
+                sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_config[i]} and read {read_byte}")
                 return -1
 
     sg.log.info("Writing Tx Config Successful!")
@@ -453,7 +453,7 @@ def spi_wait_for_idle():
         if status == 0:
             break
 
-        time.sleep(0.1)
+        time.sleep(0.01)
         
 
 #This function gets a set of samples from the FW Arbitrary_Pattern_Generator() and saves them as a GlueWave.

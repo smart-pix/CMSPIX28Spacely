@@ -513,3 +513,29 @@ def ROUTINE_estimate_fpga_clocks():
         freq_estimate = (count_s2[i] - count_s1[i])/(count_s2[0] - count_s1[0]) * 100e6
         print(f"{clks[i]} Est Freq = {freq_estimate}  (Samples: {count_s2[i]}, {count_s1[i]})")
         
+
+        
+#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
+def ROUTINE_test_lock():
+
+    rsrc = Exclusive_Resource("test_lock","Test resource")
+    rsrc2 = Exclusive_Resource("test_lock","Test resource")
+
+    time.sleep(0.5)
+    
+    rsrc.acquire()
+
+    time.sleep(0.5)
+
+    rsrc2.acquire()
+
+    time.sleep(0.5)
+    
+    rsrc.release()
+
+    time.sleep(0.5)
+
+    rsrc2.acquire()
+
+    rsrc2.release()
+
