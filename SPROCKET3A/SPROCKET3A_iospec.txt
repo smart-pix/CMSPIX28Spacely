@@ -1,6 +1,6 @@
 
 
-HARDWARE Caribou/Caribou/Caribou BEGIN
+HARDWARE Caribou/Caribou/apg BEGIN
 
 //ASIC Outputs
 capClk,O,0
@@ -21,5 +21,16 @@ array_serial_0,I,0
 done,I,1
 ILA_loopback,I,2
 
+
+END
+
+HARDWARE Caribou/Caribou/spi_apg BEGIN
+
+//ASIC Outputs
+poci,O,0
+
+//ASIC Inputs
+pico,I,0
+cs_b,I,1
 
 END

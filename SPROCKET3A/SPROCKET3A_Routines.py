@@ -51,23 +51,27 @@ def onstartup():
             sg.INSTR["car"].set_output_cmos_level(1.2)
 
         #Config Si5345
-        print(">  Configuring SI5345 w/ config option 1",end='')
+        print(">  Configuring SI5345 w/ config option 2",end='')
         if not assume_defaults:
             config_si5345 = input("('n' to skip)")
         if assume_defaults or not 'n' in config_si5345:
-            sg.INSTR["car"].configureSI5345(1)
+            sg.INSTR["car"].configureSI5345(2)
 
 
-    print("Step 3: Initializing ASIC")
+    init_asic = input("Step 3: Initializing ASIC ('n' to skip)>>>")
 
-    assert_reset()
-    time.sleep(0.1)
-    deassert_reset()
-    print(">  Pulsed digital Reset")
+    if 'n' in init_asic:
+        print("Skipped!")
+    else:
+        assert_reset()
+        time.sleep(0.1)
+        deassert_reset()
+        print(">  Pulsed digital Reset")
+        
+        spi_write_tx_config(TX_REG_DEFAULTS)
+        print(">  Wrote default transmitter configuration")
 
-    spi_write_tx_config(TX_REG_DEFAULTS)
-    print(">  Wrote default transmitter configuration")
-
+        
     print("Step 4: Uplink Reset")
     sg.INSTR["car"].set_memory("uplinkRst",1)
     time.sleep(0.1)
@@ -181,8 +185,7 @@ def ROUTINE_i2c_debug():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_check_fw():
+def _ROUTINE_check_fw():
     """Write + readback a single value to FW to make sure the firmware is flashed."""
 
     #Short alias for Caribou system
@@ -202,12 +205,12 @@ def ROUTINE_check_fw():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_check_spi_loopback():
     """Write a register over SPI and read back its value to confirm the SPI interface is working."""
 
-    for test_val in [33, 102, 1]:
-        spi_write_reg("comp_fall_bufsel",33)
+    for test_val in [49, 102, 1]:
+        spi_write_reg("comp_fall_bufsel",test_val)
     
         val = spi_read_reg("comp_fall_bufsel")
 
@@ -215,10 +218,10 @@ def ROUTINE_check_spi_loopback():
             sg.log.warning("Read back 0. Retrying...")
             val = spi_read_reg("comp_fall_bufsel")
 
-        if val == 33:
+        if val == test_val:
             sg.log.info("SPI Loopback Passed!")
         else:
-            sg.log.error(f"SPI Loopback Failed: Wrote 33, Read {val}")
+            sg.log.error(f"SPI Loopback Failed: Wrote {test_val} (bin:{bin(test_val)}), Read {val} (bin:{bin(val)})")
             return
 
 def _ROUTINE_spi_address_mapping():
@@ -258,7 +261,7 @@ def _ROUTINE_config_chain_loopback():
     pass
 
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_basic_signals():
     """Program some basic patterns in the pattern generator and observe outputs"""
 
@@ -283,7 +286,7 @@ def ROUTINE_basic_signals():
     spi_write_reg("FULL_READOUT",1)
 
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -296,7 +299,7 @@ def ROUTINE_axi_shell():
 
     lpgbtfpga_registers = ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]
     
-    AXI_REGISTERS = spi_registers + apg_registers
+    AXI_REGISTERS = spi_registers + apg_registers + lpgbtfpga_registers
 
     while True:
 
@@ -327,7 +330,7 @@ def ROUTINE_axi_shell():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_spi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -377,7 +380,7 @@ def ROUTINE_spi_shell():
             print(spi_read_reg(this_reg))
 
 
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_get_glue_wave():
 
     N = input("How many samples do you want to take?")
@@ -386,12 +389,12 @@ def ROUTINE_get_glue_wave():
     get_glue_wave(N)
 
 
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_write_tx_config():
     spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_Update_tx_config():
 
     key_list = list(TX_REG_DEFAULTS.keys())
@@ -409,7 +412,7 @@ def ROUTINE_Update_tx_config():
     #spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_get_rx_status():
 
     rx_status_bin = sg.INSTR["car"].get_memory("lpgbtfpga_status")
@@ -419,6 +422,11 @@ def ROUTINE_get_rx_status():
     uplinkEcData = (rx_status_bin & 0xC) >> 2
     uplinkIcData = (rx_status_bin & 0x30) >> 4
     uplinkPhase = (rx_status_bin & 0x1C0) >> 6
+    mgt_rx_rdy  = (rx_status_bin & 0x200) >> 9
+
+    #print(rx_status_bin)
+    #print(rx_status_bin & 0x100)
+    #print(0x200)
 
     print("~ ~ ~ Rx Status ~ ~ ~")
     print(f"(binary: {bin(rx_status_bin)})")
@@ -427,7 +435,16 @@ def ROUTINE_get_rx_status():
     print(f"Uplink EC Data: {bin(uplinkEcData)}")
     print(f"Uplink IC Data: {bin(uplinkIcData)}")
     print(f"Uplink Phase:   {uplinkPhase}")
+    print(f"Mgt Rx Ready:   {mgt_rx_rdy}")
 
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+def ROUTINE_pulse_uplinkRst():
+
+    sg.INSTR["car"].set_memory("uplinkRst",1)
+
+    time.sleep(0.1)
+
+    sg.INSTR["car"].set_memory("uplinkRst",0)
 
 
 
@@ -486,17 +503,18 @@ def ROUTINE_run_APG_test_pattern():
 
     test_pattern = [0,1,2,3,4,5,6,7]
 
-    pattern_glue = GlueWave(test_pattern,None,"Caribou/Caribou/Caribou")
+    pattern_glue = GlueWave(test_pattern,None,"Caribou/Caribou/apg")
 
     run_pattern_apg(pattern_glue,True)
 
 
 
 #<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
-def ROUTINE_estimate_fpga_clocks():
+def ROUTINE_posedge_count():
+    """Estimate the activity on certain internal FPGA clocks by counting posedges"""
 
     counts = ["count_0", "count_1", "count_2", "count_3", "count_4"]
-    clks   = ["axi_clk", "mgt_refclk", "usrclk", "rxdata", "wave_clk"]
+    clks   = ["axi_clk", "uplinkMgtWordParity", "clk40_o", "wave_clk", "not conn"]
     count_s1 = []
     count_s2 = []
     freq = []
@@ -514,28 +532,4 @@ def ROUTINE_estimate_fpga_clocks():
         print(f"{clks[i]} Est Freq = {freq_estimate}  (Samples: {count_s2[i]}, {count_s1[i]})")
         
 
-        
-#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
-def ROUTINE_test_lock():
-
-    rsrc = Exclusive_Resource("test_lock","Test resource")
-    rsrc2 = Exclusive_Resource("test_lock","Test resource")
-
-    time.sleep(0.5)
-    
-    rsrc.acquire()
-
-    time.sleep(0.5)
-
-    rsrc2.acquire()
-
-    time.sleep(0.5)
-    
-    rsrc.release()
-
-    time.sleep(0.5)
-
-    rsrc2.acquire()
-
-    rsrc2.release()
 

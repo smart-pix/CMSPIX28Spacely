@@ -8,6 +8,8 @@ from Spacely_Utils import *
 
 DEBUG_SPI = False
 EMULATE_SPI = False
+# Set to "apg" or "simple_serial"
+SPI_FIRMWARE = "apg"
 
 
 def SPI_Status(status_num):
@@ -338,19 +340,35 @@ def spi_write_tx_config(reg_values):
     #    for byte in tx_config:
     #        print(bin(byte))
             
-    sg.log.debug("Writing Tx Config to ASIC...")
+    print("Writing Tx Config to ASIC",end='',flush=True)
 
-    for i in range(len(tx_config)):
-        spi_write_tx_reg(i, tx_config[i])
+    #Single Write Mode WiP, may not be possible.
+    SINGLE_WRITE_MODE = False
+
+    if SINGLE_WRITE_MODE:
+        combined_cfg = 0
+        for i in range(len(tx_config)):
+            combined_cfg = combined_cfg | (tx_config[i] << i*8)
+            print(combined_cfg)
+        spi_cmd(opcode_grp=3, address=0, length=200, WnR=1, data=combined_cfg)
+        print("...",end='')
+    else:
+    
+        for i in range(len(tx_config)):
+            print(".",end='',flush=True)
+            spi_write_tx_reg(i, tx_config[i])
+
+    print("done!")
 
     if CFG_LINT:
-        sg.log.debug("Reading back config to check for errors...")
+        print("Reading back config to check for errors",end='')
         for i in range(len(tx_config)):
+            print(".",end='',flush=True)
             read_byte = spi_read_tx_reg(i)
             if read_byte != tx_config[i]:
-                sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_config[i]} and read {read_byte}")
-                return -1
-
+                sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_config[i]} (bin: {bin(tx_config[i])}) and read {read_byte} (bin:{bin(read_byte)})")
+                #return -1
+    print("done!")
     sg.log.info("Writing Tx Config Successful!")
     
 
@@ -381,12 +399,109 @@ def spi_cmd_emu(opcode_grp, address, length, WnR, data=0):
             return SPI_REGS_EMU[key]
         else:
             return 0
-    
+
 
 def spi_cmd(opcode_grp, address, length, WnR, data=0):
-
     if EMULATE_SPI:
         return spi_cmd_emu(opcode_grp, address, length, WnR, data)
+    else:
+        if SPI_FIRMWARE == "apg":
+            return spi_cmd_apg(opcode_grp, address, length, WnR, data)
+        elif SPI_FIRMWARE == "simple_serial":
+            return spi_cmd_simple_serial(opcode_grp, address, length, WnR, data)
+        else:
+            print(f"spi_cmd error: didn't recognize SPI_FIRMWARE={SPI_FIRMWARE}")
+
+
+
+# Directly convert a waves dict to a Glue Wave, without going through
+# the step of writing ASCII files.
+def genpattern_from_waves_dict_fast(waves_dict, apg_name):
+
+    max_pattern_len = max([len(x) for x in waves_dict.values()])
+    
+    vector = [0 for _ in range(max_pattern_len)]
+
+    for key in waves_dict.keys():
+        io_pos = sg.gc.IO_pos[key]
+
+        vector = [vector[i] | (waves_dict[key][i] << io_pos) for i in range(min(len(vector),len(waves_dict[key])))]
+
+    if DEBUG_SPI:
+        sg.log.debug(f"Vector: {vector}")
+
+    APG_CLOCK_FREQUENCY = 10e6
+    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
+        
+    return GlueWave(vector,strobe_ps,f"Caribou/Caribou/{apg_name}")
+    
+    
+
+def spi_cmd_apg(opcode_grp, address, length, WnR, data=0):
+
+    #Magic numbers to align inputs & outputs
+    MAGIC_DATA_SHIFT_WRITE = 14 #14
+    MAGIC_DATA_SHIFT_READ = 14  #15
+
+    if length+14 > 512:
+        sg.log.warning("WARNING: Attempting SPI write > 512 bits, check FW compatibility.")
+    
+    #First, build the SPI command which consists of:
+    #{0} {WE (1b)} {opcode (2b)} {Address (8b)}
+    cmd = 0
+    cmd = cmd | WnR << 10 # WE
+    cmd = cmd | opcode_grp << 8
+    cmd = cmd | address
+                     
+    # Add 2 delay cycles
+    cmd = cmd << 2
+
+    spi_bitstring = cmd | (data) << MAGIC_DATA_SHIFT_WRITE
+
+
+    # Convert bitstring to a waves dict
+    pre_pattern_len = 5
+    
+    waves = {"cs_b": [1 for _ in range(pre_pattern_len)],
+             "pico": [0 for _ in range(pre_pattern_len)]}
+
+    for i in range(MAGIC_DATA_SHIFT_READ+length):
+        if spi_bitstring & (1 << i) > 0:
+            waves["pico"] = waves["pico"] + [1]
+        else:
+            waves["pico"] = waves["pico"] + [0]
+        waves["cs_b"] = waves["cs_b"] + [0]
+
+    waves["cs_b"] = waves["cs_b"] + [1 for _ in range(pre_pattern_len)]
+    waves["pico"] = waves["pico"] + [0 for _ in range(pre_pattern_len)]
+
+    
+    glue_wave_obj = genpattern_from_waves_dict_fast(waves, "spi_apg")
+
+    result = sg.gc.read_glue(run_pattern_caribou(glue_wave_obj, "spi_apg"))
+
+
+    poci_data = sg.gc.get_bitstream(result, "poci")
+    
+   
+
+    poci_bin = 0
+   
+    for i in range(length):
+        if poci_data[i+MAGIC_DATA_SHIFT_READ + pre_pattern_len] > 0:
+            poci_bin = poci_bin | (1 << i)
+
+            
+    if DEBUG_SPI and not WnR:
+        sg.log.debug(f"Return: {poci_data}")
+        sg.log.debug(f"Return bits: {poci_bin} (bin: {bin(poci_bin)})")
+        
+    
+    #sg.gc.plot_glue(result)
+    return poci_bin
+    
+
+def spi_cmd_simple_serial(opcode_grp, address, length, WnR, data=0):
     
     MAGIC_DATA_SHIFT_WRITE = 14 #14
     MAGIC_DATA_SHIFT_READ = 15  #15
@@ -445,16 +560,70 @@ def spi_cmd(opcode_grp, address, length, WnR, data=0):
 #Polls spi_status until the status is IDLE and not triggered.
 def spi_wait_for_idle():
     while True:
-        status = sg.INSTR["car"].get_memory("spi_status")
+        if SPI_FIRMWARE == "simple_serial":
+            status = sg.INSTR["car"].get_memory("spi_status")
+        elif SPI_FIRMWARE == "apg":
+            status = sg.INSTR["car"].get_memory("spi_apg_status")
 
         if DEBUG_SPI:
-            sg.log.debug(f"spi_status - {status}")
+            sg.log.debug(f"spi_status - {SPI_Status(status)}")
 
         if status == 0:
             break
 
         time.sleep(0.01)
+
+
+def apg_wait_for_idle(apg_name):
+    while True:
+        status = sg.INSTR["car"].get_memory(f"{apg_name}_status")
+
+        if status == 0:
+            break
+
+        time.sleep(0.1)
+
+#Caribou version of sg.pr.run_pattern()
+# Right now, apg_name = "apg" or "spi_apg"
+def run_pattern_caribou(glue_wave,apg_name):
+
+    #Parse glue file names OR python objects
+    if type(glue_wave) == str:
+        glue_wave = sg.gc.read_glue(glue_wave)
+
+
+    ## (1) SET NUMBER OF SAMPLES
+    N = glue_wave.len
+
+    sg.INSTR["car"].set_memory(f"{apg_name}_n_samples", N)
+
+    ## (2) WRITE PATTERN TO APG
+    for n in range(N):
+        sg.INSTR["car"].set_memory(f"{apg_name}_write_channel",glue_wave.vector[n])
+
+
+    ## (3) RUN AND WAIT FOR IDLE
+    sg.INSTR["car"].set_memory(f"{apg_name}_run", 1)
+
+    apg_wait_for_idle(apg_name)
+
+    ## (4) READ BACK SAMPLES
+    samples = []
+
+    for n in range(N):
+        samples.append(sg.INSTR["car"].get_memory(f"{apg_name}_read_channel"))
+
+
+    APG_CLOCK_FREQUENCY = 10e6
+    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
+    glue = GlueWave(samples,strobe_ps,f"Caribou/Caribou/{apg_name}")
+
+    sg.gc.write_glue(glue,"apg_samples.glue")
+
+    return "apg_samples.glue"
+
+
 
 #This function gets a set of samples from the FW Arbitrary_Pattern_Generator() and saves them as a GlueWave.
 def get_glue_wave(n_samples):
@@ -483,7 +652,7 @@ def get_glue_wave(n_samples):
     APG_CLOCK_FREQUENCY = 10e6
     strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
-    glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/Caribou")
+    glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/apg")
 
     sg.gc.write_glue(glue,"apg_samples.glue")
     sg.gc.plot_glue(glue)
