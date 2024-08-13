@@ -581,9 +581,24 @@ def ROUTINE_IP1_test1():
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
     # write one address on array0
+    n_registers = 5188
+    n_weight = 4652
+    n_hidden = 24
+    n_pixel = 512  
+    n_dnn_w2= 3712
+    n_dnn_b2 = 232
+    n_dnn_w5 = 696
+    n_dnn_b5  = 12
+     
     hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
+    
     hex_list[255] = ["4'h1", "4'h6", "8'hFF", "16'hFFFF"]
-    hex_list[254] = ["4'h1", "4'h6", "8'hFE", "16'hFFFF"]  
+    hex_list[254] = ["4'h1", "4'h6", "8'hFE", "16'hFFFF"]
+    
+    hex_list[4] = ["4'h1", "4'h6", "8'h04", "16'hFFFF"]    
+    hex_list[3] = ["4'h1", "4'h6", "8'h03", "16'hFFFF"]    
+    hex_list[2] = ["4'h1", "4'h6", "8'h02", "16'hFFFF"]    
+    hex_list[1] = ["4'h1", "4'h6", "8'h01", "16'hFFFF"]      
     hex_list[0] = ["4'h1", "4'h6", "8'h00", "16'hFFFF"]
     hex_list_1 = hex_list
 
