@@ -1,5 +1,6 @@
 import random
 import time
+import shutil
 
 #Import Spacely functions
 from Master_Config import *
@@ -10,6 +11,13 @@ DEBUG_SPI = False
 EMULATE_SPI = False
 # Set to "apg" or "simple_serial"
 SPI_FIRMWARE = "apg"
+
+#Config Lint Checking
+# 0 = No checking
+# 1 = Check lengths of the input fields
+# 2 = Readback from the chip after writing
+# 3 = Readback from the chip after writing, and on failure, take multiple reads for debugging.
+CFG_LINT_LEVEL = 2
 
 
 def SPI_Status(status_num):
@@ -301,7 +309,7 @@ def spi_update_tx_reg(reg_name, field_val):
 #and write it to the chip.
 def spi_write_tx_config(reg_values):
 
-    CFG_LINT = True
+    global CFG_LINT_LEVEL
 
     #Initialize cfg to 24 bytes of all zeroes.
     tx_config = [0]*25
@@ -317,7 +325,7 @@ def spi_write_tx_config(reg_values):
             byte = int((start_bit+i)/8)
             offset = start_bit+i - 8*byte
 
-            if CFG_LINT:
+            if CFG_LINT_LEVEL >= 1:
                 #If there is already a 1 written where we are about to write
                 if tx_config[byte] & (1 << offset) > 0:
                     sg.log.error(f"Tx Cfg Type 1 Error: {field} Overwrites at byte {byte} bit {offset} (raw_bit={start_bit+i})")
@@ -329,7 +337,7 @@ def spi_write_tx_config(reg_values):
             #Shift down val to put the next bit in index [0].
             val = val >> 1
 
-        if CFG_LINT:
+        if CFG_LINT_LEVEL >= 1:
 
             if val > 0:
                 sg.log.error(f"Tx Cfg Type 2 Error: {field} value {reg_values[field]} has a greater binary length than {end_bit-start_bit+1}")
@@ -342,15 +350,22 @@ def spi_write_tx_config(reg_values):
             
     print("Writing Tx Config to ASIC",end='',flush=True)
 
-    #Single Write Mode WiP, may not be possible.
+    #Single Write Mode WiP
     SINGLE_WRITE_MODE = False
 
     if SINGLE_WRITE_MODE:
-        combined_cfg = 0
+
+        waves_combined = {"cs_b": [], "pico": []}
+
         for i in range(len(tx_config)):
-            combined_cfg = combined_cfg | (tx_config[i] << i*8)
-            print(combined_cfg)
-        spi_cmd(opcode_grp=3, address=0, length=200, WnR=1, data=combined_cfg)
+            waves = genpattern_spi_cmd(opcode_grp=3, address=i, length=8, WnR=1, data=tx_config[i])
+            waves_combined["cs_b"] = waves_combined["cs_b"] + waves["cs_b"]
+            waves_combined["pico"] = waves_combined["pico"] + waves["pico"]
+
+        glue_wave_obj = genpattern_from_waves_dict_fast(waves, "spi_apg")
+        run_pattern_caribou(glue_wave_obj, "spi_apg")
+        
+        
         print("...",end='')
     else:
     
@@ -360,14 +375,46 @@ def spi_write_tx_config(reg_values):
 
     print("done!")
 
-    if CFG_LINT:
+    if CFG_LINT_LEVEL >= 2:
         print("Reading back config to check for errors",end='')
         for i in range(len(tx_config)):
             print(".",end='',flush=True)
             read_byte = spi_read_tx_reg(i)
             if read_byte != tx_config[i]:
                 sg.log.error(f"Tx Cfg Readback failed for byte {i}: Wrote {tx_config[i]} (bin: {bin(tx_config[i])}) and read {read_byte} (bin:{bin(read_byte)})")
-                #return -1
+
+                if CFG_LINT_LEVEL >= 3:
+                    ## Loop and try to analyze why this byte failed.
+                    shutil.copyfile("apg_samples.glue",f"apg_samples_dbg_{0}.glue")
+                    for k in range(1,5):
+
+                        for reg in ["spi_apg_run", "spi_apg_write_channel", "spi_apg_read_channel",
+                     "spi_apg_sample_count","spi_apg_n_samples","spi_apg_write_buffer_len",
+                     "spi_apg_next_read_sample","spi_apg_wave_ptr","spi_apg_status", "spi_apg_control"]:
+                            val = sg.INSTR["car"].get_memory(reg)
+
+                            print(f"{reg} -- {val}")
+                        
+                        input("")
+                        read_byte = spi_read_tx_reg(i)
+                        shutil.copyfile("apg_samples.glue",f"apg_samples_dbg_{k}.glue")
+                        print(f"Retry {k}: Read {read_byte}")
+
+                    #Go into gcshell for further debug
+                    sg.gc.gcshell()
+                else:
+                    ## Simple retry
+                    sg.log.warning(f"Error detected, retrying write for byte {i}")
+                    while tx_config[i] != read_byte:
+                        spi_write_tx_reg(i, tx_config[i])
+                        read_byte = spi_read_tx_reg(i)
+                        sg.log.debug(f"(wrote: {tx_config[i]} read: {read_byte})")
+
+        dbg_error_val = sg.INSTR["car"].get_memory("spi_apg_dbg_error")
+        sg.log.debug(f"spi_apg_dbg_error val: {dbg_error_val}")
+                    
+
+                
     print("done!")
     sg.log.info("Writing Tx Config Successful!")
     
@@ -434,8 +481,49 @@ def genpattern_from_waves_dict_fast(waves_dict, apg_name):
     strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
     return GlueWave(vector,strobe_ps,f"Caribou/Caribou/{apg_name}")
+
+
+#Generate a dict-format wave for an individual SPI command, and just return that dict.
+def genpattern_spi_cmd(opcode_grp, address, length, WnR, data=0):
+
+    #Magic numbers to align inputs & outputs
+    MAGIC_DATA_SHIFT_WRITE = 14 #14
+    MAGIC_DATA_SHIFT_READ = 14  #15
+
+    if length+14 > 512:
+        sg.log.warning("WARNING: Attempting SPI write > 512 bits, check FW compatibility.")
     
+    #First, build the SPI command which consists of:
+    #{0} {WE (1b)} {opcode (2b)} {Address (8b)}
+    cmd = 0
+    cmd = cmd | WnR << 10 # WE
+    cmd = cmd | opcode_grp << 8
+    cmd = cmd | address
+                     
+    # Add 2 delay cycles
+    cmd = cmd << 2
+
+    spi_bitstring = cmd | (data) << MAGIC_DATA_SHIFT_WRITE
+
+
+    # Convert bitstring to a waves dict
+    pre_pattern_len = 5
     
+    waves = {"cs_b": [1 for _ in range(pre_pattern_len)],
+             "pico": [0 for _ in range(pre_pattern_len)]}
+
+    for i in range(MAGIC_DATA_SHIFT_READ+length):
+        if spi_bitstring & (1 << i) > 0:
+            waves["pico"] = waves["pico"] + [1]
+        else:
+            waves["pico"] = waves["pico"] + [0]
+        waves["cs_b"] = waves["cs_b"] + [0]
+
+    waves["cs_b"] = waves["cs_b"] + [1 for _ in range(pre_pattern_len)]
+    waves["pico"] = waves["pico"] + [0 for _ in range(pre_pattern_len)]
+
+    return waves
+
 
 def spi_cmd_apg(opcode_grp, address, length, WnR, data=0):
 
@@ -587,6 +675,10 @@ def apg_wait_for_idle(apg_name):
 # Right now, apg_name = "apg" or "spi_apg"
 def run_pattern_caribou(glue_wave,apg_name):
 
+    ## (0) Wait for idle, then clear the write buffer.
+    apg_wait_for_idle(apg_name)
+    sg.INSTR["car"].set_memory(f"{apg_name}_clear",1)
+    
     #Parse glue file names OR python objects
     if type(glue_wave) == str:
         glue_wave = sg.gc.read_glue(glue_wave)
@@ -605,12 +697,15 @@ def run_pattern_caribou(glue_wave,apg_name):
     ## (3) RUN AND WAIT FOR IDLE
     sg.INSTR["car"].set_memory(f"{apg_name}_run", 1)
 
+    time.sleep(0.1)
     apg_wait_for_idle(apg_name)
 
     ## (4) READ BACK SAMPLES
     samples = []
 
     for n in range(N):
+        #dbg_error_val = sg.INSTR["car"].get_memory("spi_apg_next_read_sample")
+        #sg.log.debug(f"nrs: {dbg_error_val}")
         samples.append(sg.INSTR["car"].get_memory(f"{apg_name}_read_channel"))
 
 
@@ -646,6 +741,8 @@ def get_glue_wave(n_samples):
     samples = []
 
     for n in range(n_samples):
+        
+        
         samples.append(sg.INSTR["car"].get_memory("apg_read_channel"))
 
 

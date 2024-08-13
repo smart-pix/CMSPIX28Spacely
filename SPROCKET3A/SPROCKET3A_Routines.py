@@ -290,16 +290,26 @@ def ROUTINE_basic_signals():
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
-    apg_registers = ["apg_run", "apg_write_channel", "apg_read_channel",
+    register_list = {"apg": ["apg_run", "apg_write_channel", "apg_read_channel",
                      "apg_sample_count","apg_n_samples","apg_write_buffer_len",
-                     "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control"]
+                     "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control",
+                     "apg_dbg_error",
+                             "apg_clear"],
+                     "spi_apg": ["spi_apg_run", "spi_apg_write_channel", "spi_apg_read_channel",
+                     "spi_apg_sample_count","spi_apg_n_samples","spi_apg_write_buffer_len",
+                                 "spi_apg_next_read_sample","spi_apg_wave_ptr","spi_apg_status", "spi_apg_control",
+                                 "spi_apg_dbg_error", "spi_apg_clear"],
+                     "lpgbt_fpga":  ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]}
     
-    spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
-                     "spi_transaction_count", "spi_status"]
+   # spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
+    #                 "spi_transaction_count", "spi_status"]
 
-    lpgbtfpga_registers = ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]
+    for x in register_list.keys():
+        print(x)
+        
+    fw_choice = input("Which fw module would you like to interact with?")
     
-    AXI_REGISTERS = spi_registers + apg_registers + lpgbtfpga_registers
+    AXI_REGISTERS = register_list[fw_choice]
 
     while True:
 
