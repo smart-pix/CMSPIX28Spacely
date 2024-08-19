@@ -95,13 +95,8 @@ def ROUTINE_startup_tests():
     
     # print out results
     for test, result in tests:
-        print(f"{test} : {'Pass' if result else 'Fail'}")
+        print(f"{test} : {result}")
     
-    # print overall startup test 
-    startup_test_result = all([i[1] for i in tests])
-
-    print(f"Full startup test: {'Pass' if startup_test_result else 'Fail'}")
-
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_startup_test_OP_CODE_NOOP():
     '''
@@ -133,8 +128,9 @@ def ROUTINE_startup_test_OP_CODE_RST_FW():
     PASS = True # boolean to store overall test pass or fail
 
     # send a FW reset
+    # op code list https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/cd_ip1_test2/vrf/fw_ipx_wrap_tb.sv#L92-L109
     hex_lists = [
-        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code E (status clear)
         ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
     ]
     ROUTINE_sw_write32_0(hex_lists)
@@ -142,7 +138,7 @@ def ROUTINE_startup_test_OP_CODE_RST_FW():
     # store expected values
     sw_read32_0_expected = 0 # reset should set this to zero
     sw_read32_1_expected = 1 # 1 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L179
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 12, print_code = "ihb")
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
 
     # print and return pass
     PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
@@ -166,8 +162,8 @@ def ROUTINE_startup_test_OP_CODE_CFG_STATIC():
 
     # send a FW reset
     hex_lists = [
-        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
-        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code firmware reset
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code fw status clear
     ]
     ROUTINE_sw_write32_0(hex_lists)
 
@@ -204,7 +200,7 @@ def ROUTINE_startup_test_OP_CODE_CFG_STATIC():
 
         # send status clear
         hex_lists = [
-            ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
+            ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code fw status clear
         ]
         ROUTINE_sw_write32_0(hex_lists)
 
@@ -228,23 +224,25 @@ def ROUTINE_startup_test_OP_CODE_CFG_ARRAY():
     test case for:
     - OP_CODE_W_CFG_ARRAY_0 and OP_CODE_R_CFG_ARRAY_0
     - OP_CODE_W_CFG_ARRAY_1 and OP_CODE_R_CFG_ARRAY_1
+    - OP_CODE_W_CFG_ARRAY_2 and OP_CODE_R_CFG_ARRAY_2
     '''
     
     # setup test
-    print_test_header("Executing test routine for OP_CODE_W_CFG_ARRAY_0, OP_CODE_R_CFG_ARRAY_0, OP_CODE_W_CFG_ARRAY_1, and OP_CODE_R_CFG_ARRAY_1")
+    print_test_header("Executing test routine for OP_CODE_W_CFG_ARRAY_0, OP_CODE_R_CFG_ARRAY_0, OP_CODE_W_CFG_ARRAY_1, OP_CODE_R_CFG_ARRAY_1, OP_CODE_W_CFG_ARRAY_2, OP_CODE_R_CFG_ARRAY_2")
     PASS = True # boolean to store overall test pass or fail
 
     # send a FW reset
     hex_lists = [
-        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
-        ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 6 (status clear)
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code firmware reset
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code fw status clear
     ]
     ROUTINE_sw_write32_0(hex_lists)
 
     # op codes
     OP_CODES = [
         [["OP_CODE_W_CFG_ARRAY_0", "4'h6"], ["OP_CODE_R_CFG_ARRAY_0", "4'h7"]],
-        [["OP_CODE_W_CFG_ARRAY_1", "4'h8"], ["OP_CODE_R_CFG_ARRAY_1", "4'h9"]]
+        [["OP_CODE_W_CFG_ARRAY_1", "4'h8"], ["OP_CODE_R_CFG_ARRAY_1", "4'h9"]],
+        [["OP_CODE_W_CFG_ARRAY_2", "4'hA"], ["OP_CODE_R_CFG_ARRAY_2", "4'hB"]],
     ]
     
     for [write_name, write_code], [read_name, read_code] in OP_CODES:
@@ -262,8 +260,13 @@ def ROUTINE_startup_test_OP_CODE_CFG_ARRAY():
         sw_read32_0_expected = gen_sw_write32_0(hex_lists[0][2:])
         if read_name == "OP_CODE_R_CFG_ARRAY_0":
             sw_read32_1_expected = 96 # 1100000 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L184-L185
-        else:
+        elif read_name == "OP_CODE_R_CFG_ARRAY_1":
             sw_read32_1_expected = 384 # 110000000 from https://github.com/Fermilab-Microelectronics/cms_pix_28_test_firmware/blob/main/src/fw_ip2.sv#L186-L187
+        elif read_name == "OP_CODE_R_CFG_ARRAY_2":
+            sw_read32_1_expected = 1536
+        else:
+            sw_read32_1_expected = -1
+
         sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 12, print_code = "ihb")
 
         # add to PASS
@@ -274,7 +277,7 @@ def ROUTINE_startup_test_OP_CODE_CFG_ARRAY():
 
         # send status clear
         hex_lists = [
-            ["4'h2", "4'hC", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
+            ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code fw status clear
         ]
         ROUTINE_sw_write32_0(hex_lists)
 
@@ -308,42 +311,24 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
 
     # send op code to set up bxclk to 40 MHz
     hex_lists = [
-        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code C (status clear)
-        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h2", "6'h28"], # write op code 2 (write)
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code fw status clear
+        ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h2", "6'h28"], # write op code write
     ]
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ibh")
     
-    # send configurations to the chip from OP_CODE_W_CFG_STATIC_0, OP_CODE_W_CFG_STATIC_1, OP_CODE_W_CFG_ARRAY_0, OP_CODE_W_CFG_ARRAY_1 which are relevant for desired test
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
     nwrites = 96 # updated from 48
-    #hex_lists = []
-    #sw_read32_0_expected_list = []
 
+    # hex lists to write
     hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
-#    hex_lists[95] = ["4'h2", "4'h6", "8'h5f", "16'h8001"]
-#    hex_lists[48] = ["4'h2", "4'h6", "8'h30", "16'hc003"]
     hex_lists[47] = ["4'h2", "4'h6", "8'h2f", "16'he007"]
-    hex_lists[46] = ["4'h2", "4'h6", "8'h2f", "16'hffff"]    
+    hex_lists[46] = ["4'h2", "4'h6", "8'h2e", "16'hffff"]    
     hex_lists[3] = ["4'h2", "4'h6", "8'h3", "16'hffff"]
     hex_lists[2] = ["4'h2", "4'h6", "8'h2", "16'hffff"]
     hex_lists[1] = ["4'h2", "4'h6", "8'h1", "16'hffff"]
     hex_lists[0] = ["4'h2", "4'h6", "8'h0", "16'h8001"]
     sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
-    # for iW in range(0, nwrites, 2):
-
-    #     # create configurations to write. set all 32 bit words to the same
-    #     ls16bits_hex = "16'hff" # least significant 16 bits
-    #     ms16bits_hex = "16'h3" # most significant 16 bits
-    #     hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW)[2:], ls16bits_hex])
-    #     hex_lists.append(["4'h2", "4'h6", "8'h" + hex(iW+1)[2:], ms16bits_hex])
-
-    #     # combine into 32 bit word
-    #     ls16bits_int = int(ls16bits_hex.split("'h")[1], 16)
-    #     ms16bits_int = int(ms16bits_hex.split("'h")[1], 16)
-    #     word32bit = (ms16bits_int << 16) | ls16bits_int
-    #     word32bit = int_to_32bit_hex(word32bit)
-    #     sw_read32_0_expected_list.append(word32bit)
 
     # write and read
     ROUTINE_sw_write32_0(hex_lists)
@@ -354,7 +339,7 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
     hex_lists = [
         [
             "4'h2",  # firmware id
-            "4'hF",  # op code d for execute
+            "4'hF",  # op code for execute
             "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             "6'h00", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
@@ -378,14 +363,14 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
         # send read
         address = "8'h" + hex(iW)[2:]
         hex_lists = [
-            ["4'h2", "4'hC", address, "16'h0"] # op code A for read
+            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
         ]
         ROUTINE_sw_write32_0(hex_lists)
         
         # read back data
         sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        sw_read32_1_expected = int("101000100010",2) # from running op codes 2, 6, d, A. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 12, print_code = "ihb")
+        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
         
         # update
         PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
@@ -401,8 +386,7 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
     fullSequence = "".join(reversed([int_to_32bit(i) for i in words]))
     print(fullSequence)
 
-    print_test_footer(PASS)
-    return PASS
+    return None
 
 #<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_clk_divide():
@@ -464,6 +448,8 @@ def ROUTINE_clk_delay():
 #<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_scanChain_counter():
 
+    # Note we do not yet have a smoke test. verify this on scope as desired.
+
     # hex lists                                                                                                                    
     hex_lists = [
         ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"], # write op code 2 (write)                                       
@@ -473,7 +459,7 @@ def ROUTINE_scanChain_counter():
         ["4'h2", "4'h6", "8'h3", "16'hf"], # write op code 6 (array 0) writing to address 3 (8'hf) value 2 (16'hf)
         ["4'h2", "4'h6", "8'h5", "16'hff"], # write op code 6 (array 0) writing to address 5 (8'hf) value 2 (16'hff)
         # ["4'h2", "4'hd", "7'h0", "1'h1", "4'h1", "6'h3", "6'h8"], # execute with op code d with test number 2 enabled  # Commented out
-        ["4'h2", "4'hd", "1'h0", "6'h00", "1'h0", "4'h1", "6'h04", "6'h08"] # execute with op code d
+        ["4'h2", "4'hF", "1'h0", "6'h00", "1'h0", "4'h1", "6'h04", "6'h08"] # execute with OP_CODE_W_EXECUTE
     ]
 
     ROUTINE_sw_write32_0(hex_lists)
@@ -491,8 +477,8 @@ def ROUTINE_IP1_configclk_divide():
         # get clk_divide value
         clk_divide = "7'h" + hex(divide)[2:] # removes the 0x prefix, ex. 0x28 -> 28
         # create hex list
-        hex_list = [["4'h1", "4'h2", "16'h0", "1'h0", clk_divide],
-                    ["4'h1", "4'h3", "16'h0", "1'h0", clk_divide]]
+        hex_list = [["4'h1", "4'h2", "16'h0", "1'h0", clk_divide], # send a write
+                    ["4'h1", "4'h3", "16'h0", "1'h0", clk_divide]] # send a read
     	# call ROUTINE_sw_write32_0
         ROUTINE_sw_write32_0(hex_list)
         sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
@@ -502,39 +488,42 @@ def ROUTINE_IP1_configclk_divide():
         hex_lists = [
         	[
             	"4'h1",  # firmware id
-            	"4'hd",  # op code d for execute
+            	"4'hF",  # op code execute
             	"1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             	"4'h0", # 3 bits for spare_index_max
             	"1'h1",  # 1 bit for w_execute_cfg_test_loopback
             	"4'h4",  # 3 bits for test number
-           	    "7'h04", # 6 bits test sample
-           	    "7'h12"  # 6 bits for test delay
+                "7'h04", # 6 bits test sample
+                "7'h12"  # 6 bits for test delay
         	]
     	]
         ROUTINE_sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")    
-        time.sleep(10)
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
  
 #<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_IP1_test1():
     
     #FW reset followed with Status reset
-    hex_list = [["4'h1", "4'h1", "16'h0", "1'h0", "7'h64"],
-    ["4'h1", "4'he", "16'h0", "1'h0", "7'h64"]]
+    hex_list = [
+        ["4'h1", "4'h1", "16'h0", "1'h0", "7'h64"], # OP_CODE_W_RST_FW
+        ["4'h1", "4'he", "16'h0", "1'h0", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
+    ]
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
  
 
-    hex_list = [["4'h1", "4'h2", "16'h0", "1'h0", "7'h64"],
-    ["4'h1", "4'h3", "16'h0", "1'h0", "7'h64"]]
+    hex_list = [
+        ["4'h1", "4'h2", "16'h0", "1'h0", "7'h64"], # OP_CODE_W_CFG_STATIC_0
+        ["4'h1", "4'h3", "16'h0", "1'h0", "7'h64"] # OP_CODE_R_CFG_STATIC_0
+    ]
 
-	# call ROUTINE_sw_write32_0
+    # call ROUTINE_sw_write32_0
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
     hex_list = [
         [
             "4'h1",  # firmware id
-            "4'hf",  # op code d for execute
+            "4'hf",  # op code execute
             "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             "4'h0", # 3 bits for spare_index_max
             "1'h1",  # 1 bit for w_execute_cfg_test_loopback
@@ -592,6 +581,8 @@ def ROUTINE_IP1_test1():
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
     time.sleep(1)
+
+
 # IMPORTANT! If you want to be able to run a routine easily from
 # spacely, put its name in the "ROUTINES" list:
 # ROUTINES = [ROUTINE_basicLoopback, ROUTINE_clk_divide] # NOTE. Anthony commented this out on 06/19/24 because it seemed to have no impact.
