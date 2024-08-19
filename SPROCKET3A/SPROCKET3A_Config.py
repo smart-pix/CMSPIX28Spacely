@@ -1,4 +1,5 @@
 
+DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3A/SPROCKET3A_iospec.txt"
 
 INSTR = {"car" : {"type": "Caribou",
                   "host":"192.168.1.24",
@@ -30,6 +31,13 @@ V_LEVEL = {"vdda": 2.5,
            "VDDTX": 1.2,
            "VDD_refgen": 1.2,
            "SFP_3V3_Cldbrd":3.3}
+
+V_WARN_VOLTAGE = {"vdda": [2.4,2.6],
+           "VDD": [1.1,1.3],
+           "VDDRX": [1.1,1.3],
+           "VDDTX": [1.1,1.3],
+           "VDD_refgen":[1.1,1.3],
+                  "SFP_3V3_Cldbrd":[3.1,3.5]}
 
 V_PORT  = {"vdda": None,
            "VDD": None,

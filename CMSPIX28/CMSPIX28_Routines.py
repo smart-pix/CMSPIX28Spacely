@@ -1,17 +1,51 @@
 '''
-Authors: Anthony Badea, Benjamin Parpillon
+Author: Anthony Badea
 Date: June, 2024
 '''
 
 # python
 import time
 
-#spacely
+# spacely
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
-# note that all functions in CMSPIX28_Subroutines.py will automatically be imported by Master_Config.py
+# Function to convert each hex value to a binary string with proper bit width
+def hex_to_bin(hex_str):
+    bit_width, hex_value = hex_str.split("'h") # get the bit length and hex value
+    bit_width = int(bit_width) # convert bit length to an int
+    decimal_value = int(hex_value, 16) # Convert the hexadecimal number to an integer
+    binary_str = bin(decimal_value)[2:].zfill(bit_width) # Convert the hexadecimal number to an integer
+    return binary_str
+
+def gen_sw_write32_0(hex_list):
+    # Convert the list of hex values to a single binary string
+    binary_str = ''.join(hex_to_bin(hex_str) for hex_str in hex_list)
+    # Convert the binary string to an integer
+    resulting_int = int(binary_str, 2)
+    # return
+    # print(binary_str, resulting_int)
+    return resulting_int
+
+def int_to_32bit_hex(number):
+    # Ensure the number is treated as a 32-bit number
+    # by masking with 0xFFFFFFFF
+    hex_number = format(number & 0xFFFFFFFF, '08x')
+    return hex_number
+
+def int_to_32bit(number):
+    return format(number & 0xFFFFFFFF, '032b')
+
+def print_test_header(word, div="*"):
+    print(word)
+    print(div*len(word))
+
+def print_test_footer(PASS):
+    print("****")
+    print("Test result:", "Pass" if PASS else "Fail")
+    print("****")
+    print("\n")
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_sw_write32_0(
@@ -29,6 +63,7 @@ def ROUTINE_sw_write32_0(
         
         # convert hex list to input to set memory
         temp = gen_sw_write32_0(hex_list)
+
         # do write
         sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
 
@@ -40,7 +75,7 @@ def ROUTINE_sw_write32_0(
         print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
 
         # sleep between consecutive writes
-        # time.sleep(0.1)
+        time.sleep(1)
     
     if cleanup:
         print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
@@ -342,21 +377,18 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
             "4'hF",  # op code for execute
             "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             "6'h00", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "1'h1",  # 1 bit for w_execute_cfg_test_loopback
             "4'h1",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
             "6'h04", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            "6'h12"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
     ]
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")    
-
-    # wait enough time to push 768 clk cycles and/or pull the test done bit 
-    time.sleep(1)
-
+    
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    nwords = 48 # 24 words * 32 bits/word = 768 bits 
+    nwords = 24 # 24 words * 32 bits/word = 768 bits
     words = []
     for iW in range(nwords):
 
@@ -377,14 +409,8 @@ def ROUTINE_startup_test_OP_CODE_R_DATA_ARRAY():
 
         # store data
         words.append(sw_read32_0)
-        
-    # print out words
-    print(len(words), words)
-    
 
-    # convert long sequence to string
-    fullSequence = "".join(reversed([int_to_32bit(i) for i in words]))
-    print(fullSequence)
+    print(len(words), words)
 
     return None
 
@@ -463,9 +489,6 @@ def ROUTINE_scanChain_counter():
     ]
 
     ROUTINE_sw_write32_0(hex_lists)
-    
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
-def ROUTINE_IP1_configclk_divide():
 
     # 1st parameter of the hex code (right to left)
     # this number divides the original 400 MHz down for the BxCLK_ana and BxCLK
@@ -581,7 +604,6 @@ def ROUTINE_IP1_test1():
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
     time.sleep(1)
-
 
 # IMPORTANT! If you want to be able to run a routine easily from
 # spacely, put its name in the "ROUTINES" list:

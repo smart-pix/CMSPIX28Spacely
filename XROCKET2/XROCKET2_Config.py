@@ -40,6 +40,7 @@ INSTR = {"SMU_A" : {"type" : "NIDCPower",
                     "slot" : "PXI1Slot7"},
          "PSU_B" : {"type" : "NIDCPower",
                     "slot" : "PXI1Slot8"},
+<<<<<<< Updated upstream
          #"Scope" : {"type" : "Oscilloscope",
          #           "io"   : "VISA",
          #           "resource" : "USB0::0x0957::0x1745::MY48080042::INSTR",
@@ -57,6 +58,18 @@ INSTR = {"SMU_A" : {"type" : "NIDCPower",
 
 
 
+=======
+        #  "Scope" : {"type" : "Oscilloscope",
+        #             "io"   : "VISA",
+        #             "resource" : "USB0::0x0957::0x1745::MY48080042::INSTR",
+        #             "alias": "scope"},
+         "AWG"   : {"type" : "AWG",
+                     "io"   : "VISA",
+                     "resource" : "GPIB1::10::INSTR"
+                    }
+}
+        
+>>>>>>> Stashed changes
 
 # Power distribtion
 # //Note: names here are 1:1 as on the board (including upper/lowercase)
@@ -87,7 +100,6 @@ V_INSTR= {"vdda"      :   "SMU_A",
 #            "Ib2"  : SMU_A}
 #            #"Iterm":   SMU_B} NOTE: There is no Iterm needed for XR2 because all pixels are P1-flavor
            
-
 V_CHAN = {
           #"Iterm":   3,
           "VCC_LT"  : 0,
@@ -100,7 +112,6 @@ V_CHAN = {
           "Vdd12"   : 3
           #"VDDIO_LT":
           }
-
 
 V_LEVEL = {
              "vdda"       :   2.5,
@@ -157,8 +168,11 @@ V_PORT = {"vdda"        : None,
           "VDD_ASIC"    : None,  
           "VDD_LVDS"    : None,
           #"VddA"        : None
+<<<<<<< Updated upstream
+=======
+          "VCC_LT"      : None
+>>>>>>> Stashed changes
          }
-
 
 #Current Channels
 I_SEQUENCE = ["Icomp", "Ife", "Icharge"]
@@ -177,8 +191,13 @@ I_INSTR = {
           "Icharge" :     "SMU_B",
           "Icomp"   :     "SMU_B"
           }
+<<<<<<< Updated upstream
 I_CHAN  = {
           
+=======
+
+I_CHAN  = {      
+>>>>>>> Stashed changes
           "Ife"     :   2,
           "Icharge" :   1,
           "Icomp"   :   0,
@@ -205,4 +224,3 @@ I_PORT  = {
           }
 
 I_VOLT_LIMIT = 2.5
-
