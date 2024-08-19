@@ -1,5 +1,5 @@
 '''
-Author: Anthony Badea
+Author: Anthony Badea, Benjamin Parpillon
 Date: June, 2024
 '''
 
@@ -11,41 +11,7 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
-# Function to convert each hex value to a binary string with proper bit width
-def hex_to_bin(hex_str):
-    bit_width, hex_value = hex_str.split("'h") # get the bit length and hex value
-    bit_width = int(bit_width) # convert bit length to an int
-    decimal_value = int(hex_value, 16) # Convert the hexadecimal number to an integer
-    binary_str = bin(decimal_value)[2:].zfill(bit_width) # Convert the hexadecimal number to an integer
-    return binary_str
-
-def gen_sw_write32_0(hex_list):
-    # Convert the list of hex values to a single binary string
-    binary_str = ''.join(hex_to_bin(hex_str) for hex_str in hex_list)
-    # Convert the binary string to an integer
-    resulting_int = int(binary_str, 2)
-    # return
-    # print(binary_str, resulting_int)
-    return resulting_int
-
-def int_to_32bit_hex(number):
-    # Ensure the number is treated as a 32-bit number
-    # by masking with 0xFFFFFFFF
-    hex_number = format(number & 0xFFFFFFFF, '08x')
-    return hex_number
-
-def int_to_32bit(number):
-    return format(number & 0xFFFFFFFF, '032b')
-
-def print_test_header(word, div="*"):
-    print(word)
-    print(div*len(word))
-
-def print_test_footer(PASS):
-    print("****")
-    print("Test result:", "Pass" if PASS else "Fail")
-    print("****")
-    print("\n")
+# note that all functions in CMSPIX28_Subroutines.py will automatically be imported by Master_Config.py
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_sw_write32_0(
@@ -73,9 +39,6 @@ def ROUTINE_sw_write32_0(
         # verify
         successful = (sw_write32_0 == temp)
         print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
-
-        # sleep between consecutive writes
-        time.sleep(1)
     
     if cleanup:
         print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
@@ -523,7 +486,7 @@ def ROUTINE_scanChain_counter():
         ROUTINE_sw_write32_0(hex_lists)
         sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
  
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_IP1_test1():
     
     #FW reset followed with Status reset
