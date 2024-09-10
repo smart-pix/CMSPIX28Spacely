@@ -459,7 +459,7 @@ def ROUTINE_get_rx_status():
     print(f"frame_aligner                 bitslip_counter  : {bitslip_counter}")
     print(f"frame_aligner                 sta_headerLocked : {sta_headerLocked}")
     print(f"RX Gearbox Ready              sta_gbRdy        : {sta_gbRdy}")
-    print(f"not(RX Gearbox Ready)         datapath_rst     : {datapath_rst}")
+    print(f"not(RX Gearbox Ready)         datapath_rst_s   : {datapath_rst_s}")
     print(f"Rx ready from the transceiver rst_pattsearch   : {rst_pattsearch}")
     print(f"not(sta_headerLocked)         rst_gearbox      : {rst_gearbox}")
     print(f"frame_aligner(one pulse)      sta_headerFlag   : {sta_headerFlag}")
