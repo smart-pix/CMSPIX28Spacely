@@ -260,6 +260,8 @@ def _ROUTINE_config_chain_loopback():
     """Write 29b of data into the scan chain and read it back (slide 18)"""
     pass
 
+def ns_to_cycles(num_ns):
+    return int(num_ns/1.5625) 
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_basic_signals():
@@ -278,12 +280,54 @@ def ROUTINE_basic_signals():
     # spi_write(COMP_FALL_CALC, 50)
 
     #input("CHECK: Is PW of 78.125 ns observed on calc? (Press enter to continue)")
-    
 
-    spi_write_reg("global_counter_period",9600)
-    spi_write_reg("comp_rise_calc",1)
-    spi_write_reg("comp_fall_calc",3200)
+    #Global Counter Period = 15 us
+    spi_write_reg("global_counter_period",ns_to_cycles(15000))
+
+    #(1) Phase Control Signals
+    spi_write_reg("comp_rise_calc",ns_to_cycles(0))
+    time.sleep(0.1)
+    spi_write_reg("comp_fall_calc",ns_to_cycles(500))
+    spi_write_reg("comp_rise_read",ns_to_cycles(0))
+    spi_write_reg("comp_fall_read",ns_to_cycles(1000))
+    spi_write_reg("comp_rise_Rst",ns_to_cycles(1000))
+    spi_write_reg("comp_fall_Rst",ns_to_cycles(5000))
+    spi_write_reg("comp_rise_bufsel",ns_to_cycles(5000))
+    spi_write_reg("comp_fall_bufsel",ns_to_cycles(15000))
+
+    print("CHECK 1 Expected Values")
+    print("calc:   0~500ns")
+    print("read:   0~1us")
+    print("Rst:    1~5us")
+    print("bufsel: 5~15us")
+
+    #At default logic_clk_div settings, APG is driven at 40 MHz
+    # 1000 * 25 ns = 25 us
+    get_glue_wave(1000)
+    
+    input("")
+
+    #(2) Full Readout
     spi_write_reg("FULL_READOUT",1)
+
+    print("CHECK 2 -- is full readout asserted?")
+
+    get_glue_wave(1000)
+
+    input("")
+
+    #(3) Qequal / DACclr Patterns
+
+    spi_write_reg("Qequal_pattern",0b0101010101001100110011)
+    spi_write_reg("DACclr_pattern",0b01010101010011001100110011)
+    
+    spi_write_reg("Qequal_pattern_delay",3)
+    spi_write_reg("DACclr_pattern_delay",4)
+
+    print("CHECK 3 -- Qequal and DACclr patterns?")
+
+    get_glue_wave(1000)
+    input("")
 
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>

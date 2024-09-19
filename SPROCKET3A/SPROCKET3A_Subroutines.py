@@ -746,7 +746,7 @@ def get_glue_wave(n_samples):
         samples.append(sg.INSTR["car"].get_memory("apg_read_channel"))
 
 
-    APG_CLOCK_FREQUENCY = 10e6
+    APG_CLOCK_FREQUENCY = 40e6
     strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
     glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/apg")
