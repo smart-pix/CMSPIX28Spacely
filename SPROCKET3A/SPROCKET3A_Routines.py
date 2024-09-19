@@ -477,6 +477,15 @@ def ROUTINE_get_rx_status():
     uplinkIcData = (rx_status_bin & 0x30) >> 4
     uplinkPhase = (rx_status_bin & 0x1C0) >> 6
     mgt_rx_rdy  = (rx_status_bin & 0x200) >> 9
+    # more debug signals 2024.09.10
+    bitslip_counter  = (rx_status_bin & 0x00FF300) >> 10
+    sta_headerLocked = (rx_status_bin & 0x0100000) >> 20
+    sta_gbRdy        = (rx_status_bin & 0x0200000) >> 21
+    datapath_rst_s   = (rx_status_bin & 0x0400000) >> 22
+    rst_pattsearch   = (rx_status_bin & 0x0800000) >> 23
+    rst_gearbox      = (rx_status_bin & 0x1000000) >> 24
+    sta_headerFlag   = (rx_status_bin & 0x2000000) >> 25
+    uplinkReady      = (rx_status_bin & 0x4000000) >> 26
 
     #print(rx_status_bin)
     #print(rx_status_bin & 0x100)
@@ -490,6 +499,15 @@ def ROUTINE_get_rx_status():
     print(f"Uplink IC Data: {bin(uplinkIcData)}")
     print(f"Uplink Phase:   {uplinkPhase}")
     print(f"Mgt Rx Ready:   {mgt_rx_rdy}")
+    # more debug signals 2024.09.10
+    print(f"frame_aligner                 bitslip_counter  : {bitslip_counter}")
+    print(f"frame_aligner                 sta_headerLocked : {sta_headerLocked}")
+    print(f"RX Gearbox Ready              sta_gbRdy        : {sta_gbRdy}")
+    print(f"not(RX Gearbox Ready)         datapath_rst_s   : {datapath_rst_s}")
+    print(f"Rx ready from the transceiver rst_pattsearch   : {rst_pattsearch}")
+    print(f"not(sta_headerLocked)         rst_gearbox      : {rst_gearbox}")
+    print(f"frame_aligner(one pulse)      sta_headerFlag   : {sta_headerFlag}")
+    print(f"uplink decoder ready          uplinkReady      : {uplinkReady}")
 
 #<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_pulse_uplinkRst():
