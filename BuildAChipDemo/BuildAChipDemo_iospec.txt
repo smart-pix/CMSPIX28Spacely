@@ -1,0 +1,32 @@
+// ExampleASIC iospec
+//
+// When using NI-PXI, the iospec defines which pins on the NI (typically 0~31) are used for which ASIC signals.
+
+
+// All I/O definitions need to be inside a "HARDWARE XYZ BEGIN ... END" block to tell which NI hardware we're talking about.
+
+
+
+HARDWARE Caribou/Caribou/demo1 BEGIN
+
+CLK,I,0
+SDI,I,1
+SDO,O,0
+LE,I,2
+
+END
+
+
+HARDWARE Caribou/Caribou/demo2 BEGIN
+
+RESET,I,0
+CP1,I,2
+CP2,I,3
+
+R0,O,0
+R1,O,1
+R2,O,2
+R3,O,3
+
+
+END
