@@ -182,7 +182,7 @@ TX_REG_MAP = {
 
 TX_REG_DEFAULTS = {
     "txDataRate" : 1,   #10.24 GB/s 
-    "fecMode"    : 1,
+    "fecMode"    : 0,   #FEC5
     "txRxMode"   : 3,
     "txEnable"   : 1,
     "rxEnable"   : 0, #There's no receiver.
@@ -192,9 +192,9 @@ TX_REG_DEFAULTS = {
     "rxLockMode" : 0,
     "frameAlignerReady": 0,
     "pllCdrMode" : 0,  #Use PLL
-    "fecBypass"  : 1, #Bypass everything complicated by default.
-    "interleaverBypass" : 1,
-    "scramblerBypass" : 1,
+    "fecBypass"  : 0, #Enable SIF mode by default.
+    "interleaverBypass" : 0,
+    "scramblerBypass" : 0,
     "skipCycle" :0,
     "txEC" : 3,
     "txIC" : 3,
@@ -245,7 +245,7 @@ TX_REG_DEFAULTS = {
     "CLKGwaitCDRTime": 8,
     "CLKGwaitPLLTime": 8,
     "CLKGVcoRailMode": 1, #current mode, select w/ CLKGVcoDAC
-    "CLKGLockFilterEnable": 1,
+    "CLKGLockFilterEnable": 0, #MODIFIED! Disabling the lf allows us to lock immediately.
     "CLKGCDRRes": 1, #Enable filter resistor
     "CLKGCOoverrideVc": 0,
     "CLKGCapBankOverrideEnable": 0, #Overrides cap search during VCO cal
