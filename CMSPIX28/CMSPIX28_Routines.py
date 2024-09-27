@@ -11,6 +11,7 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
+superpixel = 0
 # note that all functions in CMSPIX28_Subroutines.py will automatically be imported by Master_Config.py
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
@@ -486,9 +487,12 @@ def ROUTINE_scanChain_counter():
         ROUTINE_sw_write32_0(hex_lists)
         sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
  
+
 #<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_IP1_test1():
     
+    #general_function(superpixel=sup)
+    print(superpixel)
     #FW reset followed with Status reset
     ROUTINE_startup_test_OP_CODE_RST_FW()
 
@@ -553,7 +557,8 @@ def ROUTINE_IP1_test1():
 
     hex_list[104] = ["4'h1", "4'hA", "8'h68", "16'hFFFF"]
 
-    hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'hF00F"]
+    hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'hF00F"]  # FIRST PIXELS
+    hex_list[129] = ["4'h1", "4'hA", "8'h81", "16'hFFFF"]  # LAST PIXELS
 
     hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'hFFFF"]
     hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h00FF"]   
@@ -640,5 +645,37 @@ def ROUTINE_scanChain_readout():
     ]
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+   
+    # boolean to store overall test pass or fail
+    PASS = True
+
+    # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+    # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+    nwords = 25 # 24 words * 32 bits/word = 768 bits - I added one in case
+    words = []
+    for iW in range(nwords):
+
+        # send read
+        address = "8'h" + hex(iW)[2:]
+        hex_lists = [
+            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # read back data
+        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        
+        # update
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # store data
+        words.append(int_to_32bit(sw_read32_0))
+
+    print(len(words), words)
+
+
+    return None
 
 
