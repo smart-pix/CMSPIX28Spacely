@@ -6,6 +6,8 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
+import itertools
+
 
 def onstartup():
 
@@ -50,12 +52,7 @@ def onstartup():
             sg.INSTR["car"].set_input_cmos_level(1.2)
             sg.INSTR["car"].set_output_cmos_level(1.2)
 
-        #Config Si5345
-        print(">  Configuring SI5345 w/ config option 2",end='')
-        if not assume_defaults:
-            config_si5345 = input("('n' to skip)")
-        if assume_defaults or not 'n' in config_si5345:
-            sg.INSTR["car"].configureSI5345(2)
+        
 
 
     init_asic = input("Step 3: Initializing ASIC ('n' to skip)>>>")
@@ -63,14 +60,33 @@ def onstartup():
     if 'n' in init_asic:
         print("Skipped!")
     else:
+
+        #Config Si5345
+        print(">  Configuring SI5345 w/ config option 1 (disable refclk)")
+        #if not assume_defaults:
+        #    config_si5345 = input("('n' to skip)")
+        #if assume_defaults or not 'n' in config_si5345:
+        sg.INSTR["car"].configureSI5345(1)
+        #input("?")
+        
         assert_reset()
+        #input("?")
         time.sleep(0.1)
         deassert_reset()
+        #input("?")
         print(">  Pulsed digital Reset")
         
         spi_write_tx_config(TX_REG_DEFAULTS)
+        #input("?")
         print(">  Wrote default transmitter configuration")
 
+      
+        print(">  Configuring SI5345 w/ config option 2 (enable refclk)")
+        #if not assume_defaults:
+        #    config_si5345 = input("('n' to skip)")
+        #if assume_defaults or not 'n' in config_si5345:
+        sg.INSTR["car"].configureSI5345(2)
+        #input("?")
         
     print("Step 4: Uplink Reset")
     sg.INSTR["car"].set_memory("uplinkRst",1)
@@ -318,8 +334,15 @@ def ROUTINE_basic_signals():
 
     #(3) Qequal / DACclr Patterns
 
-    spi_write_reg("Qequal_pattern",0b0101010101001100110011)
-    spi_write_reg("DACclr_pattern",0b01010101010011001100110011)
+    test_pattern = 0
+    for i in range(5):
+        test_pattern = (test_pattern << 20) + 0b11001100110011001100
+
+    spi_write_reg("Qequal_pattern",test_pattern)
+    spi_write_reg("DACclr_pattern",test_pattern)
+        
+    #spi_write_reg("Qequal_pattern",0b0101010101001100110011)
+    #spi_write_reg("DACclr_pattern",0b01010101010011001100110011)
     
     spi_write_reg("Qequal_pattern_delay",3)
     spi_write_reg("DACclr_pattern_delay",4)
@@ -478,7 +501,7 @@ def ROUTINE_get_rx_status():
     uplinkPhase = (rx_status_bin & 0x1C0) >> 6
     mgt_rx_rdy  = (rx_status_bin & 0x200) >> 9
     # more debug signals 2024.09.10
-    bitslip_counter  = (rx_status_bin & 0x00FF300) >> 10
+    bitslip_counter  = (rx_status_bin & 0x00FFC00) >> 10
     sta_headerLocked = (rx_status_bin & 0x0100000) >> 20
     sta_gbRdy        = (rx_status_bin & 0x0200000) >> 21
     datapath_rst_s   = (rx_status_bin & 0x0400000) >> 22
@@ -605,3 +628,179 @@ def ROUTINE_posedge_count():
         
 
 
+#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
+def ROUTINE_dataframe_read():
+    """Reads current value of err counter + 1 sample from data FIFO"""
+
+
+    lpgbt_rd_en = sg.INSTR["car"].get_memory("lpgbt_rd_en")
+
+    if lpgbt_rd_en == 0:
+        sg.log.warning("lpgbt_rd_en was not previously set; setting now...")
+        sg.INSTR["car"].set_memory("lpgbt_rd_en",1)
+        time.sleep(1)
+
+    try:
+        while True:
+            input("Press enter to take sample>")
+
+            # (1) Read lpgbt data frame
+            dataframe = 0
+
+            for i in range(8):
+                dataframe_reg = sg.INSTR["car"].get_memory(f"data_frame[{i}]")
+                sg.log.debug(f"Frame reg[{i}] = {dataframe_reg}")
+                dataframe = dataframe + (dataframe_reg << (32*i))
+
+            #Print Dataframe, padded to 234b (+ "0b")
+            print(f"Dataframe: {dataframe:#0236b}")
+                
+
+            # (2) Read Err Count
+            err_count = sg.INSTR["car"].get_memory("err_counter")
+            print(f"Error Count: {err_count}")
+
+    except KeyboardInterrupt:
+        print("Finished")
+
+    
+#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
+def _ROUTINE_stochastic_transmitter_analysis():
+
+    m = monkey_state()
+
+    EXPERIMENT = 2
+
+    saved_paths = []
+
+    if EXPERIMENT == 1:
+
+        possible_paths = list(itertools.permutations([6,2,4,5,6]))
+
+        try:
+            for path in possible_paths:
+                m.monkey_path(path)
+                good = input("good?")
+                
+                if "y" in good:
+                    saved_paths.append(path)
+            
+                m.monkey_path((2,4,5))
+
+        except KeyboardInterrupt:
+            print("interrupted!")
+
+        print(saved_paths)
+        return
+
+    elif EXPERIMENT == 2:
+
+        possible_paths = list(itertools.permutations([6,2,4,5,6]))
+        paths_tried = 0
+        paths_successful = 0
+
+        try:
+            for path in possible_paths:
+                m.monkey_path([1])
+                m.monkey_path(path)
+            
+                success = m.check_fpga()
+                if success > 0:
+                    print("SUCCESS!")
+                    paths_successful = paths_successful + 1
+                    saved_paths.append(path)
+
+                paths_tried = paths_tried + 1
+
+        except KeyboardInterrupt:
+            print("interrupted!")
+
+        print(f"Tried {paths_tried} paths of which {paths_successful} succeeded:")
+        print(saved_paths)
+        return
+            
+
+    
+    m.monkey_path((1,6,2,4,5,6))
+
+    input("?")
+
+    m.monkey_path((1,5,2,4,6,6))
+
+    input("?")
+
+
+
+class monkey_state():
+
+    def __init__(self):
+        self.txDataRate = 1
+        self.scramblerBypass = 1
+        self.interleaverBypass = 1
+        self.fecBypass = 1
+        self.fecMode = 1
+    
+    def do_action(self, a):
+
+        if a == 1:
+            assert_reset()
+            time.sleep(0.1)
+            deassert_reset()
+
+            spi_write_tx_config(TX_REG_DEFAULTS)
+
+            self.txDataRate = 1
+            self.scramblerBypass = 1
+            self.interleaverBypass = 1
+            self.fecBypass = 1
+            self.fecMode = 1
+    
+
+        elif a == 2:
+            self.scramblerBypass = 1-self.scramblerBypass
+            spi_update_tx_reg("scramblerBypass",self.scramblerBypass)
+            
+        elif a == 3:
+            self.interleaverBypass = 1-self.interleaverBypass
+            spi_update_tx_reg("interleaverBypass",self.interleaverBypass)
+        
+        elif a == 4:
+            self.fecBypass = 1-self.fecBypass
+            spi_update_tx_reg("fecBypass",self.fecBypass)
+            
+        elif a == 5:
+            self.fecMode = 1-self.fecMode
+            spi_update_tx_reg("fecMode",self.fecMode)
+
+        elif a == 6:
+            self.txDataRate = 1-self.txDataRate
+            sg.log.debug(f"{a} - txDataRate to {self.txDataRate}")
+            spi_update_tx_reg("txDataRate",self.txDataRate)
+
+
+    def monkey_path(self, path_actions):
+        print(path_actions)
+        for action in path_actions:
+            self.do_action(action)
+
+
+    def check_fpga(self):
+
+        time.sleep(3)
+        
+        sg.INSTR["car"].set_memory("uplinkRst",1)
+
+        time.sleep(0.1)
+
+        sg.INSTR["car"].set_memory("uplinkRst",0)
+        print(">  Reset FPGA state machine")
+
+        time.sleep(3)
+        
+        rx_status_bin = sg.INSTR["car"].get_memory("lpgbtfpga_status")
+         
+        uplinkrdy = rx_status_bin & 0x1
+         
+        print(f"UPLINKRDY: {uplinkrdy}")
+        
+        return uplinkrdy
