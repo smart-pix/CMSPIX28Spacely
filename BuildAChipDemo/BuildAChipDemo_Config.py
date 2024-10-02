@@ -1,19 +1,11 @@
-# ExampleASIC Config File
+# BuildAChipDemo Config File
 #
 # This file contains all the static configuration info that describes how
 # your ASIC test stand is set up, for example power supply voltages.
 
 
-# When using the NI-PXI system, we define a bitfile to use in the Config file.
-# This dict gives a default FPGA bitfile for each slot that you are using.
-# "NI7972_NI6583_40MHz" is a bitfile that has been generated for the NI7972
-# FPGA running at a clock speed of 40 MHz with the I/O card NI6583.
-# If you need to generate a new bitfile, contact aquinn@fnal.gov
-DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot4":"NI7972_NI6583_40MHz"}
-
-
 # We almost always want to default to the iospec present in the same directory.
-DEFAULT_IOSPEC = ".\\spacely-asic-config\\ExampleASIC\\ExampleASIC_iospec.txt"
+DEFAULT_IOSPEC = ".\\spacely-asic-config\\BuildAChipDemo\\BuildAChipDemo_ChipB_iospec.txt"
 
 
 # # # # # # # # # # # # # # # # # # # 

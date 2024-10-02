@@ -7,21 +7,12 @@
 
 
 
-HARDWARE Caribou/Caribou/demo1 BEGIN
 
-CLK,I,0
-SDI,I,1
-SDO,O,0
-LE,I,2
-
-END
-
-
-HARDWARE Caribou/Caribou/demo2 BEGIN
+HARDWARE Caribou/Caribou/apg BEGIN
 
 RESET,I,0
-CP1,I,2
-CP2,I,3
+CP1,I,1
+CP2,I,2
 
 R0,O,0
 R1,O,1
