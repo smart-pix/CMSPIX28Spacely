@@ -5,6 +5,7 @@ Date: June, 2024
 
 # python
 import time
+import tqdm
 
 # spacely
 from Master_Config import *
@@ -17,12 +18,14 @@ superpixel = 0
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
-        cleanup = False
+        cleanup = False,
+        doPrint = True
 ):
 
     # check register initial value and store it
     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    print(f"Starting register value sw_write32_0 = {sw_write32_0}")
+    if doPrint: 
+        print(f"Starting register value sw_write32_0 = {sw_write32_0}")
     sw_write32_0_init = sw_write32_0
 
     # loop over the write values
@@ -39,7 +42,8 @@ def ROUTINE_sw_write32_0(
 
         # verify
         successful = (sw_write32_0 == temp)
-        print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
+        if doPrint:
+            print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
     
     if cleanup:
         print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
@@ -622,12 +626,12 @@ def ROUTINE_scanChain_readout():
     nwrites = 96 # updated from 48
 
     # hex lists to write - FORCE ALL NONE USED BIT TO 1
-    hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
-    sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
+    #hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
+    #sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
 
     # call ROUTINE_sw_write32_0
-    ROUTINE_sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    #ROUTINE_sw_write32_0(hex_lists)
+    #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
     # send an execute for test 1 and loopback enabled
     # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
@@ -663,21 +667,165 @@ def ROUTINE_scanChain_readout():
         ROUTINE_sw_write32_0(hex_lists)
         
         # read back data
-        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(print_code = "ihb")
         
         # update
-        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+        # PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
 
         # store data
         words.append(int_to_32bit(sw_read32_0))
 
-    print(len(words), words)
+    s = ''.join(words)
+    #s = split_bits_to_numpy(s[22:-10],3)
+    
+    print(len(words), s)
 
 
     return None
 
+
+
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+def ROUTINE_scanChain_CDF():
+
+    # Note we do not yet have a smoke test. verify this on scope as desired.
+
+    # hex lists                                                                                                                    
+    hex_lists = [
+        ["4'h2", "4'h2", "4'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+          
+         # BxCLK is set to 10MHz : "6'h28"
+         # BxCLK starts with a delay: "5'h4"
+         # BxCLK starts LOW: "1'h0"
+         # Superpixel 0 is selected: "1'h0"
+         # scan load delay is set : "6'h0A"                 
+         # scan_load delay is disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+         # SPARE bits:  "4'h0"
+         # Register Static 0 is programmed : "4'h2"
+         # IP 2 is selected: "4'h2"
+
+  
+
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists,doPrint=False)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32()
+    
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    nwrites = 96 # updated from 48
+
+    # hex lists to write - FORCE ALL NONE USED BIT TO 1
+    VHLEV = 0.1
+
+    #voltage step increment in the ASIC
+    #The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+    #each voltage step is then set with 2.vstep
+    #1mV equals 25e- (TBD!!!!!)
+    #vstep_asic = 0.001
+    #vstep_asic = 0.01
+
+    S = 40e-6           #Charge Sensitivity in V/e-
+    #npulse_step = 450    #number of charge settings 
+    #npulse_step = 20
+
+    # define range of asic voltages
+    v_min = 0.03
+    v_max = 0.2
+    v_step = 0.01
+    n_step = 10 # int((v_max - v_min)/v_step)+1
+    vasic_steps = np.linspace(v_min, v_max, n_step)
+
+    # number of samples to run for each charge setting
+    nsample = 100        #number of sample for each charge settings
+
+    # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
+    for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+        v_asic = round(i, 3)
+        if v_asic>0.9:
+            v_asic = 0 
+            return 
+        BK4600HLEV_SWEEP(v_asic*2)
+
+
+        save_data = []
+        
+        for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
+            #start = time.time()
+            #hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
+            #sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
+
+            # call ROUTINE_sw_write32_0
+            #ROUTINE_sw_write32_0(hex_lists,doPrint=False)
+            #print(f"time to do the for first part of the loop is {time.time()-start} second")
+            #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+  
+            # send an execute for test 1 and loopback enabled
+            # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
+            hex_lists = [
+                [
+                    "4'h2",  # firmware id
+                    "4'hF",  # op code for execute
+                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                    "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+                    "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                    "6'h04", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                ]
+            ]
+            
+            ROUTINE_sw_write32_0(hex_lists, doPrint=False)
+            
+            #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+        
+            # boolean to store overall test pass or fail
+            #PASS = True
+
+            # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+            # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+            
+
+            nwords = 25 # 24 words * 32 bits/word = 768 bits - I added one in case
+            words = []
+
+            start = time.time()
+            for iW in range(nwords):
+
+                # send read
+                address = "8'h" + hex(iW)[2:]
+                hex_lists = [
+                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                ]
+                ROUTINE_sw_write32_0(hex_lists,doPrint=False)
+                
+                # read back data
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32()
+     
+
+                # store data
+                words.append(int_to_32bit(sw_read32_0))
+
+            
+            
+            s = ''.join(words)[22:-10]
+            s = split_bits_to_numpy(s, 3)
+            save_data.append(s)
+
+        # save the data to a file
+
+        save_data = np.stack(save_data, 0)
+
+        np.savez(f"data_{v_asic:.3f}.npz", **{"data": save_data})
+
+
+    return None
+
+
+#def ROUTINE_BK4600_INIT():
+   #  BK4600
 
 #def ROUTINE_BK4600_INIT():
    #  BK4600
