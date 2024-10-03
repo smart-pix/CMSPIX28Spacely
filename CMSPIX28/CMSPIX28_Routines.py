@@ -555,13 +555,13 @@ def ROUTINE_IP1_test1():
    # write on array2
     hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
 
-    hex_list[104] = ["4'h1", "4'hA", "8'h68", "16'hFFFF"]
+ #   hex_list[104] = ["4'h1", "4'hA", "8'h68", "16'hFFFF"]
 
     hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'hF00F"]  # FIRST PIXELS
     hex_list[129] = ["4'h1", "4'hA", "8'h81", "16'hFFFF"]  # LAST PIXELS
 
-    hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'hFFFF"]
-    hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h00FF"]   
+  #  hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'hFFFF"]
+  #  hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h00FF"]   
     array2 = hex_list
 
     hex_list =  array2+array1+array0   
@@ -679,3 +679,5 @@ def ROUTINE_scanChain_readout():
     return None
 
 
+#def ROUTINE_BK4600_INIT():
+   #  BK4600
