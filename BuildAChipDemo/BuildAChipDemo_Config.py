@@ -19,7 +19,7 @@ DEFAULT_IOSPEC = ".\\spacely-asic-config\\BuildAChipDemo\\BuildAChipDemo_ChipB_i
 # (sg = Spacely Globals)
 
 INSTR = {"car" : {"type": "Caribou",
-                  "host":"192.168.1.24",
+                  "host":"192.168.1.24", #"EMULATE"
                   "port":12345,
                   "device":"SpacelyCaribouBasic"}
         }

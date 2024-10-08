@@ -7,11 +7,16 @@
 
 
 
-HARDWARE Caribou/Caribou/apg BEGIN
+HARDWARE Caribou/apg/write BEGIN
 
 CLK,I,0
 SDI,I,1
-SDO,O,0
 LE,I,2
+
+END
+
+HARDWARE Caribou/apg/read BEGIN
+
+SDO,O,0
 
 END
