@@ -6,6 +6,7 @@ Date: June, 2024
 # python
 import time
 import tqdm
+from datetime import datetime
 
 # spacely
 from Master_Config import *
@@ -541,7 +542,7 @@ def ROUTINE_IP1_test1():
 
      # write on array0    
     hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
-   #hex_list[255] = ["4'h1", "4'h6", "8'hFF", "16'hFF0F"]
+    #hex_list[255] = ["4'h1", "4'h6", "8'hFF", "16'hFF0F"]
     #hex_list[2] = ["4'h1", "4'h6", "8'h02", "16'h0F0F"] 
     #hex_list[1] = ["4'h1", "4'h6", "8'h01", "16'hF0F0"]       
     hex_list[0] = ["4'h1", "4'h6", "8'h00", "16'hFF00"]
@@ -556,16 +557,14 @@ def ROUTINE_IP1_test1():
     #hex_list[0] = ["4'h1", "4'h8", "8'h00", "16'hFF00"]
     array1 = hex_list
 
-   # write on array2
-    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
+    # write on array2
+    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0202"] for i in range(256)]
 
- #   hex_list[104] = ["4'h1", "4'hA", "8'h68", "16'hFFFF"]
-
-    hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'hF00F"]  # FIRST PIXELS
-    hex_list[129] = ["4'h1", "4'hA", "8'h81", "16'hFFFF"]  # LAST PIXELS
-
-  #  hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'hFFFF"]
-  #  hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h00FF"]   
+    # testing programming 4 pixels
+    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0202"] 
+    #hex_list[129] = ["4'h1", "4'hA", "8'h81", "16'h0002"]
+    #hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'h0020"]
+    #hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h2000"]   
     array2 = hex_list
 
     hex_list =  array2+array1+array0   
@@ -626,12 +625,12 @@ def ROUTINE_scanChain_readout():
     nwrites = 96 # updated from 48
 
     # hex lists to write - FORCE ALL NONE USED BIT TO 1
-    #hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
-    #sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
+    hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
+    sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
 
     # call ROUTINE_sw_write32_0
-    #ROUTINE_sw_write32_0(hex_lists)
-    #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
     # send an execute for test 1 and loopback enabled
     # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
@@ -643,7 +642,7 @@ def ROUTINE_scanChain_readout():
             "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            "6'h04", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h01", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
             "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
     ]
@@ -655,7 +654,7 @@ def ROUTINE_scanChain_readout():
 
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    nwords = 25 # 24 words * 32 bits/word = 768 bits - I added one in case
+    nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
     words = []
     for iW in range(nwords):
 
@@ -667,21 +666,22 @@ def ROUTINE_scanChain_readout():
         ROUTINE_sw_write32_0(hex_lists)
         
         # read back data
-        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
         sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(print_code = "ihb")
         
         # update
-        # PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
 
         # store data
-        words.append(int_to_32bit(sw_read32_0))
-
+        words.append(int_to_32bit(sw_read32_0)[::-1])
+    
     s = ''.join(words)
     #s = split_bits_to_numpy(s[22:-10],3)
     
     print(len(words), s)
+    print(s.find("1"))
 
 
     return None
@@ -732,14 +732,19 @@ def ROUTINE_scanChain_CDF():
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = 0.03
-    v_max = 0.2
-    v_step = 0.01
-    n_step = 10 # int((v_max - v_min)/v_step)+1
+    v_min = 0.001
+    v_max = 0.1
+    v_step = 0.001
+    n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 100        #number of sample for each charge settings
+    nsample = 500       #number of sample for each charge settings
+
+    outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
+    outDir = os.path.join("data", outDir)
+    print(f"Saving results to {outDir}")
+    os.makedirs(outDir, exist_ok=True)
 
     # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
@@ -772,7 +777,7 @@ def ROUTINE_scanChain_CDF():
                     "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                     "1'h0",  # 1 bit for w_execute_cfg_test_loopback
                     "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    "6'h04", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
                     "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
             ]
@@ -788,7 +793,7 @@ def ROUTINE_scanChain_CDF():
             # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
             
 
-            nwords = 25 # 24 words * 32 bits/word = 768 bits - I added one in case
+            nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
             words = []
 
             start = time.time()
@@ -806,19 +811,19 @@ def ROUTINE_scanChain_CDF():
      
 
                 # store data
-                words.append(int_to_32bit(sw_read32_0))
+                words.append(int_to_32bit(sw_read32_0)[::-1])
 
             
             
-            s = ''.join(words)[22:-10]
-            s = split_bits_to_numpy(s, 3)
+            #s = ''.join(words)[21:-11]
+            #s = split_bits_to_numpy(s, 3)
+            s = [int(i) for i in "".join(words)]
             save_data.append(s)
 
         # save the data to a file
-
         save_data = np.stack(save_data, 0)
-
-        np.savez(f"data_{v_asic:.3f}.npz", **{"data": save_data})
+        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
+        np.savez(outFileName, **{"data": save_data})
 
 
     return None
