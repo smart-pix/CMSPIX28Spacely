@@ -1,6 +1,6 @@
 
 
-HARDWARE Caribou/Caribou/apg BEGIN
+HARDWARE Caribou/apg/read BEGIN
 
 //ASIC Outputs
 capClk,O,0
@@ -16,18 +16,25 @@ Bufsel,O,9
 Read,O,10
 Rst,O,11
 
+END
+
+HARDWARE Caribou/apg/write BEGIN
+
 //ASIC Inputs
 array_serial_0,I,0
 done,I,1
 ILA_loopback,I,2
 
-
 END
 
-HARDWARE Caribou/Caribou/spi_apg BEGIN
+HARDWARE Caribou/spi_apg/read BEGIN
 
 //ASIC Outputs
 poci,O,0
+
+END
+
+HARDWARE Caribou/spi_apg/write BEGIN
 
 //ASIC Inputs
 pico,I,0

@@ -290,16 +290,19 @@ def spi_update_tx_reg(reg_name, field_val):
     offset_end = end_bit - 8*byte
 
     old_val = spi_read_tx_reg(byte)
-    sg.log.debug(f"Updating Byte {byte}...")
-    sg.log.debug(f"Old Value: {bin(old_val)}")
+    if DEBUG_SPI:
+        sg.log.debug(f"Updating Byte {byte}...")
+        sg.log.debug(f"Old Value: {bin(old_val)}")
 
     for i in range(offset, offset_end+1):
         old_val = old_val & (~(1 << i))
-        print(old_val)
+        if DEBUG_SPI:
+            print(old_val)
 
     old_val = old_val | (field_val << offset)
 
-    sg.log.debug(f"New Value: {bin(old_val)}")
+    if DEBUG_SPI:
+        sg.log.debug(f"New Value: {bin(old_val)}")
     spi_write_tx_reg(byte, old_val)
     
 
@@ -362,8 +365,8 @@ def spi_write_tx_config(reg_values):
             waves_combined["cs_b"] = waves_combined["cs_b"] + waves["cs_b"]
             waves_combined["pico"] = waves_combined["pico"] + waves["pico"]
 
-        glue_wave_obj = genpattern_from_waves_dict_fast(waves, "spi_apg")
-        run_pattern_caribou(glue_wave_obj, "spi_apg")
+        glue_wave_obj = sg.gc.dict2Glue(waves) #genpattern_from_waves_dict_fast(waves, "spi_apg")
+        sg.pr.run_pattern(glue_wave_obj) #run_pattern_caribou(glue_wave_obj, "spi_apg")
         
         
         print("...",end='')
@@ -461,26 +464,7 @@ def spi_cmd(opcode_grp, address, length, WnR, data=0):
 
 
 
-# Directly convert a waves dict to a Glue Wave, without going through
-# the step of writing ASCII files.
-def genpattern_from_waves_dict_fast(waves_dict, apg_name):
 
-    max_pattern_len = max([len(x) for x in waves_dict.values()])
-    
-    vector = [0 for _ in range(max_pattern_len)]
-
-    for key in waves_dict.keys():
-        io_pos = sg.gc.IO_pos[key]
-
-        vector = [vector[i] | (waves_dict[key][i] << io_pos) for i in range(min(len(vector),len(waves_dict[key])))]
-
-    if DEBUG_SPI:
-        sg.log.debug(f"Vector: {vector}")
-
-    APG_CLOCK_FREQUENCY = 10e6
-    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
-        
-    return GlueWave(vector,strobe_ps,f"Caribou/Caribou/{apg_name}")
 
 
 #Generate a dict-format wave for an individual SPI command, and just return that dict.
@@ -564,9 +548,9 @@ def spi_cmd_apg(opcode_grp, address, length, WnR, data=0):
     waves["pico"] = waves["pico"] + [0 for _ in range(pre_pattern_len)]
 
     
-    glue_wave_obj = genpattern_from_waves_dict_fast(waves, "spi_apg")
+    glue_wave_obj = sg.gc.dict2Glue(waves) #genpattern_from_waves_dict_fast(waves, "spi_apg")
 
-    result = sg.gc.read_glue(run_pattern_caribou(glue_wave_obj, "spi_apg"))
+    result = sg.pr.run_pattern(glue_wave_obj, return_mode=1) #run_pattern_caribou(glue_wave_obj, "spi_apg"))
 
 
     poci_data = sg.gc.get_bitstream(result, "poci")
@@ -671,85 +655,51 @@ def apg_wait_for_idle(apg_name):
 
         time.sleep(0.1)
 
-#Caribou version of sg.pr.run_pattern()
-# Right now, apg_name = "apg" or "spi_apg"
-def run_pattern_caribou(glue_wave,apg_name):
-
-    ## (0) Wait for idle, then clear the write buffer.
-    apg_wait_for_idle(apg_name)
-    sg.INSTR["car"].set_memory(f"{apg_name}_clear",1)
-    
-    #Parse glue file names OR python objects
-    if type(glue_wave) == str:
-        glue_wave = sg.gc.read_glue(glue_wave)
-
-
-    ## (1) SET NUMBER OF SAMPLES
-    N = glue_wave.len
-
-    sg.INSTR["car"].set_memory(f"{apg_name}_n_samples", N)
-
-    ## (2) WRITE PATTERN TO APG
-    for n in range(N):
-        sg.INSTR["car"].set_memory(f"{apg_name}_write_channel",glue_wave.vector[n])
-
-
-    ## (3) RUN AND WAIT FOR IDLE
-    sg.INSTR["car"].set_memory(f"{apg_name}_run", 1)
-
-    time.sleep(0.1)
-    apg_wait_for_idle(apg_name)
-
-    ## (4) READ BACK SAMPLES
-    samples = []
-
-    for n in range(N):
-        #dbg_error_val = sg.INSTR["car"].get_memory("spi_apg_next_read_sample")
-        #sg.log.debug(f"nrs: {dbg_error_val}")
-        samples.append(sg.INSTR["car"].get_memory(f"{apg_name}_read_channel"))
-
-
-    APG_CLOCK_FREQUENCY = 10e6
-    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
-        
-    glue = GlueWave(samples,strobe_ps,f"Caribou/Caribou/{apg_name}")
-
-    sg.gc.write_glue(glue,"apg_samples.glue")
-
-    return "apg_samples.glue"
 
 
 
-#This function gets a set of samples from the FW Arbitrary_Pattern_Generator() and saves them as a GlueWave.
+
 def get_glue_wave(n_samples):
+    """Take N samples from Caribou/apg and save them as a Glue Wave + plot them."""
+    
+    # First generate a dummy glue wave which has a length of n_samples and sets the 
+    # outputs to default values on every cycle... so it's like we're not touching them at all.
+    write_default_vector = sg.INSTR["car"].get_memory("apg_write_defaults")
+    dummy_glue_wave = GlueWave([write_default_vector]*n_samples,0,"Caribou/apg/write")
+    
+    # Run this glue wave (which will also save it to file) and plot the results.
+    result_wave = sg.pr.run_pattern(dummy_glue_wave)
+    sg.log.info(f"{n_samples}-sample Glue Wave saved as {result_wave}!")
+    sg.gc.plot_glue(result_wave)
+    
 
-    #Set the # of samples to collect and run the Arbitrary Pattern Gen
-    sg.INSTR["car"].set_memory("apg_n_samples",n_samples)
-    sg.INSTR["car"].set_memory("apg_run",1)
+    # #Set the # of samples to collect and run the Arbitrary Pattern Gen
+    # sg.INSTR["car"].set_memory("apg_n_samples",n_samples)
+    # sg.INSTR["car"].set_memory("apg_run",1)
 
-    #Wait for the APG to finish running.
-    while True:
-        status = sg.INSTR["car"].get_memory("apg_status")
-        if status == 0:
-            break
-        else:
-            sg.log.debug(f"APG Status: {status}")
-            time.sleep(0.5)
+    # #Wait for the APG to finish running.
+    # while True:
+        # status = sg.INSTR["car"].get_memory("apg_status")
+        # if status == 0:
+            # break
+        # else:
+            # sg.log.debug(f"APG Status: {status}")
+            # time.sleep(0.5)
 
 
-    #Read back all the samples
-    samples = []
+    # #Read back all the samples
+    # samples = []
 
-    for n in range(n_samples):
+    # for n in range(n_samples):
         
         
-        samples.append(sg.INSTR["car"].get_memory("apg_read_channel"))
+        # samples.append(sg.INSTR["car"].get_memory("apg_read_channel"))
 
 
-    APG_CLOCK_FREQUENCY = 40e6
-    strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
+    # APG_CLOCK_FREQUENCY = 40e6
+    # strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
         
-    glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/apg")
+    # glue = GlueWave(samples,strobe_ps,"Caribou/Caribou/apg")
 
-    sg.gc.write_glue(glue,"apg_samples.glue")
-    sg.gc.plot_glue(glue)
+    # sg.gc.write_glue(glue,"apg_samples.glue")
+    # sg.gc.plot_glue(glue)
