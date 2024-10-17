@@ -58,12 +58,16 @@ def ROUTINE_sw_read32(
         sw_read32_1_expected = None,
         sw_read32_1_nbitsToCheck = 32, # number of bits to check. for some cases it is better to leave out the testX_o_status_done bits
         print_code = "",
+        do_sw_read32_1 = True
 ):
     
     # read value of register
+ #   start =time.time()
     sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
-    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
-        
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else None
+
+ #   read_time = time.time() - start
+ #   print(f"readtime={read_time}")
     # store pass/fail
     sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
     sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
@@ -541,16 +545,16 @@ def ROUTINE_IP1_test1():
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
      # write on array0    
-    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
+    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
     #hex_list[255] = ["4'h1", "4'h6", "8'hFF", "16'hFF0F"]
     #hex_list[2] = ["4'h1", "4'h6", "8'h02", "16'h0F0F"] 
     #hex_list[1] = ["4'h1", "4'h6", "8'h01", "16'hF0F0"]       
-    hex_list[0] = ["4'h1", "4'h6", "8'h00", "16'hFF00"]
+
 
     # write on array1
     # pixels are programmed between addresses [68] and [99] (see figure 6 from report)    
     array0 = hex_list
-    hex_list = [["4'h1", "4'h8", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
+    hex_list = [["4'h1", "4'h8", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
     #hex_list[69] = ["4'h1", "4'h8", "8'h45", "16'h0000"]    
     #hex_list[68] = ["4'h1", "4'h8", "8'h44", "16'h003F"]
     #hex_list[67] = ["4'h1", "4'h8", "8'h43", "16'hFFFF"]  
@@ -558,11 +562,13 @@ def ROUTINE_IP1_test1():
     array1 = hex_list
 
     # write on array2
-    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0202"] for i in range(256)]
+    #hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'hAAAA"] for i in range(256)]
+    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
 
     # testing programming 4 pixels
-    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0202"] 
-    #hex_list[129] = ["4'h1", "4'hA", "8'h81", "16'h0002"]
+     
+    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0003"] 
+    #hex_list[128] = ["4'h1", "4'hA", "8'h80", "16'h0002"]
     #hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'h0020"]
     #hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h2000"]   
     array2 = hex_list
@@ -602,7 +608,7 @@ def ROUTINE_scanChain_readout():
 
     # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "4'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
           
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
@@ -622,7 +628,7 @@ def ROUTINE_scanChain_readout():
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ibh")
     
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 96 # updated from 48
+    nwrites = 240 # updated from 48
 
     # hex lists to write - FORCE ALL NONE USED BIT TO 1
     hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
@@ -695,7 +701,7 @@ def ROUTINE_scanChain_CDF():
 
     # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "4'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
           
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
@@ -703,7 +709,8 @@ def ROUTINE_scanChain_CDF():
          # Superpixel 0 is selected: "1'h0"
          # scan load delay is set : "6'h0A"                 
          # scan_load delay is disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
-         # SPARE bits:  "4'h0"
+         # w_cfg_static_0_reg_pack_data_array_0_IP2
+         # SPARE bits:  "3'h0"
          # Register Static 0 is programmed : "4'h2"
          # IP 2 is selected: "4'h2"
 
@@ -715,7 +722,7 @@ def ROUTINE_scanChain_CDF():
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32()
     
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 96 # updated from 48
+    nwrites = 24 # updated from 48
 
     # hex lists to write - FORCE ALL NONE USED BIT TO 1
     VHLEV = 0.1
@@ -732,14 +739,14 @@ def ROUTINE_scanChain_CDF():
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = 0.001
-    v_max = 0.1
+    v_min = 0.2
+    v_max = 0.2
     v_step = 0.001
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 500       #number of sample for each charge settings
+    nsample = 1000       #number of sample for each charge settings
 
     outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
     outDir = os.path.join("data", outDir)
@@ -769,6 +776,7 @@ def ROUTINE_scanChain_CDF():
   
             # send an execute for test 1 and loopback enabled
             # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
+            #start_exec = time.process_time()
             hex_lists = [
                 [
                     "4'h2",  # firmware id
@@ -783,7 +791,9 @@ def ROUTINE_scanChain_CDF():
             ]
             
             ROUTINE_sw_write32_0(hex_lists, doPrint=False)
-            
+            #read_exec=time.process_time()-start_exec
+            #print(f"exec_time={read_exec}")
+
             #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
         
             # boolean to store overall test pass or fail
@@ -796,7 +806,7 @@ def ROUTINE_scanChain_CDF():
             nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
             words = []
 
-            start = time.time()
+            #start_readback = time.process_time()
             for iW in range(nwords):
 
                 # send read
@@ -807,13 +817,14 @@ def ROUTINE_scanChain_CDF():
                 ROUTINE_sw_write32_0(hex_lists,doPrint=False)
                 
                 # read back data
-                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32()
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(do_sw_read32_1=False)
      
 
                 # store data
                 words.append(int_to_32bit(sw_read32_0)[::-1])
+            #read_time=time.process_time()-start_readback
 
-            
+            #print(f"readback_time={read_time}")
             
             #s = ''.join(words)[21:-11]
             #s = split_bits_to_numpy(s, 3)
@@ -829,8 +840,148 @@ def ROUTINE_scanChain_CDF():
     return None
 
 
-#def ROUTINE_BK4600_INIT():
-   #  BK4600
 
-#def ROUTINE_BK4600_INIT():
-   #  BK4600
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
+def ROUTINE_DNN_readout():
+    #PROGRAM SHIFT REGISTER
+    hex_list = [
+        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h64"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
+        ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
+    ]
+
+    # call ROUTINE_sw_write32_0
+    ROUTINE_sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+
+    hex_list = [
+        ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
+   ]
+    ROUTINE_sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+
+    hex_list = [
+        [
+            "4'h1",  # firmware id
+            "4'hf",  # op code execute
+            "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            "4'h0", # 3 bits for spare_index_max
+            "1'h1",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h4",  # 3 bits for test number
+            "7'h04", # 6 bits test sample
+            "7'h12"  # 6 bits for test delay
+        ]
+    ]
+
+
+    ROUTINE_sw_write32_0(hex_list)
+
+    hex_list = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv')
+    print(len(hex_list))
+    ROUTINE_sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+
+    hex_list = [
+        [
+            "4'h1",  # firmware id
+            "4'hf",  # op code d for execute
+            "1'h0",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
+            "4'h0", # 3 bits for spare_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h1",  # 3 bits for test number
+            "7'h4", # 6 bits test sample
+            "7'h3F"  # 6 bits for test delay
+        ]
+	
+    ]
+    ROUTINE_sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    time.sleep(1)
+    # Note we do not yet have a smoke test. verify this on scope as desired.
+
+    
+    # hex lists                                                                                                                    
+    hex_lists = [
+        ["4'h2", "4'h2", "4'h0", "1'h1","6'h00", "1'h1", "1'h0", "5'h0F", "6'h28"],
+          
+         # BxCLK is set to 10MHz : "6'h28"
+         # BxCLK starts with a delay: "5'h4"
+         # BxCLK starts LOW: "1'h0"
+         # Superpixel 1 is selected: "1'h1"
+         # scan load delay is set : "6'h0A"                 
+         # scan_load delay  disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+
+         # SPARE bits:  "4'h0"
+         # Register Static 0 is programmed : "4'h2"
+         # IP 2 is selected: "4'h2"
+
+  
+
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ibh")
+    
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    nwrites = 256 # updated from 48
+
+    # hex lists to write - FORCE ALL NONE USED BIT TO 1
+    hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
+    sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
+
+    # call ROUTINE_sw_write32_0
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+
+    # send an execute for test 1 and loopback enabled
+    # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
+    hex_lists = [
+        [
+            "4'h2",  # firmware id
+            "4'hF",  # op code for execute
+            "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h4",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            "6'h01", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+        ]
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+   
+    # boolean to store overall test pass or fail
+    PASS = True
+
+    # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+    # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+    nwords = 48 # 24 words * 32 bits/word = 768 bits - I added one in case
+    words = []
+    for iW in range(nwords):
+
+        # send read
+        address = "8'h" + hex(iW)[2:]
+        hex_lists = [
+            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # read back data
+        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(print_code = "ihb")
+        
+        # update
+        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # store data
+        words.append(int_to_32bit(sw_read32_0)[::-1])
+    
+    s = ''.join(words)
+    #s = split_bits_to_numpy(s[22:-10],3)
+    
+    print(len(words), s)
+    print(s.find("1"))
+
+
+    return None

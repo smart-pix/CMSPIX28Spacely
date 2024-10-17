@@ -6,7 +6,8 @@ from Spacely_Utils import *
 import os
 import time
 import io
-
+import numpy as np
+from numpy import genfromtxt
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -90,7 +91,8 @@ def BK4600_INIT():
     "C1:BTWV STATE,ON",
     "C1:BTWV TRSR,EXT",
     "C1:BTWV TIME,1",
-    "C1:BTWV DLAY,6.69e-07S",
+    #"C1:BTWV DLAY,6.69e-07S",
+    "C1:BTWV DLAY,6.68e-07S",   
     "C1:BTWV EDGE,FALL",
     "C1:BTWV CARR,WVTP,PULSE",
     "C1:BTWV FRQ,1000HZ",
@@ -136,7 +138,8 @@ def BK4600HLEV_SWEEP(HLEV=0.2):
     "C1:BTWV STATE,ON",
     "C1:BTWV TRSR,EXT",
     "C1:BTWV TIME,1",
-    "C1:BTWV DLAY,6.69e-07S",
+    #"C1:BTWV DLAY,6.69e-07S",
+    "C1:BTWV DLAY,6.68e-07S",
     "C1:BTWV EDGE,FALL",
    # "C1:BTWV CARR,WVTP,PULSE",
     #"C1:BTWV FRQ,1000HZ",
@@ -154,4 +157,46 @@ def BK4600HLEV_SWEEP(HLEV=0.2):
             time.sleep(1)
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
+
+def time_sw_read32(ran=10):
+    
+    # read value of register
+    start =time.process_time()
+    for i in range(ran):
+        sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
+        #sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1")
+        
+    read_time = time.process_time() - start
+    print(f"readtime={read_time}")
+
+
+def dnnConfig(weightsCSVFile, pixelConfig=None):
+	# load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
+	dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
+	dnn = [0]*12 + dnn + [0]*8
+
+	# if user gave 512 PIXEL_CONFIG_F2 then replace the last bits
+	if pixelConfig:
+		dnn[-512-8:-8] = pixelConfig
+
+	# reshape into 16 bit words
+	dnn = np.array(dnn).reshape(-1, 16)
+
+	# split into array 1 and 2
+	array_1 = { 69+i : dnn[i][::-1].tolist() for i in range(187) }
+	array_2 = { iA : dnn[i][::-1].tolist() for iA, i in enumerate(range(187, 324)) }
+
+	# convert to hex_list for programming
+	hex_list = []
+	for hexArray, array_i in zip(["8", "A"], [array_1, array_2]):
+		for key, val in array_i.items():
+			address = hex(key)[2:]
+			data = hex(int("".join([str(i) for i in val]),2))[2:]
+			data = "0"*(4-len(data)) + data
+			temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"] 
+			hex_list.append(temp)
+			#print(key, val, temp)
+
+	#print(len(hex_list))
+	return hex_list
 
