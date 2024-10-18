@@ -563,10 +563,10 @@ def ROUTINE_IP1_test1():
 
     # write on array2
     #hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'hAAAA"] for i in range(256)]
-    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
+    hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
 
     # testing programming 4 pixels
-     
+    hex_list[120] = ["4'h1", "4'hA", "8'h78", "16'h0100"]
     #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0003"] 
     #hex_list[128] = ["4'h1", "4'hA", "8'h80", "16'h0002"]
     #hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'h0020"]
@@ -660,9 +660,11 @@ def ROUTINE_scanChain_readout():
 
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+    wordList = [17]  #list(range(24))
     words = []
-    for iW in range(nwords):
+
+    start_readback = time.process_time()
+    for iW in wordList: #range(nwords):
 
         # send read
         address = "8'h" + hex(iW)[2:]
@@ -746,7 +748,7 @@ def ROUTINE_scanChain_CDF():
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 1000       #number of sample for each charge settings
+    nsample = 1     #number of sample for each charge settings
 
     outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
     outDir = os.path.join("data", outDir)
@@ -803,11 +805,13 @@ def ROUTINE_scanChain_CDF():
             # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
             
 
-            nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-            words = []
+            # nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+            wordList = [17] # list(range(24))
+            words = ["0"*32] * 24
+            #words = []
 
             #start_readback = time.process_time()
-            for iW in range(nwords):
+            for iW in wordList: #range(nwords):
 
                 # send read
                 address = "8'h" + hex(iW)[2:]
@@ -821,13 +825,13 @@ def ROUTINE_scanChain_CDF():
      
 
                 # store data
-                words.append(int_to_32bit(sw_read32_0)[::-1])
+                # words.append(int_to_32bit(sw_read32_0)[::-1])
+                words[iW] = int_to_32bit(sw_read32_0)[::-1]
+            
             #read_time=time.process_time()-start_readback
 
             #print(f"readback_time={read_time}")
             
-            #s = ''.join(words)[21:-11]
-            #s = split_bits_to_numpy(s, 3)
             s = [int(i) for i in "".join(words)]
             save_data.append(s)
 
