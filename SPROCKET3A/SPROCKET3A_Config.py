@@ -2,7 +2,7 @@
 DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3A/SPROCKET3A_iospec.txt"
 
 INSTR = {"car" : {"type": "Caribou",
-                  "host":"192.168.1.24",
+                  "host":"EMULATE",   #"192.168.1.24",
                   "port":12345,
                   "device":"SpacelyCaribouBasic"}}
 

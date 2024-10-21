@@ -232,6 +232,59 @@ def ROUTINE_basic_signals():
     input("")
 
 
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+def ROUTINE_axi_shell():
+    """Microshell to interact with the AXI registers and debug the design."""
+
+    register_list = {"apg": ["apg_run", "apg_write_channel", "apg_read_channel",
+                     "apg_sample_count","apg_n_samples","apg_write_buffer_len",
+                     "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control",
+                     "apg_dbg_error",
+                             "apg_clear"],
+                     "spi_apg": ["spi_apg_run", "spi_apg_write_channel", "spi_apg_read_channel",
+                     "spi_apg_sample_count","spi_apg_n_samples","spi_apg_write_buffer_len",
+                                 "spi_apg_next_read_sample","spi_apg_wave_ptr","spi_apg_status", "spi_apg_control",
+                                 "spi_apg_dbg_error", "spi_apg_clear"],
+                     "lpgbt_fpga":  ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"],
+                     "dataframe_store": ["lpgbt_rd_en", "err_counter"]}
+    
+   # spi_registers = ["spi_write_data", "spi_read_data", "spi_data_len","spi_trigger",
+    #                 "spi_transaction_count", "spi_status"]
+
+    for x in register_list.keys():
+        print(x)
+        
+    fw_choice = input("Which fw module would you like to interact with?")
+    
+    AXI_REGISTERS = register_list[fw_choice]
+
+    while True:
+
+        # Print register contents
+        i = 0
+        for reg in AXI_REGISTERS:
+            reg_contents = sg.INSTR["car"].get_memory(reg)
+
+            if reg == "spi_status":
+                reg_contents = SPI_Status(reg_contents)
+            
+            print(f"{i}. {reg : <16} -- {reg_contents}")
+            i = i+1
+
+        write_reg_num = input("write which?").strip()
+
+        if write_reg_num == "":
+            continue
+
+        if write_reg_num == "q":
+            return
+
+        write_reg = AXI_REGISTERS[int(write_reg_num)]
+
+        write_val = int(input("val?"))
+
+        sg.INSTR["car"].set_memory(write_reg, write_val)
+
 
 
 
@@ -468,7 +521,146 @@ def ROUTINE_dataframe_read():
     except KeyboardInterrupt:
         print("Finished")
 
+
+# A SCARE map is a list of integers. If an integer is 1, that bit exists and is usable in the scan chain.
+# If the integer is 0, that bit is "skipped" by the scan chain and should not be used. 
+# A SCARE pattern is a scan chain pattern which has been adjusted to take account of the missing bits. 
+#
+#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
+def ROUTINE_SCARE_Map_Eval():
+    """Evaluate Qequal/DACclr Scan Chain for missing bits, and return SCARE maps."""
+
+    ROUTINE_DEBUG = 1
     
+    #Global Counter Period = 15 us
+    spi_write_reg("global_counter_period",ns_to_cycles(15000))
+
+
+    Qequal_SCARE = []
+    DACclr_SCARE = []
+    
+    for i in range(192):
+        test_pattern = 1 << i
+        spi_write_reg("Qequal_pattern",test_pattern)
+        spi_write_reg("DACclr_pattern",test_pattern)
+        
+   
+        #1000 samples @ 40 MHz should be 25 us, more than enough to get 1 iteration of the pattern.
+        dmy_pattern = sg.gc.dict2Glue({"array_serial_0":[0]*1000})
+        read_wave = sg.pr.run_pattern(dmy_pattern)
+        
+
+        Qequal_wave = sg.gc.get_bitstream(read_wave, "Qequal")
+        DACclr_wave = sg.gc.get_bitstream(read_wave, "DACclr")
+
+        if any([x > 0 for x in Qequal_wave]):
+            Qequal_SCARE.append(1)
+        else:
+            Qequal_SCARE.append(0)
+
+        if any([x > 0 for x in DACclr_wave]):
+            DACclr_SCARE.append(1)
+        else:
+            DACclr_SCARE.append(0)
+
+
+    return (Qequal_SCARE, DACclr_SCARE)
+
+
+def SCARE_Pattern(raw_pattern, SCARE_map):
+    """Converts a raw pattern into a SCARE pattern using a SCARE map."""
+
+    usable_bits = SCARE_map.count(1)
+
+    if len(raw_pattern) > usable_bits:
+        sg.log.error(f"SCARE Pattern Error! Pattern len = {len(raw_pattern)} > Usable Bits = {usable_bits}")
+        return -1
+
+    SCARE_pattern = []
+    
+    SCARE_map_ptr = 0
+    raw_pattern_ptr = 0
+
+    while raw_pattern_ptr < len(raw_pattern):
+        #If SCARE map is 1, add a real bit to the pattern.
+        if SCARE_map[SCARE_map_ptr] == 1:
+            SCARE_pattern.append(raw_pattern[raw_pattern_ptr])
+            SCARE_map_ptr += 1
+            raw_pattern_ptr += 1
+        #Otw, just add a zero and continue to the next usable bit (don't increment raw_pattern_ptr).
+        else:
+            SCARE_pattern.append(0)
+            SCARE_map_ptr += 1
+
+
+# fast_capClk is in theory 12.8 MHz (78.125 ns) while my APG sample clock I believe is 40 MHz, or 25 ns.
+# The least common multiple is 625 ns, which is 25 sample clock cycles or 8 fast_capClk cycles.
+# There will always be at least 3 ticks per bit, and 1/8 of the time there will be 4.
+# I think this means that if I go every 25 ticks and grab bunches of 3 bits, and take the mode of each bunch,
+# that should give me the reconstructed signal.
+
+def parse_fast_capClk_sig_from_samples(raw_signal):
+    recovered_sig = []
+
+    for base in range(0,len(raw_signal),25):
+
+        if len(raw_signal) - base < 25:
+            break
+        
+        for offs in range(0, 25, 3):
+            bit_period = raw_signal[base+offs:base+offs+3]
+            if sum(bit_period) >= 2:
+                recovered_sig.append(1)
+            else:
+                recovered_sig.append(0)
+
+
+#<<Registered w/ Spacely as ROUTINE 17, call as ~r17>>
+def ROUTINE_Qequal_DACclr_Eval():
+    """Check if SCARE Maps successfully make Qequal/DACclr functional according to design."""
+
+    (Qequal_map, DACclr_map) = ROUTINE_SCARE_Eval()
+
+    Qequal_bits = Qequal_map.count(1)
+    DACclr_bits = DACclr_map.count(1)
+
+    print(f"Usable Bits: {Qequal_bits} (Qequal) {DACclr_bits} (DACclr).")
+
+    random_pattern = [1 if random.random() > 0.5 else 0 for _ in range(min(Qequal_bits,DACclr_bits))]
+
+    Qequal_SCARE_pattern = SCARE_Pattern(random_pattern, Qequal_map)
+    DACclr_SCARE_pattern = SCARE_Pattern(random_pattern, DACclr_map)
+
+    spi_write_reg("Qequal_pattern",Qequal_SCARE_pattern)
+    spi_write_reg("DACclr_pattern",DACclr_SCARE_pattern)
+
+    #Global Counter Period = 15 us
+    spi_write_reg("global_counter_period",ns_to_cycles(15000))
+
+    #1000 samples @ 40 MHz should be 25 us, more than enough to get 1 iteration of the pattern.
+    dmy_pattern = sg.gc.dict2Glue({"array_serial_0":[0]*1000})
+    read_wave = sg.pr.run_pattern(dmy_pattern)
+        
+
+    Qequal_wave = sg.gc.get_bitstream(read_wave, "Qequal")
+    Qequal_pat = parse_fast_capClk_sig_from_samples(Qequal_wave)
+     
+    DACclr_wave = sg.gc.get_bitstream(read_wave, "DACclr")
+    DACclr_pat  = parse_fast_capClk_sig_from_samples(DACclr_wave)
+
+    print(f"TEST: {random_pattern}")
+    print(f"QEQUAL: {Qequal_pat}")
+    print(f"DACCLR: {DACclr_pat}")
+
+    if Qequal_pat == random_pattern:
+        print("QEQUAL PASS!")
+    else:
+        print("QEQUAL FAIL :(")
+
+    if DACclr_pat == random_pattern:
+        print("DACCLR PASS!")
+    else:
+        print("DACCLR FAIL :(")
 
 #<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
 def ROUTINE_FEC_Error_Rate_Eval():
