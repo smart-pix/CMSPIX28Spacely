@@ -20,7 +20,7 @@ superpixel = 0
 def ROUTINE_sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
         cleanup = False,
-        doPrint = True
+        doPrint = False
 ):
 
     # check register initial value and store it
@@ -566,9 +566,9 @@ def ROUTINE_IP1_test1():
     hex_list = [["4'h1", "4'hA", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
 
     # testing programming 4 pixels
-    hex_list[120] = ["4'h1", "4'hA", "8'h78", "16'h0100"]
-    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0003"] 
-    #hex_list[128] = ["4'h1", "4'hA", "8'h80", "16'h0002"]
+    #hex_list[120] = ["4'h1", "4'hA", "8'h78", "16'h0100"]
+    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0080"] 
+    hex_list[128] = ["4'h1", "4'hA", "8'h80", "16'h0000"]
     #hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'h0020"]
     #hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h2000"]   
     array2 = hex_list
@@ -660,7 +660,7 @@ def ROUTINE_scanChain_readout():
 
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    wordList = [17]  #list(range(24))
+    wordList =   list(range(24)) #[23]
     words = []
 
     start_readback = time.process_time()
@@ -689,9 +689,27 @@ def ROUTINE_scanChain_readout():
     #s = split_bits_to_numpy(s[22:-10],3)
     
     print(len(words), s)
-    print(s.find("1"))
+    start = 0
+    npix = []
+    deadpix = []
+    deadbit = []
+    while True:
+        index = s.find("111", start)
+        if index == -1:
+            break
+        npix.append(index/3)
+        start = index +1
 
-
+    start = 0
+    while True:
+        index_deadbit = s.find("1", start)
+        if index_deadbit == -1:
+            break
+        deadpix.append(int((index_deadbit+1)/3))
+        deadbit.append(round(((((index_deadbit+1)/3)-int((index_deadbit+1)/3))*3)))
+        start = index_deadbit +1
+    print(f"pixel number {npix} is programmed")
+    {print(f"pixel number {deadpix[ind]}, bit {deadbit[ind]} is dead") for ind in range(len(deadbit))}
     return None
 
 
@@ -741,14 +759,14 @@ def ROUTINE_scanChain_CDF():
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = 0.2
+    v_min = 0.001
     v_max = 0.2
     v_step = 0.001
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 1     #number of sample for each charge settings
+    nsample = 100     #number of sample for each charge settings
 
     outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
     outDir = os.path.join("data", outDir)
@@ -806,7 +824,7 @@ def ROUTINE_scanChain_CDF():
             
 
             # nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-            wordList = [17] # list(range(24))
+            wordList = [23] # list(range(24))
             words = ["0"*32] * 24
             #words = []
 
@@ -846,66 +864,68 @@ def ROUTINE_scanChain_CDF():
 
 
 #<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
-def ROUTINE_DNN_readout():
+def ROUTINE_DNN_readout(loopbackBit=0):
+    hex_lists = [
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+
     #PROGRAM SHIFT REGISTER
-    hex_list = [
+    hex_lists = [
         ["4'h1", "4'h2", "16'h0", "1'h1", "7'h64"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
 
     # call ROUTINE_sw_write32_0
-    ROUTINE_sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
 
-    hex_list = [
+    hex_lists = [
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
    ]
-    ROUTINE_sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
-
-    hex_list = [
-        [
-            "4'h1",  # firmware id
-            "4'hf",  # op code execute
-            "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            "4'h0", # 3 bits for spare_index_max
-            "1'h1",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h4",  # 3 bits for test number
-            "7'h04", # 6 bits test sample
-            "7'h12"  # 6 bits for test delay
-        ]
-    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
 
 
-    ROUTINE_sw_write32_0(hex_list)
+    #prepare list of pixels
+    pixelListToProgram =[74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141] # list(range(0,256))
+    pixelSettingsToProgram = [3, 2] + [3] * 12 + [1] #  [3]*256
+    pixelConfig = genPixelProgramList(pixelListToProgram, pixelSettingsToProgram)
 
-    hex_list = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv')
-    print(len(hex_list))
-    ROUTINE_sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    # Programming the NN weights and biases
+    hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig)
+    # print(hex_list)
+    # print("Printing DNN config")
+    ROUTINE_sw_write32_0(hex_lists, doPrint=False)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
 
-    hex_list = [
+    hex_lists = [
         [
             "4'h1",  # firmware id
             "4'hf",  # op code d for execute
-            "1'h0",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
+            "1'h1",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
             "4'h0", # 3 bits for spare_index_max
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h1",  # 3 bits for test number
+            "4'h1",  # 4 bits for test number
             "7'h4", # 6 bits test sample
             "7'h3F"  # 6 bits for test delay
         ]
 	
     ]
-    ROUTINE_sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
-    time.sleep(1)
-    # Note we do not yet have a smoke test. verify this on scope as desired.
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
 
-    
-    # hex lists                                                                                                                    
+    # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
+    time.sleep(0.5)
+
+    # # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "4'h0", "1'h1","6'h00", "1'h1", "1'h0", "5'h0F", "6'h28"],
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+        #["4'h2", "4'h2", "4'h0", "1'h0","6'h00", "1'h1", "1'h0", "5'h0F", "6'h28"],
+        #["4'h2", "4'h2", "4'h0", "1'h0","6'h0A", "1'h1", "1'h0", "5'h04", "6'h28"],
           
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
@@ -918,48 +938,70 @@ def ROUTINE_DNN_readout():
          # Register Static 0 is programmed : "4'h2"
          # IP 2 is selected: "4'h2"
 
-  
-
     ]
 
     ROUTINE_sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ibh")
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ibh")
     
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 256 # updated from 48
+    
+    # DODO SETTINGS
 
-    # hex lists to write - FORCE ALL NONE USED BIT TO 1
-    hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
-    sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
-
-    # call ROUTINE_sw_write32_0
-    ROUTINE_sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
-
-    # send an execute for test 1 and loopback enabled
-    # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
     hex_lists = [
         [
             "4'h2",  # firmware id
             "4'hF",  # op code for execute
             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h4",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            "6'h01", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            "6'h09", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
             "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
     ]
+
+    #CRISTIAN SETTINGS = WORKING
+    
+    # hex_lists = [
+    #     [
+    #         "4'h2",  # firmware id
+    #         "4'hF",  # op code for execute
+    #         "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+    #         "6'h03", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+    #         f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+    #         "4'h4",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+    #         "6'h06", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+    #         "6'h05"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+    #     ]
+    # ]
+
+    #CRISTIAN + DODO SETTINGS = WORKING
+    
+    # hex_lists = [
+    #     [
+    #         "4'h2",  # firmware id
+    #         "4'hF",  # op code for execute
+    #         "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+    #         "6'h03", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+    #         f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+    #         "4'h4",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+    #         "6'h09", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min # VERY IMPORTANT, must be tuned properly to sample the data at the right time
+    #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min # VERY IMPORTANT
+    #     ]
+    # ]
+
+    print("HEX LIST CONTENT: ", gen_sw_write32_0(hex_lists[0]))
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
-   
+    # time.sleep(1)
     # boolean to store overall test pass or fail
-    PASS = True
+    # PASS = True
 
     # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
     # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-    nwords = 48 # 24 words * 32 bits/word = 768 bits - I added one in case
+    nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
     words = []
+    
     for iW in range(nwords):
 
         # send read
@@ -970,22 +1012,30 @@ def ROUTINE_DNN_readout():
         ROUTINE_sw_write32_0(hex_lists)
         
         # read back data
-        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
-        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(print_code = "ihb")
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() #print_code = "ihb")
         
         # update
-        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+        #PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
 
         # store data
         words.append(int_to_32bit(sw_read32_0)[::-1])
     
     s = ''.join(words)
     #s = split_bits_to_numpy(s[22:-10],3)
-    
+    dnn_0=hex(int(s[:48][::-1],2))
+    dnn_1=hex(int(s[48:96][::-1],2))
+    print(f"dnn_0 ={dnn_0} and dnn_1 ={dnn_1} ")
     print(len(words), s)
     print(s.find("1"))
 
+    temp = np.array([int(i) for i in s]).reshape(256,3)
+    for iP, val in enumerate(temp):
+        if 1 in val:
+            print(iP, val)
+
 
     return None
+
