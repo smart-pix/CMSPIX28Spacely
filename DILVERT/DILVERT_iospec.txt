@@ -1,0 +1,25 @@
+// ExampleASIC iospec
+//
+// When using NI-PXI, the iospec defines which pins on the NI (typically 0~31) are used for which ASIC signals.
+
+
+// All I/O definitions need to be inside a "HARDWARE XYZ BEGIN ... END" block to tell which NI hardware we're talking about.
+
+
+// PXI1Slot4 = The NI slot we are using.
+// NI6583 = The type of IO card attached to the FPGA in this slot.
+// se_io = single-ended I/O (the NI6583 also supports lvds)
+
+HARDWARE PXISlot6/NI6583/se_io BEGIN
+
+S_DIN,I,0
+S_CLK,I,1
+S_PASS,I,2
+S_LOAD,I,3
+RESET,I,5
+//(?)
+TRIGGER,I,6  
+
+S_DOUT,O,21
+
+END
