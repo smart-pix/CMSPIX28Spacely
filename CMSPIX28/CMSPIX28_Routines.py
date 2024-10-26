@@ -16,6 +16,104 @@ from Spacely_Utils import *
 superpixel = 0
 # note that all functions in CMSPIX28_Subroutines.py will automatically be imported by Master_Config.py
 
+def onstartup():
+
+    # GLOBAL CONFIG VARIABLES
+    assume_defaults = False
+    
+    # sg.INSTR["car"].axi_registers = {"apg": ["apg_run", "apg_write_channel", "apg_read_channel",
+    #                  "apg_sample_count","apg_n_samples","apg_write_buffer_len",
+    #                  "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control",
+    #                  "apg_dbg_error",
+    #                          "apg_clear"],
+    #                  "spi_apg": ["spi_apg_run", "spi_apg_write_channel", "spi_apg_read_channel",
+    #                  "spi_apg_sample_count","spi_apg_n_samples","spi_apg_write_buffer_len",
+    #                              "spi_apg_next_read_sample","spi_apg_wave_ptr","spi_apg_status", "spi_apg_control",
+    #                              "spi_apg_dbg_error", "spi_apg_clear"],
+    #                  "lpgbt_fpga":  ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]}
+
+    print("====================================")
+    print("=== Starting CMSPIX28 Default Setup ===")
+
+    if not assume_defaults:
+        do_setup = input("Press enter to begin or 'n' to skip >")
+        if 'n' in do_setup:
+            print("Skipping all setup!")
+            return
+
+    #sg.INSTR["car"].debug_memory = False
+        
+    # print("Step 1: Initializing ZCU102")
+
+    # sg.INSTR["car"].set_memory("gpio_direction",0)
+    # print(">  Set all AXI GPIOs as outputs")
+
+    # sg.INSTR["car"].setUsrclkFreq(int(320e6))
+    # print(">  Initialized Usrclk to 320 MHz")
+    
+    init_car =  input("Step 2: Initializing CaR Board ('n' to skip)>>>")
+
+    if 'n' in init_car:
+        print("Skipped!")
+    else:
+
+        #Basic initialization of CaR board
+        sg.INSTR["car"].init_car()
+
+        #Init CMOS I/O voltages
+        print(">  Setting CMOS In/Out Voltage = 0.9 V",end='')
+        if not assume_defaults: 
+            set_cmos_voltage = input("('n' to skip)")
+        if assume_defaults or not 'n' in set_cmos_voltage:
+            sg.INSTR["car"].set_input_cmos_level(0.9)
+            sg.INSTR["car"].set_output_cmos_level(0.9)
+        print("finished setting CMOS")
+       
+
+    init_asic = input("Step 3: Initializing ASIC ('n' to skip)>>>")
+
+    if 'n' in init_asic:
+        print("Skipped!")
+    else:
+        print("Programming of the ASIC shift register")
+        ROUTINE_IP1_test1()
+        # #Config Si5345
+        # print(">  Configuring SI5345 w/ config option 1 (disable refclk)")
+        # #if not assume_defaults:
+        # #    config_si5345 = input("('n' to skip)")
+        # #if assume_defaults or not 'n' in config_si5345:
+        # sg.INSTR["car"].configureSI5345(1)
+        # #input("?")
+        
+        # assert_reset()
+        # #input("?")
+        # time.sleep(0.1)
+        # deassert_reset()
+        # #input("?")
+        # print(">  Pulsed digital Reset")
+        
+        # spi_write_tx_config(TX_REG_DEFAULTS)
+        # #input("?")
+        # print(">  Wrote default transmitter configuration")
+
+      
+        # print(">  Configuring SI5345 w/ config option 2 (enable refclk)")
+        # #if not assume_defaults:
+        # #    config_si5345 = input("('n' to skip)")
+        # #if assume_defaults or not 'n' in config_si5345:
+        # sg.INSTR["car"].configureSI5345(2)
+        # #input("?")
+        
+    # print("Step 4: Uplink Reset")
+    # sg.INSTR["car"].set_memory("uplinkRst",1)
+    # time.sleep(0.1)
+    # sg.INSTR["car"].set_memory("uplinkRst",0)
+    # print(">  Pulsed uplink reset")
+        
+    # print("=== Finished SP3A Default Setup ===")
+    # print("===================================")
+
+
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
@@ -567,14 +665,15 @@ def ROUTINE_IP1_test1():
 
     # testing programming 4 pixels
     #hex_list[120] = ["4'h1", "4'hA", "8'h78", "16'h0100"]
-    #hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0080"] 
+    hex_list[112] = ["4'h1", "4'hA", "8'h70", "16'h0002"] 
     hex_list[128] = ["4'h1", "4'hA", "8'h80", "16'h0000"]
     #hex_list[115] = ["4'h1", "4'hA", "8'h73", "16'h0020"]
     #hex_list[136] = ["4'h1", "4'hA", "8'h88", "16'h2000"]   
     array2 = hex_list
 
     hex_list =  array2+array1+array0   
-    
+
+
     ROUTINE_sw_write32_0(hex_list)
 
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
@@ -608,7 +707,8 @@ def ROUTINE_scanChain_readout():
 
     # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"],#BSDG7102A and CARBOARD and long cable
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
           
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
@@ -640,18 +740,32 @@ def ROUTINE_scanChain_readout():
 
     # send an execute for test 1 and loopback enabled
     # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
+    # hex_lists = [
+    #     [
+    #         "4'h2",  # firmware id
+    #         "4'hF",  # op code for execute
+    #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+    #         "6'h1C", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+    #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+    #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+    #         "6'h1A", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+    #         "6'h18"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+    #     ]
+    # ]
+    # SDG7102A SETTINGS
     hex_lists = [
         [
             "4'h2",  # firmware id
             "4'hF",  # op code for execute
             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            "6'h01", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
             "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
-    ]
+    ]           
+
     ROUTINE_sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
    
@@ -689,27 +803,27 @@ def ROUTINE_scanChain_readout():
     #s = split_bits_to_numpy(s[22:-10],3)
     
     print(len(words), s)
-    start = 0
-    npix = []
-    deadpix = []
-    deadbit = []
-    while True:
-        index = s.find("111", start)
-        if index == -1:
-            break
-        npix.append(index/3)
-        start = index +1
+    # start = 0
+    # npix = []
+    # deadpix = []
+    # deadbit = []
+    # while True:
+    #     index = s.find("111", start)
+    #     if index == -1:
+    #         break
+    #     npix.append(index/3)
+    #     start = index +1
 
-    start = 0
-    while True:
-        index_deadbit = s.find("1", start)
-        if index_deadbit == -1:
-            break
-        deadpix.append(int((index_deadbit+1)/3))
-        deadbit.append(round(((((index_deadbit+1)/3)-int((index_deadbit+1)/3))*3)))
-        start = index_deadbit +1
-    print(f"pixel number {npix} is programmed")
-    {print(f"pixel number {deadpix[ind]}, bit {deadbit[ind]} is dead") for ind in range(len(deadbit))}
+    # start = 0
+    # while True:
+    #     index_deadbit = s.find("1", start)
+    #     if index_deadbit == -1:
+    #         break
+    #     deadpix.append(int((index_deadbit+1)/3))
+    #     deadbit.append(round(((((index_deadbit+1)/3)-int((index_deadbit+1)/3))*3)))
+    #     start = index_deadbit +1
+    # print(f"pixel number {npix} is programmed")
+    # {print(f"pixel number {deadpix[ind]}, bit {deadbit[ind]} is dead") for ind in range(len(deadbit))}
     return None
 
 
@@ -718,10 +832,13 @@ def ROUTINE_scanChain_readout():
 def ROUTINE_scanChain_CDF():
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
-
+    
     # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],  #BK4600HLEV
+        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h09", "6'h28"],  #BSDG7102A
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+        # ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h14", "1'h1", "1'h0", "5'h0B", "6'h28"],#BSDG7102A and CARBOARD new setup
           
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
@@ -759,14 +876,16 @@ def ROUTINE_scanChain_CDF():
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = 0.001
-    v_max = 0.2
-    v_step = 0.001
+    v_min = 0.025
+    v_max = 0.1
+    v_step = 0.0005
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 100     #number of sample for each charge settings
+    nsample = 1000
+    
+         #number of sample for each charge settings
 
     outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
     outDir = os.path.join("data", outDir)
@@ -779,8 +898,9 @@ def ROUTINE_scanChain_CDF():
         if v_asic>0.9:
             v_asic = 0 
             return 
-        BK4600HLEV_SWEEP(v_asic*2)
-
+        #BK4600HLEV_SWEEP(v_asic*2)
+        SDG7102A_SWEEP(v_asic*2)
+        #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
 
         save_data = []
         
@@ -797,19 +917,47 @@ def ROUTINE_scanChain_CDF():
             # send an execute for test 1 and loopback enabled
             # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
             #start_exec = time.process_time()
+
+            # BK4600HLEV SETTINGS
+            # hex_lists = [
+            #     [
+            #         "4'h2",  # firmware id
+            #         "4'hF",  # op code for execute
+            #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            #         "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            #         "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            #     ]
+            # ]
+
+            # SDG7102A SETTINGS
             hex_lists = [
                 [
                     "4'h2",  # firmware id
                     "4'hF",  # op code for execute
                     "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                     "1'h0",  # 1 bit for w_execute_cfg_test_loopback
                     "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                     "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
                     "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
-            ]
-            
+            ]           
+            #   SDG7102A SETTINGS, CARBOARD and NEW SETUP
+            # hex_lists = [
+            #     [
+            #         "4'h2",  # firmware id
+            #         "4'hF",  # op code for execute
+            #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            #         "6'h1C", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            #         "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            #     ]
+            # ]
             ROUTINE_sw_write32_0(hex_lists, doPrint=False)
             #read_exec=time.process_time()-start_exec
             #print(f"exec_time={read_exec}")
@@ -824,7 +972,7 @@ def ROUTINE_scanChain_CDF():
             
 
             # nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-            wordList = [23] # list(range(24))
+            wordList = [0] # list(range(24))
             words = ["0"*32] * 24
             #words = []
 
@@ -875,7 +1023,7 @@ def ROUTINE_DNN_readout(loopbackBit=0):
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
-        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h64"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
+        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h6F"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
 
@@ -891,8 +1039,8 @@ def ROUTINE_DNN_readout(loopbackBit=0):
 
 
     #prepare list of pixels
-    pixelListToProgram =[74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141] # list(range(0,256))
-    pixelSettingsToProgram = [3, 2] + [3] * 12 + [1] #  [3]*256
+    pixelListToProgram =  [82, 78, 74,80, 76,72] # [74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141] #  #list(range(0,256))
+    pixelSettingsToProgram = [3,3,2,3,3,2] #[3, 2] + [3] * 12 + [1] #   # #[3]*256
     pixelConfig = genPixelProgramList(pixelListToProgram, pixelSettingsToProgram)
 
     # Programming the NN weights and biases
@@ -923,8 +1071,9 @@ def ROUTINE_DNN_readout(loopbackBit=0):
 
     # # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
-        #["4'h2", "4'h2", "4'h0", "1'h0","6'h00", "1'h1", "1'h0", "5'h0F", "6'h28"],
+        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],
+       # ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h14", "1'h1", "1'h0", "5'h0B", "6'h28"], #Setting with carboard and new pulse generator
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
         #["4'h2", "4'h2", "4'h0", "1'h0","6'h0A", "1'h1", "1'h0", "5'h04", "6'h28"],
           
          # BxCLK is set to 10MHz : "6'h28"
@@ -946,19 +1095,30 @@ def ROUTINE_DNN_readout(loopbackBit=0):
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
     
     # DODO SETTINGS
-
     hex_lists = [
         [
             "4'h2",  # firmware id
             "4'hF",  # op code for execute
             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+            "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            "6'h09", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            "6'h06", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h05"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
-    ]
+    ]       
+    # hex_lists = [
+    #     [
+    #         "4'h2",  # firmware id
+    #         "4'hF",  # op code for execute
+    #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+    #         "6'h1C", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+    #         f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+    #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+    #         "6'h09", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+    #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+    #     ]
+    # ]
 
     #CRISTIAN SETTINGS = WORKING
     
@@ -1025,17 +1185,357 @@ def ROUTINE_DNN_readout(loopbackBit=0):
     
     s = ''.join(words)
     #s = split_bits_to_numpy(s[22:-10],3)
+    # dnn_0=hex(int(s[:48][::-1],2))
+    # dnn_1=hex(int(s[48:96][::-1],2))
+    # print(f"dnn_0 ={dnn_0} and dnn_1 ={dnn_1} ")
+    # print(len(words), s)
+    # print(s.find("1"))
+
+    temp = np.array([int(i) for i in s]).reshape(256,3)
+    superpixel_array = np.zeros((8,32))
+    for iP, val in enumerate(temp):
+        if 1 in val:
+            print(iP, val)
+            result_string = ''.join(val.astype(str))
+            row = 7-find_grid_cell_superpix(iP)[0]
+            col = find_grid_cell_superpix(iP)[1]
+            superpixel_array[row][col]=int(thermometric_to_integer(result_string))
+            even_columns = superpixel_array[:,::2]
+            odd_columns = superpixel_array[:,1::2]
+            row_sums = np.concatenate((even_columns.sum(axis=1),odd_columns.sum(axis=1)))
+    print(f"the input vector to the DNN is {row_sums}")       
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ibh")
+    
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    
+    # DODO SETTINGS
+    hex_lists = [
+        [
+            "4'h2",  # firmware id
+            "4'hF",  # op code for execute
+            "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h4",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            "6'h06", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h05"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+        ]
+    ]       
+
+
+    print("HEX LIST CONTENT: ", gen_sw_write32_0(hex_lists[0]))
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+    # time.sleep(1)
+    # boolean to store overall test pass or fail
+    # PASS = True
+
+    # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+    # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+    nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+    words = []
+    
+    for iW in range(nwords):
+
+        # send read
+        address = "8'h" + hex(iW)[2:]
+        hex_lists = [
+            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # read back data
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() #print_code = "ihb")
+        
+        # update
+        #PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # store data
+        words.append(int_to_32bit(sw_read32_0)[::-1])
+    
+    s = ''.join(words)
+    #s = split_bits_to_numpy(s[22:-10],3)
     dnn_0=hex(int(s[:48][::-1],2))
     dnn_1=hex(int(s[48:96][::-1],2))
     print(f"dnn_0 ={dnn_0} and dnn_1 ={dnn_1} ")
     print(len(words), s)
     print(s.find("1"))
 
-    temp = np.array([int(i) for i in s]).reshape(256,3)
-    for iP, val in enumerate(temp):
-        if 1 in val:
-            print(iP, val)
+
+    return None
+
+
+
+
+def pixelProg_scanChain_CDF(pixelList=[0], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.2, vstep = 0.0005, nsample =100):
+    # STEP 1: WE PROGRAM THE PIXELS
+    hex_lists = [
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
+    ]
+    
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+
+    #PROGRAM SHIFT REGISTER
+    hex_lists = [
+        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h6F"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
+        ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
+    ]
+
+    # call ROUTINE_sw_write32_0
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    hex_lists = [
+        ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+
+    #prepare list of pixels
+    pixelListToProgram =  pixelList
+    pixelSettingsToProgram = pixelSettings
+    pixelConfig = genPixelProgramList(pixelListToProgram, pixelSettingsToProgram)
+
+    # Programming the NN weights and biases
+    hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig)
+    # print(hex_list)
+    # print("Printing DNN config")
+    ROUTINE_sw_write32_0(hex_lists, doPrint=False)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    hex_lists = [
+        [
+            "4'h1",  # firmware id
+            "4'hf",  # op code d for execute
+            "1'h1",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
+            "4'h0", # 3 bits for spare_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h1",  # 4 bits for test number
+            "7'h4", # 6 bits test sample
+            "7'h3F"  # 6 bits for test delay
+        ]
+	
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
+    time.sleep(1)
+
+
+
+    #STEP 2 - WE EXTRACT THE S-CURVE
+
+    # hex lists                                                                                                                    
+    hex_lists = [
+
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+          
+         # BxCLK is set to 10MHz : "6'h28"
+         # BxCLK starts with a delay: "5'h4"
+         # BxCLK starts LOW: "1'h0"
+         # Superpixel 0 is selected: "1'h0"
+         # scan load delay is set : "6'h0A"                 
+         # scan_load delay is disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+         # w_cfg_static_0_reg_pack_data_array_0_IP2
+         # SPARE bits:  "3'h0"
+         # Register Static 0 is programmed : "4'h2"
+         # IP 2 is selected: "4'h2
+
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists,doPrint=False)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32()
+    
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    nwrites = 24 # updated from 48
+
+    # hex lists to write - FORCE ALL NONE USED BIT TO 1
+    VHLEV = 0.1
+
+
+    S = 40e-6           #Charge Sensitivity in V/e-
+    #npulse_step = 450    #number of charge settings 
+    #npulse_step = 20
+
+    # define range of asic voltages
+    v_min = vmin #0.025
+    v_max = vmax #0.1
+    v_step = vstep # 0.0005
+    n_step = int((v_max - v_min)/v_step)+1
+    vasic_steps = np.linspace(v_min, v_max, n_step)
+
+    # number of samples to run for each charge setting
+    nsample = nsample #1000
+    
+         #number of sample for each charge settings
+    pixNumber = pixelList[0]
+    configBit= pixelSettings[0]
+    scanAddress=scan_address[0]
+    test_path = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea/CMSPIX28_DAQ/spacely/PySpacely/data/2024-10-25_MATRIX"
+    now = datetime.now()
+
+    #folder_name = now.strftime("%Y-%m-%d_%H-%M-%S") + f"_scanAddress{scanAddress}" # Format: YYYY-MM-DD_HH-MM-SS
+    #folder_name = now.strftime("%Y-%m-%d") + f"_scanAddress{scanAddress}" # Format: YYYY-MM-DD_HH-MM-SS
+    #full_folder_path = os.path.join(test_path, folder_name)
+
+    # Create the new directory
+    #os.makedirs(full_folder_path, exist_ok=True)  # Create the folder
+
+
+    outDir =  f"pixel{pixNumber}_config{configBit}_scanAddress{scanAddress}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
+    outDir = os.path.join(test_path, outDir)
+    print(f"Saving results to {outDir}")
+    os.makedirs(outDir, exist_ok=True)
+
+    # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
+    for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+        v_asic = round(i, 3)
+        if v_asic>0.9:
+            v_asic = 0 
+            return 
+        #BK4600HLEV_SWEEP(v_asic*2)
+        SDG7102A_SWEEP(v_asic*2)
+        #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
+
+        save_data = []
+        
+        for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
+
+            # SDG7102A SETTINGS
+            hex_lists = [
+                [
+                    "4'h2",  # firmware id
+                    "4'hF",  # op code for execute
+                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                    "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+                    "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                    "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                ]
+            ]           
+  
+            ROUTINE_sw_write32_0(hex_lists, doPrint=False)
+ 
+            wordList = scan_address #[0] # list(range(24))
+            words = ["0"*32] * 24
+            #words = []
+
+            #start_readback = time.process_time()
+            for iW in wordList: #range(nwords):
+
+                # send read
+                address = "8'h" + hex(iW)[2:]
+                hex_lists = [
+                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                ]
+                ROUTINE_sw_write32_0(hex_lists,doPrint=False)
+                
+                # read back data
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32(do_sw_read32_1=False)
+     
+
+                # store data
+                # words.append(int_to_32bit(sw_read32_0)[::-1])
+                words[iW] = int_to_32bit(sw_read32_0)[::-1]
+            
+            #read_time=time.process_time()-start_readback
+
+            #print(f"readback_time={read_time}")
+            
+            s = [int(i) for i in "".join(words)]
+            save_data.append(s)
+
+        # save the data to a file
+        save_data = np.stack(save_data, 0)
+        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
+        np.savez(outFileName, **{"data": save_data})
 
 
     return None
 
+
+#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
+def ROUTINE_pixelProg_scanChain_CDF():
+    nsample = 400
+    vstep = 0.0005
+    #scanList = [0, 1, 2, 6, 7, 8, 12, 13, 14, 18, 19, 20]   # we scanonly the right side of the matrix
+    scanList = [1, 2, 6, 7, 8, 12, 13, 14, 18, 19, 20]   # we scanonly the right side of the matrix
+    for i in scanList:
+        for j in range(int(i*32/3)+((i*32/3)>int(i*32/3)),round((i+1)*32/3)):   #we only test the pixels which have the 3 bits in a single DATA_ARRAY_) address
+            pixelProg_scanChain_CDF(pixelList=[j], pixelSettings=[1], scan_address=[i], vmin=0.02, vmax = 0.1, vstep = vstep, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[1], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.001, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[2], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[3], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[4], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[5], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[6], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[7], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[8], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[9], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[10], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+
+    # #pixelProg_scanChain_CDF(pixelList=[11], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.001, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[12], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[13], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[14], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[15], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[16], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[17], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[18], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[19], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[20], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+
+    # #pixelProg_scanChain_CDF(pixelList=[21], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[22], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[23], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[24], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[25], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[26], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[27], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[28], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[29], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[30], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[31], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+
+    # pixelProg_scanChain_CDF(pixelList=[64], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[65], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[66], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[67], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[68], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[69], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[70], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[71], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[72], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[73], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # #pixelProg_scanChain_CDF(pixelList=[74], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+
+    # pixelProg_scanChain_CDF(pixelList=[75], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[76], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[77], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[78], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[79], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # #pixelProg_scanChain_CDF(pixelList=[85], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)    
+
+    # pixelProg_scanChain_CDF(pixelList=[128], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[129], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[130], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
