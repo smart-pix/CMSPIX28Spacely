@@ -4,13 +4,13 @@
 # your ASIC test stand is set up, for example power supply voltages.
 import os
 
-USE_NI = True
+USE_NI = False
 
-DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot6":"NI7976_NI6583_40MHz"}
+#DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot6":"NI7976_NI6583_40MHz"}
 
 
 # We almost always want to default to the iospec present in the same directory.
-DEFAULT_IOSPEC = os.path.join("spacely-asic-config","DILVERT","DILVERT_iospec.txt")
+#DEFAULT_IOSPEC = os.path.join("spacely-asic-config","DILVERT","DILVERT_iospec.txt")
 
 
 # # # # # # # # # # # # # # # # # # # 
