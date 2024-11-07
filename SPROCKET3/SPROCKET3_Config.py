@@ -1,5 +1,5 @@
 
-DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3A/SPROCKET3A_iospec.txt"
+#DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3/SPROCKET3_iospec.txt"
 
 INSTR = {"car" : {"type": "Caribou",
                   "host":"192.168.1.24",
@@ -9,8 +9,9 @@ INSTR = {"car" : {"type": "Caribou",
 
 
 
-V_SEQUENCE = ["VDD", "VDDRX","VDDTX","VDD_refgen","vdda", "SFP_3V3_Cldbrd"]
+V_SEQUENCE = [] #"VDD", "VDDRX","VDDTX","VDD_refgen","vdda", "SFP_3V3_Cldbrd"]
 
+"""
 V_INSTR = {"vdda": "car",
            "VDD": "car",
            "VDDRX": "car",
@@ -46,4 +47,4 @@ V_PORT  = {"vdda": None,
            "VDD_refgen": None,
            "SFP_3V3_Cldbrd":None}
 
-
+"""

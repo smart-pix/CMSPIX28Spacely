@@ -14,6 +14,17 @@ def onstartup():
     # GLOBAL CONFIG VARIABLES
     assume_defaults = False
     
+    
+
+    print("====================================")
+    print("=== Starting SP3A Default Setup ===")
+
+    if not assume_defaults:
+        do_setup = input("Press enter to begin or 'n' to skip >")
+        if 'n' in do_setup:
+            print("Skipping all setup!")
+            return
+
     sg.INSTR["car"].axi_registers = {"apg": ["apg_run", "apg_write_channel", "apg_read_channel",
                      "apg_sample_count","apg_n_samples","apg_write_buffer_len",
                      "apg_next_read_sample","apg_wave_ptr","apg_status", "apg_control",
@@ -24,15 +35,6 @@ def onstartup():
                                  "spi_apg_next_read_sample","spi_apg_wave_ptr","spi_apg_status", "spi_apg_control",
                                  "spi_apg_dbg_error", "spi_apg_clear"],
                      "lpgbt_fpga":  ["uplinkRst", "mgt_rxpolarity", "lpgbtfpga_status"]}
-
-    print("====================================")
-    print("=== Starting SP3A Default Setup ===")
-
-    if not assume_defaults:
-        do_setup = input("Press enter to begin or 'n' to skip >")
-        if 'n' in do_setup:
-            print("Skipping all setup!")
-            return
 
     sg.INSTR["car"].debug_memory = False
         
@@ -232,7 +234,7 @@ def ROUTINE_basic_signals():
     input("")
 
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_axi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -289,7 +291,7 @@ def ROUTINE_axi_shell():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_spi_shell():
     """Microshell to interact with the AXI registers and debug the design."""
 
@@ -339,7 +341,7 @@ def ROUTINE_spi_shell():
             print(spi_read_reg(this_reg))
 
 
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_get_glue_wave():
 
     N = input("How many samples do you want to take?")
@@ -348,13 +350,13 @@ def ROUTINE_get_glue_wave():
     get_glue_wave(N)
 
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_write_tx_config():
     """Write ALL fields of the tx config to their default values."""
     spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_Update_tx_config():
     """Update a single field of the tx config, which is specified interactively."""
 
@@ -373,7 +375,7 @@ def ROUTINE_Update_tx_config():
     #spi_write_tx_config(TX_REG_DEFAULTS)
 
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_get_rx_status():
     """Check the status of the lpgbt-fpga receiver."""
 
@@ -417,7 +419,7 @@ def ROUTINE_get_rx_status():
     print(f"frame_aligner(one pulse)      sta_headerFlag   : {sta_headerFlag}")
     print(f"uplink decoder ready          uplinkReady      : {uplinkReady}")
 
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_pulse_uplinkRst():
 
     sg.INSTR["car"].set_memory("uplinkRst",1)
@@ -432,7 +434,7 @@ def ROUTINE_pulse_uplinkRst():
     
     
 
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_run_array_serial_pattern():
 
     user_pattern_str = input("Enter a binary pattern>>>")
@@ -451,7 +453,7 @@ def ROUTINE_run_array_serial_pattern():
     sg.pr.run_pattern(sg.gc.read_glue(pattern_glue), True)
     
 
-#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_run_APG_test_pattern():
 
     test_pattern = [0,1,2,3,4,5,6,7]
@@ -462,7 +464,7 @@ def ROUTINE_run_APG_test_pattern():
 
 
 
-#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_posedge_count():
     """Estimate the activity on certain internal FPGA clocks by counting posedges"""
 
@@ -486,7 +488,7 @@ def ROUTINE_posedge_count():
         
 
 
-#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
 def ROUTINE_dataframe_read():
     """Reads current value of err counter + 1 sample from data FIFO"""
 
@@ -526,7 +528,7 @@ def ROUTINE_dataframe_read():
 # If the integer is 0, that bit is "skipped" by the scan chain and should not be used. 
 # A SCARE pattern is a scan chain pattern which has been adjusted to take account of the missing bits. 
 #
-#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
 def ROUTINE_SCARE_Map_Eval():
     """Evaluate Qequal/DACclr Scan Chain for missing bits, and return SCARE maps."""
 
@@ -615,7 +617,7 @@ def parse_fast_capClk_sig_from_samples(raw_signal):
                 recovered_sig.append(0)
 
 
-#<<Registered w/ Spacely as ROUTINE 17, call as ~r17>>
+#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
 def ROUTINE_Qequal_DACclr_Eval():
     """Check if SCARE Maps successfully make Qequal/DACclr functional according to design."""
 
@@ -662,7 +664,7 @@ def ROUTINE_Qequal_DACclr_Eval():
     else:
         print("DACCLR FAIL :(")
 
-#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
 def ROUTINE_FEC_Error_Rate_Eval():
     """Evaluate the FEC Error Rate vs Tx parameters."""
     
