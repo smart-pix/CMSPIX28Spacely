@@ -1,0 +1,70 @@
+//Memory map for SPROCKET3 Firmware
+
+//test_data_source
+
+*BASE 0x400005000
+
+tds_control,0x0,0xffffffff,True,True
+
+tds_data,0x4,0xffffffff,True,False
+
+tds_param_DATA_WIDTH,0x8,0xffffffff,True,False
+
+//sp3_dual_rx
+
+*BASE 0x400002000
+
+uplinkEcData_a,0x0,0x3,True,False
+
+uplinkIcData_a,0x4,0x3,True,False
+
+uplinkEcData_b,0x8,0x3,True,False
+
+uplinkIcData_b,0xc,0x3,True,False
+
+mgt_rxpolarity_i,0x10,0x1,True,True
+
+uplinkRst_i,0x14,0x1,True,True
+
+
+// -- Channel A Sync Counter --
+
+*BASE 0x400003000
+
+cha_reset,0x0,0x1,True,True
+
+cha_snapshot,0x4,0x1,True,True
+
+cha_counter_a_result,0x8,0xffffffff,True,False
+
+cha_counter_b_result,0xc,0xffffffff,True,False
+
+cha_param_COUNTER_A_BITS,0x10,0xffffffff,True,False
+
+cha_param_OFFSET_A_BITS,0x14,0xffffffff,True,False
+
+cha_param_COUNTER_B_BITS,0x18,0xffffffff,True,False
+
+cha_param_OFFSET_B_BITS,0x1c,0xffffffff,True,False
+
+
+// -- Channel B Sync Counter --
+
+*BASE 0x400004000
+
+chb_reset,0x0,0x1,True,True
+
+chb_snapshot,0x4,0x1,True,True
+
+chb_counter_a_result,0x8,0xffffffff,True,False
+
+chb_counter_b_result,0xc,0xffffffff,True,False
+
+chb_param_COUNTER_A_BITS,0x10,0xffffffff,True,False
+
+chb_param_OFFSET_A_BITS,0x14,0xffffffff,True,False
+
+chb_param_COUNTER_B_BITS,0x18,0xffffffff,True,False
+
+chb_param_OFFSET_B_BITS,0x1c,0xffffffff,True,False
+

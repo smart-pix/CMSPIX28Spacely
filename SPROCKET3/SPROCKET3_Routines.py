@@ -7,6 +7,8 @@ import Spacely_Globals as sg
 from Spacely_Utils import *
 
 import itertools
+import cocotb
+from cocotb.triggers import FallingEdge, Timer
 
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
@@ -70,3 +72,25 @@ def ROUTINE_test_axi_read():
 
     except KeyboardInterrupt:
         print("Finishing!")
+
+
+
+
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_demo_test(dut):
+    """Minimal routine for testing Spacely Digital Twin."""
+    dut.a.value = 1
+    dut.b.value = 1
+
+    awaitTimer(5, units="ns")
+
+    assert(dut.c.value == 1)
+    print(f"dut.c.value = {dut.c.value}")
+
+    dut.a.value = 0
+    dut.b.value = 0
+
+    awaitTimer(5, units="ns")
+
+    assert(dut.c.value == 0)
+    print(f"dut.c.value = {dut.c.value}")

@@ -1,10 +1,20 @@
 
+# Cocotb Variables
+USE_COCOTB=True
+SIMULATOR="xcelium"
+HDL_TOP_LEVEL="demo_block"
+#HDL_TOP_LEVEL="./spacely-asic-config/SPROCKET3/hdl/SP3_Twin_Top.sv"
+
+###
+
+
 #DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3/SPROCKET3_iospec.txt"
 
-INSTR = {"car" : {"type": "Caribou",
-                  "host":"192.168.1.24",
-                  "port":12345,
-                  "device":"SpacelyCaribouBasic"}}
+INSTR = {}#"car" : {"type": "Caribou",
+          #        "host":"192.168.1.24",
+          #        "port":12345,
+          #        "device":"SpacelyCaribouBasic",
+          #        "mem_map":"./spacely-asic-config/SPROCKET3/hdl/mem_map_SP3.txt"}}
 
 
 
