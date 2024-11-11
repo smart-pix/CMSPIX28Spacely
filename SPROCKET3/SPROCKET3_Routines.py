@@ -1,23 +1,28 @@
 import random
 import time
 
+
 #Import Spacely functions
-from Master_Config import *
-import Spacely_Globals as sg
+#from Master_Config import *
+#import Spacely_Globals as sg
 from Spacely_Utils import *
 
+    
 import itertools
 import cocotb
 from cocotb.triggers import FallingEdge, Timer
 
+from Spacely_Cocotb import *
+
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
-def ROUTINE_test_axi_read():
+def ROUTINE_test_axi_read(dut=None):
     """Evaluate AXI Multi-data Read"""
 
     sg.INSTR["car"].set_memory("tds_control",4) #Clear
-    sg.INSTR["car"].set_memory("tds_control",2) #Increment after every rdStrobe.
-
+    #Increment after every rdStrobe.
+    sg.INSTR["car"].set_memory("tds_control",2) 
+    
     a = []
     a_gold = [0,1,2]
     for _ in range(3):
