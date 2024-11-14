@@ -6,6 +6,7 @@ Date: June, 2024
 # python
 import time
 import tqdm
+import h5py
 from datetime import datetime
 
 # spacely
@@ -75,8 +76,17 @@ def onstartup():
     if 'n' in init_asic:
         print("Skipped!")
     else:
+        iDVDD = V_PORT["vddd"].get_current()
+        iAVDD = V_PORT["vdda"].get_current()
+        print(f"DVDD current is {iDVDD}")
+        print(f"AVDD current is {iAVDD}")
         print("Programming of the ASIC shift register")
         ROUTINE_IP1_test1()
+        print("shift register Programmed")
+        iDVDD = V_PORT["vddd"].get_current()
+        iAVDD = V_PORT["vdda"].get_current()
+        print(f"DVDD current is {iDVDD}")
+        print(f"AVDD current is {iAVDD}")
         # #Config Si5345
         # print(">  Configuring SI5345 w/ config option 1 (disable refclk)")
         # #if not assume_defaults:
@@ -643,7 +653,7 @@ def ROUTINE_IP1_test1():
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
      # write on array0    
-    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
+    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
     #hex_list[255] = ["4'h1", "4'h6", "8'hFF", "16'hFF0F"]
     #hex_list[2] = ["4'h1", "4'h6", "8'h02", "16'h0F0F"] 
     #hex_list[1] = ["4'h1", "4'h6", "8'h01", "16'hF0F0"]       
@@ -652,7 +662,7 @@ def ROUTINE_IP1_test1():
     # write on array1
     # pixels are programmed between addresses [68] and [99] (see figure 6 from report)    
     array0 = hex_list
-    hex_list = [["4'h1", "4'h8", "8'h" + hex(i)[2:], "16'hFFFF"] for i in range(256)]
+    hex_list = [["4'h1", "4'h8", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
     #hex_list[69] = ["4'h1", "4'h8", "8'h45", "16'h0000"]    
     #hex_list[68] = ["4'h1", "4'h8", "8'h44", "16'h003F"]
     #hex_list[67] = ["4'h1", "4'h8", "8'h43", "16'hFFFF"]  
@@ -1379,7 +1389,8 @@ def pixelProg_scanChain_CDF(pixelList=[0], pixelSettings=[2], scan_address=[0], 
     pixNumber = pixelList[0]
     configBit= pixelSettings[0]
     scanAddress=scan_address[0]
-    test_path = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea/CMSPIX28_DAQ/spacely/PySpacely/data/2024-10-25_MATRIX"
+    # test_path = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea/CMSPIX28_DAQ/spacely/PySpacely/data/2024-10-25_MATRIX"
+    test_path = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea/CMSPIX28_DAQ/spacely/PySpacely/data/test"
     now = datetime.now()
 
     #folder_name = now.strftime("%Y-%m-%d_%H-%M-%S") + f"_scanAddress{scanAddress}" # Format: YYYY-MM-DD_HH-MM-SS
@@ -1456,86 +1467,319 @@ def pixelProg_scanChain_CDF(pixelList=[0], pixelSettings=[2], scan_address=[0], 
 
         # save the data to a file
         save_data = np.stack(save_data, 0)
-        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
-        np.savez(outFileName, **{"data": save_data})
-
+        # outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
+        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.h5")
+        # np.savez(outFileName, **{"data": save_data})
+        with h5py.File(outFileName, 'w') as hf:
+            hf.create_dataset("data", data=save_data)
 
     return None
 
 
 #<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
 def ROUTINE_pixelProg_scanChain_CDF():
-    nsample = 400
-    vstep = 0.0005
-    #scanList = [0, 1, 2, 6, 7, 8, 12, 13, 14, 18, 19, 20]   # we scanonly the right side of the matrix
-    scanList = [1, 2, 6, 7, 8, 12, 13, 14, 18, 19, 20]   # we scanonly the right side of the matrix
+    nsample = 10
+    vstep = 0.001
+    scanList = [0, 1, 2, 6, 7, 8, 12, 13, 14, 18, 19, 20]   # we scanonly the right side of the matrix
+    # scanList = [ 20]   # we scanonly the right side of the matrix
     for i in scanList:
         for j in range(int(i*32/3)+((i*32/3)>int(i*32/3)),round((i+1)*32/3)):   #we only test the pixels which have the 3 bits in a single DATA_ARRAY_) address
             pixelProg_scanChain_CDF(pixelList=[j], pixelSettings=[1], scan_address=[i], vmin=0.02, vmax = 0.1, vstep = vstep, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[1], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.001, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[2], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[3], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[4], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[5], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[6], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[7], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[8], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[9], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[10], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
 
-    # #pixelProg_scanChain_CDF(pixelList=[11], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.001, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[12], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[13], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[14], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[15], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[16], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[17], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[18], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[19], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[20], pixelSettings=[2], scan_address=[1], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[7], pixelSettings=[2], scan_address=[0], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[8], pixelSettings=[2], scan_address=[0], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[9], pixelSettings=[2], scan_address=[0], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[10], pixelSettings=[2], scan_address=[0], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
 
-    # #pixelProg_scanChain_CDF(pixelList=[21], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[22], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[23], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[24], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[25], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[26], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[27], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[28], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[29], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[30], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[31], pixelSettings=[2], scan_address=[2], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # #pixelProg_scanChain_CDF(pixelList=[11], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.001, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[12], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[13], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[14], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[15], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[16], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[17], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[18], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[19], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[20], pixelSettings=[2], scan_address=[1], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
 
-    # pixelProg_scanChain_CDF(pixelList=[64], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[65], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[66], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[67], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[68], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[69], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[70], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[71], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[72], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[73], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # #pixelProg_scanChain_CDF(pixelList=[74], pixelSettings=[2], scan_address=[6], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    pixelProg_scanChain_CDF(pixelList=[21], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[22], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[23], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[24], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[25], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[26], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[27], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[28], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[29], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[30], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[31], pixelSettings=[2], scan_address=[2], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
 
-    # pixelProg_scanChain_CDF(pixelList=[75], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[76], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[77], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[78], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[79], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # #pixelProg_scanChain_CDF(pixelList=[85], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)    
+    # pixelProg_scanChain_CDF(pixelList=[64], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[65], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[66], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[67], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[68], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[69], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[70], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[71], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[72], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[73], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # #pixelProg_scanChain_CDF(pixelList=[74], pixelSettings=[2], scan_address=[6], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
 
-    # pixelProg_scanChain_CDF(pixelList=[128], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[129], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[130], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
-    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[7], vmin=0.025, vmax = 0.19, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[75], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[76], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[77], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[78], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[79], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # #pixelProg_scanChain_CDF(pixelList=[85], pixelSettings=[2], scan_address=[7], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)    
+
+    # pixelProg_scanChain_CDF(pixelList=[128], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[129], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[130], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[80], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[81], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[82], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[83], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+    # pixelProg_scanChain_CDF(pixelList=[84], pixelSettings=[2], scan_address=[8], vmin=0.02, vmax = 0.1, vstep = 0.0005, nsample =nsample)
+
+    #<<Registered w/ Spacely as ROUTINE 14, call as ~r164>
+#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
+def ROUTINE_DNN_FINAL(loopbackBit=0):
+    hex_lists = [
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+
+    #PROGRAM SHIFT REGISTER
+    hex_lists = [
+        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h6F"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 100KHz
+        ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
+    ]
+
+    # call ROUTINE_sw_write32_0
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    hex_lists = [
+        ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
+   ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+
+    #prepare list of pixels
+    # pixelListToProgram = list(range(0,256))
+    # pixelSettingsToProgram = [3]*256 # [3]*256
+    #pixelListToProgram = #[82, 78, 74,80, 76,72] # [74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141]
+    #pixelSettingsToProgram = [3,3,2,3,3,2] #[3, 2] + [3] * 12 + [1]
+    # pixelConfig = genPixelProgramList(pixelListToProgram, pixelSettingsToProgram)
+
+    # pixels = [
+    #     [list(range(0,256)), [3]*256],
+    #     #[[74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141], [3, 2] + [3] * 12 + [1]],
+    #     [[16, 12, 21, 17, 13, 9, 5, 83, 79, 75, 71, 67,82, 78, 74], [3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2]],
+    #     [[82, 78, 74,80, 76,72], [3,3,2,3,3,2]],                                                                                        # RTL should see low momentum 1
+    #     [[206, 202, 211, 207, 203, 199, 195, 145, 141, 137, 133, 129, 144, 140, 136], [3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2]],  # RTL should see low momentum 2
+    #     [[86,82,78,74,70, 83,67, 80,76,72], [3,3,3,3,3,  3,2, 3,3,3]],                                                                     # RTL should see low momentum 1
+    #     [[148,144,140,136,132, 149,145, 150,146,142], [3,3,3,3,3,  3,2, 3,3,3]],    # RTL should see low momentum 0
+    # ]
+
+    # iP = 5
+    # pixelConfig = genPixelProgramList(pixels[iP][0], pixels[iP][1])
+
+    # load all of the configs
+    filename = "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
+    pixelConfigAll = genPixelConfigFromInputCSV(filename)
+    iP = 4 # which config to load
+    pixelConfig = list(pixelConfigAll[iP]) # pick up
+    print(pixelConfig)
+    # Programming the NN weights and biases
+    hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig)
+    #print(hex_lists)
+    # print("Printing DNN config")
+    ROUTINE_sw_write32_0(hex_lists, doPrint=False)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    hex_lists = [
+        [
+            "4'h1",  # firmware id
+            "4'hf",  # op code d for execute
+            "1'h1",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
+            "4'h0", # 3 bits for spare_index_max
+            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h1",  # 4 bits for test number
+            "7'h4", # 6 bits test sample
+            "7'h3F"  # 6 bits for test delay
+        ]
+	
+    ]
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+
+    # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
+    time.sleep(0.5)
+
+    # # hex lists                                                                                                                    
+    hex_lists = [
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h1","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+          
+         # BxCLK is set to 10MHz : "6'h28"
+         # BxCLK starts with a delay: "5'hB"
+         # BxCLK starts LOW: "1'h0"
+         # Superpixel 1 is selected: "1'h1"
+         # scan load delay is set : "6'h0A"                 
+         # scan_load delay  disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+
+         # SPARE bits:  "4'h0"
+         # Register Static 0 is programmed : "4'h2"
+         # IP 2 is selected: "4'h2"
+
+    ]
+
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ibh")
+    
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    
+    # # DODO SETTINGS
+    hex_lists = [
+        [
+            "4'h2",  # firmware id
+            "4'hF",  # op code for execute
+            "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+            "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
+            "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+        ]
+    ]       
+
+
+    print("HEX LIST CONTENT: ", gen_sw_write32_0(hex_lists[0]))
+    ROUTINE_sw_write32_0(hex_lists)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+    # time.sleep(1)
+    # boolean to store overall test pass or fail
+    # PASS = True
+
+    # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+    # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+    nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+    words = []
+    
+    for iW in range(nwords):
+
+        # send read
+        address = "8'h" + hex(iW)[2:]
+        hex_lists = [
+            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # read back data
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() #print_code = "ihb")
+        
+        # update
+        #PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # store data
+        words.append(int_to_32bit(sw_read32_0)[::-1])
+    
+    s = ''.join(words)
+    print(len(words), s)
+    print(s.find("1"))
+    if s.find("1") != -1:
+        #Y-projection
+        temp = np.array([int(i) for i in s]).reshape(256,3)
+        superpixel_array = np.zeros((8,32))
+        row_sums = None
+        for iP, val in enumerate(temp):
+            if 1 in val:
+                print(iP, val)
+                result_string = ''.join(val.astype(str))
+                row = 7-find_grid_cell_superpix(iP)[0]
+                col = find_grid_cell_superpix(iP)[1]
+                superpixel_array[row][col]=int(thermometric_to_integer(result_string[::-1]))
+                even_columns = superpixel_array[:,::2].sum(axis=1)
+                odd_columns = superpixel_array[:,1::2].sum(axis=1)
+                row_sums = []
+                for i, j in zip(even_columns, odd_columns):
+                    row_sums.append(i)
+                    row_sums.append(j)
+                row_sums = np.array(row_sums) 
+                #row_sums = np.concatenate((even_columns.sum(axis=1),odd_columns.sum(axis=1)))
+
+        print(f"the input vector to the DNN is {row_sums[::-1]}")     
+
+    # ROUTINE_sw_write32_0(hex_lists)
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ibh")
+
+    dnn_nwords = 8
+    dnn_words = []
+    for iW in range(dnn_nwords):
+        # send read
+        address = "8'h" + hex(iW)[2:]
+        hex_lists = [
+            ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
+        ]
+        ROUTINE_sw_write32_0(hex_lists)
+        
+        # read back data
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() #print_code = "ihb")
+        
+        # update
+        #PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+        # store data
+        # dnn_words.append(int_to_32bit(sw_read32_0)[::-1])
+        dnn_words.insert(0, int_to_32bit(sw_read32_0))
+        print(dnn_words[0])
+    #s = split_bits_to_numpy(s[22:-10],3)
+    dnn_s = ''.join(dnn_words)
+    print(dnn_s)
+    dnn_0=dnn_s[-48:] #[::-1]
+    dnn_1=dnn_s[-96:-48] # [::-1]
+    bxclk_ana=dnn_s[-144:-96] # [::-1]
+    bxclk=dnn_s[-192:-144] # [::-1]
+    # dnn_0_hex=hex(int(dnn_s[:48][::-1],2))
+    # dnn_1_hex=hex(int(dnn_s[48:96][::-1],2))
+    #print(dnn_s)
+    #print(f"dnn_0 ={dnn_0_hex} and dnn_1 ={dnn_1_hex} ")
+
+    #Printout of data seen in FW
+    print(f"reversed dnn_0     = {dnn_0}", len(dnn_0), hex(int(dnn_0, 2)))
+    print(f"reversed dnn_1     = {dnn_1}", len(dnn_1), hex(int(dnn_1, 2))) 
+    print(f"reversed bxclk_ana = {bxclk_ana}", len(bxclk_ana), hex(int(bxclk_ana, 2)))
+    print(f"reversed bxclk     = {bxclk}", len(bxclk), hex(int(bxclk, 2)))   
+
+    #Printout of data seen in the ASIC
+    # print(f"reversed dnn_0     = {dnn_0[::-1]}", len(dnn_0), hex(int(dnn_0, 2)))
+    # print(f"reversed dnn_1     = {dnn_1[::-1]}", len(dnn_1), hex(int(dnn_1, 2))) 
+    # print(f"reversed bxclk_ana = {bxclk_ana[::-1]}", len(bxclk_ana), hex(int(bxclk_ana, 2)))
+    # print(f"reversed bxclk     = {bxclk[::-1]}", len(bxclk), hex(int(bxclk, 2)))   
+
+
+
+    get_power()
+
+    return None
+
+

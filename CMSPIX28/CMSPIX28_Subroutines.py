@@ -178,7 +178,8 @@ def BSDG7102A_QUERY():
         if(input[i][-1]=="?"):   #If the last character of the request is a question 
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
-def BSDG7102A_INIT():
+
+def SDG7102A_INIT():
     import os
     import time
     import io
@@ -289,7 +290,7 @@ def dnnConfig(weightsCSVFile, pixelConfig=None):
 	dnn = [0]*12 + dnn + [0]*8
 
 	# if user gave 512 PIXEL_CONFIG_F2 then replace the last bits
-	if pixelConfig:
+	if pixelConfig != None:
 		dnn[-512-8:-8] = pixelConfig
 
 	# reshape into 16 bit words
@@ -450,7 +451,7 @@ def genPixelProgramList(p, s):
 
 def thermometric_to_integer(binary_str):
     integer_values =0
-    not_allowed = ["010", "101", "011","001"]   # should not be legal - check bit order though
+    not_allowed = ["010", "101", "110","100"]   # should not be legal - check bit order though
     if binary_str in not_allowed:
         integer_value=0
     else:
@@ -460,3 +461,57 @@ def thermometric_to_integer(binary_str):
     # Count the number of '1's in the binary string
     return integer_values
 
+def ivdd_vs_vdd(power='vddd'):
+
+    ivdd = []
+    vdd_rd =[]
+    ivvdd_vs_vdd = []
+    outDir = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea/CMSPIX28_DAQ/spacely/PySpacely/data/power"
+    os.makedirs(outDir, exist_ok=True)
+    for i in range(0,90):
+        if i/100<0.9:
+            volt = i/100
+            V_PORT[power].set_voltage(volt)
+            time.sleep(0.5)
+            print(V_PORT[power].get_voltage())
+            print(V_PORT[power].get_current())
+            ivdd.append(V_PORT[power].get_current())
+            vdd_rd.append(V_PORT[power].get_voltage())
+        else:
+            V_PORT[power].set_voltage(0.9)
+            break
+    # ivvdd_vs_vdd = np.concatenate((vdd_rd,ivdd), axis=1)
+    outFileName = os.path.join(outDir, f"ivvdd_vs_{power}.npz")
+    np.savez(outFileName, **{"ivdd": ivdd, f"{power}_rd": vdd_rd })
+
+def get_power():
+    iDVDD = V_PORT["vddd"].get_current()
+    iAVDD = V_PORT["vdda"].get_current()
+    print(f"DVDD current is {iDVDD}")
+    print(f"AVDD current is {iAVDD}")
+
+def genPixelConfigFromInputCSV(filename):
+    # Initialize an empty list to store the lists of numbers
+    pixelConfig = []
+
+    # Open the CSV file and read each line
+    with open(filename, 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            # Convert each row (list of strings) to a list of numbers and append to list_of_lists
+            temp = []
+            for num in row:
+                i = bin(int(num))[2:] # convert to binary
+                i = thermometric_to_integer(i) # interpret therometric
+                i = bin(i)[2:] # convert to binary
+                if len(i) == 1:
+                    i = "0" + i
+                temp.append(int(i[0])) # append first bit
+                temp.append(int(i[1])) # append second bit
+            pixelConfig.append(temp)
+
+    # convert to numpy
+    pixelConfig = np.array(pixelConfig)
+    print("Shape of pixelConfig: ", pixelConfig.shape)
+
+    return pixelConfig
