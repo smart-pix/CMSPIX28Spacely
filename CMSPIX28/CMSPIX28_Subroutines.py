@@ -294,7 +294,8 @@ def dnnConfig(weightsCSVFile, pixelConfig=None):
 		dnn[-512-8:-8] = pixelConfig
 
 	# reshape into 16 bit words
-	dnn = np.array(dnn).reshape(-1, 16); print(dnn[-33:])
+	dnn = np.array(dnn).reshape(-1, 16)
+    #print(dnn[-33:])
 
 	# split into array 1 and 2
 	array_1 = { 69+i : dnn[i][::-1].tolist() for i in range(187) }
@@ -442,7 +443,7 @@ def genPixelProgramList(p, s):
     # create full pixel programming
     pixelConfig = []
     for key, val in address_lists.items():
-        print(key, val)
+        # print(key, val)
         pixelConfig += val[::-1]
     # remove first and last 8 bits which are not real
     pixelConfig = pixelConfig[8:-8]
@@ -491,27 +492,46 @@ def get_power():
     print(f"AVDD current is {iAVDD}")
 
 def genPixelConfigFromInputCSV(filename):
+
     # Initialize an empty list to store the lists of numbers
-    pixelConfig = []
+    pixelLists = []
+    pixelValues = []
 
     # Open the CSV file and read each line
     with open(filename, 'r') as file:
         reader = csv.reader(file)
         for row in reader:
-            # Convert each row (list of strings) to a list of numbers and append to list_of_lists
-            temp = []
-            for num in row:
-                i = bin(int(num))[2:] # convert to binary
-                i = thermometric_to_integer(i) # interpret therometric
-                i = bin(i)[2:] # convert to binary
-                if len(i) == 1:
-                    i = "0" + i
-                temp.append(int(i[0])) # append first bit
-                temp.append(int(i[1])) # append second bit
-            pixelConfig.append(temp)
 
-    # convert to numpy
-    pixelConfig = np.array(pixelConfig)
-    print("Shape of pixelConfig: ", pixelConfig.shape)
+            # 256 numbers
+            csvRow = [int(num) for num in row]
 
-    return pixelConfig
+            # 8x32 starting with row 0 at the top like diagram
+            pixels = [[0]*32]*8
+            for i in range(0, 8):
+                # pick up 32
+                temp = csvRow[i*32 : (i+1)*32]
+                # first 16 are right hand values (odd indices) and last 16 are left hand values (even indices)
+                newrow = [0] * 32
+                newrow[1::2] = reversed(temp[:16])
+                newrow[0::2] = reversed(temp[16:])
+                pixels[i] = newrow
+
+            # reverse to match order of grid
+            pixels = list(reversed(pixels))
+
+            # assign to pixel list and values
+            pixelList = []
+            pixelValue = []
+            for iR , (pixRow, gridRow) in enumerate(zip(pixels, grid)):
+                for iC, (p, g) in enumerate(zip(pixRow, gridRow)):
+                    if p != 0:
+                        pixelList.append(g) # append pixel index from grid
+                        thermValue = thermometric_to_integer(bin(int(p))[2:])
+                        pixelValue.append(thermValue) # append pixel value as thermometric integer
+                        # print(8 - iR, iC, g, p, thermValue)
+
+            # append
+            pixelLists.append(pixelList)
+            pixelValues.append(pixelValue)
+
+    return pixelLists, pixelValues
