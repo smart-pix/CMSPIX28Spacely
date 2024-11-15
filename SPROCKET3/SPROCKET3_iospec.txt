@@ -1,0 +1,18 @@
+
+
+HARDWARE Caribou/spi_apg/read BEGIN
+
+//ASIC Outputs
+poci,O,0
+
+END
+
+HARDWARE Caribou/spi_apg/write BEGIN
+
+//ASIC Inputs
+pico,I,0
+cs_b,I,1,1
+reset_b,I,2,1
+trig,I,3,0
+
+END

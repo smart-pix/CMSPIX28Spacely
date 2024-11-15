@@ -79,9 +79,31 @@ def ROUTINE_test_axi_read(dut=None):
         print("Finishing!")
 
 
-
-
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
+def ROUTINE_check_spi_loopback():
+    """Write a register over SPI and read back its value to confirm the SPI interface is working."""
+
+
+    sg.pr.update_io_defaults("spi_apg")
+    
+    for test_val in [49, 102, 1]:
+        spi_write_reg("comp_fall_bufsel",test_val)
+    
+        val = spi_read_reg("comp_fall_bufsel")
+
+        if val == 0:
+            sg.log.warning("Read back 0. Retrying...")
+            val = spi_read_reg("comp_fall_bufsel")
+
+        if val == test_val:
+            sg.log.info("SPI Loopback Passed!")
+        else:
+            sg.log.error(f"SPI Loopback Failed: Wrote {test_val} (bin:{bin(test_val)}), Read {val} (bin:{bin(val)})")
+            return
+
+
+
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
 def ROUTINE_demo_test(dut):
     """Minimal routine for testing Spacely Digital Twin."""
     dut.a.value = 1

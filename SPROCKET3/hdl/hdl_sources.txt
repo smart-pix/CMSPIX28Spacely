@@ -1,22 +1,75 @@
-demo_block.sv
 
 // Top file.
 CaribouDigitalTwinTop.sv
 
+// Macros
+DEF COMMON_BLOCKS ../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks
+DEF SPROCKET3 /asic/projects/S/SParkDream/aquinn/lpgbt_functional_sim/sprocket3-digital/src
 
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/single_frame_store/src/single_frame_store.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/single_frame_store/single_frame_store_top.v
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/single_frame_store/single_frame_store_interface.sv
+// -- SPACELY CARIBOU COMMON BLOCKS --
+// -> Single Frame Store
+$COMMON_BLOCKS/pixel_buffer/single_frame_store/src/single_frame_store.sv
+$COMMON_BLOCKS/pixel_buffer/single_frame_store/single_frame_store_top.v
+$COMMON_BLOCKS/pixel_buffer/single_frame_store/single_frame_store_interface.sv
 
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/sync_counter/src/sync_counter.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/sync_counter/sync_counter_top.v
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/pixel_buffer/sync_counter/sync_counter_interface.sv
+// -> Pixel Buffer
+$COMMON_BLOCKS/pixel_buffer/sync_counter/src/sync_counter.sv
+$COMMON_BLOCKS/pixel_buffer/sync_counter/sync_counter_top.v
+$COMMON_BLOCKS/pixel_buffer/sync_counter/sync_counter_interface.sv
 
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/test_data_source/src/test_data_source.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/test_data_source/test_data_source_interface.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/test_data_source/test_data_source_top.v
+// Include custom sim model of xpm_cdc_single.
+$COMMON_BLOCKS/pixel_buffer/src/xpm_cdc_single.sv
 
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/axi4lite_interface/axi4lite_slave_interface.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/axi4lite_interface/mem_regs.sv
-../../../../../peary-firmware-sprocket3/submodules/spacely-caribou-common-blocks/axi4lite_interface/axi4lite_interface_top.sv
+// -> Test Data Source
+$COMMON_BLOCKS/test_data_source/src/test_data_source.sv
+$COMMON_BLOCKS/test_data_source/test_data_source_interface.sv
+$COMMON_BLOCKS/test_data_source/test_data_source_top.v
 
+// -> AXI4 Lite Slave Interface
+$COMMON_BLOCKS/axi4lite_interface/axi4lite_slave_interface.sv
+$COMMON_BLOCKS/axi4lite_interface/mem_regs.sv
+$COMMON_BLOCKS/axi4lite_interface/axi4lite_interface_top.sv
+
+// -> APG
+$COMMON_BLOCKS/Arbitrary_Wave_Generator/Arbitrary_Pattern_Generator_interface.sv
+$COMMON_BLOCKS/Arbitrary_Wave_Generator/Arbitrary_Pattern_Generator_top.v
+$COMMON_BLOCKS/Arbitrary_Wave_Generator/src/Arbitrary_Pattern_Generator.sv
+
+// -> Logic Clk Divider
+$COMMON_BLOCKS/logic_clk_div/logic_clk_div_interface.sv
+$COMMON_BLOCKS/logic_clk_div/logic_clk_div_top.v
+$COMMON_BLOCKS/logic_clk_div/src/logic_clk_div.sv
+
+
+// SPROCKET3 Main blocks
+$SPROCKET3/SPROCKET3_Top.sv
+$SPROCKET3/SPROCKET3_Digital.sv
+$SPROCKET3/SP3_Transmitter_Digital.v
+$SPROCKET3/HighSpeedBinaryDeserializer.sv
+$SPROCKET3/SPROCKET3_GlobalPatternGenerator.sv
+$SPROCKET3/generic_spi_peripheral.sv
+
+// Memory maps
+$SPROCKET3/mem_maps/*.sv
+
+
+// NOTE: IN THIS SIMULATION WE EXCLUDE PIX_ARRAY_X20 FOR SIMPLICITY
+pix_array_dummies.sv
+
+// Array + Pixel RTL
+// $SPROCKET3/array/*.sv
+
+// CIS Control
+$SPROCKET3/CIS_Control/CIS_Control.sv
+
+//Miscellaneous SPROCKET3 RTL
+$SPROCKET3/simulation_models/S2_PIX_ANA_x4.sv
+$SPROCKET3/simulation_models/S2_DIG_COMMON.sv
+$SPROCKET3/simulation_models/P2_PIX_ANA_dig_rvt.sv
+$SPROCKET3/simulation_models/delay_rise2_fall0.sv
+$SPROCKET3/stubs/S3_BIAS_BLOCK.sv
+
+$SPROCKET3/cern_digital/dataPath/rtl/*.v
+$SPROCKET3/cern_digital/serializer/rtl/*.v
+
+$SPROCKET3/cern_digital/lpGBTX/rtl/powerUpStateMachine.v

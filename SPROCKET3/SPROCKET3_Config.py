@@ -1,6 +1,6 @@
 
 # Cocotb Variables
-USE_COCOTB=False
+USE_COCOTB=True
 SIMULATOR="xcelium"
 #HDL_TOP_MODULE="demo_block"
 HDL_TOP_MODULE="CaribouDigitalTwinTop"
@@ -8,7 +8,7 @@ HDL_TOP_MODULE="CaribouDigitalTwinTop"
 ###
 
 
-#DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3/SPROCKET3_iospec.txt"
+DEFAULT_IOSPEC = "./spacely-asic-config/SPROCKET3/SPROCKET3_iospec.txt"
 
 INSTR = {"car" : {"type": "Caribou",
                   "host":"192.168.1.24",
