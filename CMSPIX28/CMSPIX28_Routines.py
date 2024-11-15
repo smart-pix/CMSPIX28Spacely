@@ -1600,8 +1600,12 @@ def ROUTINE_DNN_FINAL(loopbackBit=0, patternIndexes = [0], verbose=False):
     # list to save to
     yprofiles = []
     readouts = []
+    iN = 0
 
     for iP in tqdm.tqdm(patternIndexes):
+
+        # increment counter of number of patterns
+        iN += 1
 
         # pick up pixel config for the given pattern
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
@@ -1745,17 +1749,22 @@ def ROUTINE_DNN_FINAL(loopbackBit=0, patternIndexes = [0], verbose=False):
         yprofiles.append(row_sums)
         readouts.append(dnn_s)
 
-    # save to csv file
-    yprofileOutputFile = "yprofiles.csv"
-    with open(yprofileOutputFile, 'w', newline="") as file:
-        writer = csv.writer(file)
-        writer.writerows(yprofiles)
-    
-    # save readouts to csv
-    readoutOutputFile = "readout.csv"
-    with open(readoutOutputFile, "w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerows(readouts)
-    
+        # save every 25 and on the last one
+        if iN % 25 == 0 or iN == len(patternIndexes):
+            
+            # save to csv file
+            yprofileOutputFile = "yprofiles.csv"
+            with open(yprofileOutputFile, 'w', newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(yprofiles)
+        
+            # save readouts to csv
+            readoutOutputFile = "readout.csv"
+            with open(readoutOutputFile, "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(readouts)
+
+            print("Saving to: ", yprofileOutputFile, readoutOutputFile, iN)
+
     return None
 
