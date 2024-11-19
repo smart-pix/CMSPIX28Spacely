@@ -1,6 +1,0 @@
-HARDWARE PXI1Slot16/NI6583/se_io BEGIN
-
-scanIn,I,30
-enable,I,31
-
-END

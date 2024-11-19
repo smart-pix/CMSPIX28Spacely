@@ -1,6 +1,0 @@
-
-
-INSTR = {"car" : {"type": "Caribou",
-                  "host":"192.168.1.24",
-                  "port":22,
-                  "device":"ZCU102_LED_Demo"}}
