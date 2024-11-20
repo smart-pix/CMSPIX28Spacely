@@ -284,7 +284,7 @@ def time_sw_write32(ran=10):
     write_time = time.process_time() - start
     print(f"write time={write_time}")
 
-def dnnConfig(weightsCSVFile, pixelConfig=None):
+def dnnConfig(weightsCSVFile, pixelConfig=None, hiddenBit=None):
 	# load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
 	dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
 	dnn = [0]*12 + dnn + [0]*8
@@ -293,16 +293,34 @@ def dnnConfig(weightsCSVFile, pixelConfig=None):
 	if pixelConfig != None:
 		dnn[-512-8:-8] = pixelConfig
 
+	# if user gave 24 hidden values then replace the first bits        
+	if hiddenBit != None:
+		dnn[0:24] = hiddenBit
 	# reshape into 16 bit words
 	dnn = np.array(dnn).reshape(-1, 16)
     #print(dnn[-33:])
+
+	# split into array 0 and 1
+	array_0 = { i : dnn[i][::-1].tolist() for i in range(256) }
+	array_1 = { iA : dnn[i][::-1].tolist() for iA, i in enumerate(range(256,324)) }
+
+	# convert to hex_list for programming
+	hex_list = []
+	for hexArray, array_i in zip(["6", "8"], [array_0, array_1]):
+		for key, val in array_i.items():
+			address = hex(key)[2:]
+			data = hex(int("".join([str(i) for i in val]),2))[2:]
+			data = "0"*(4-len(data)) + data
+			temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"] 
+			hex_list.append(temp)
+			#print(key, val, temp)
 
 	# split into array 1 and 2
 	array_1 = { 69+i : dnn[i][::-1].tolist() for i in range(187) }
 	array_2 = { iA : dnn[i][::-1].tolist() for iA, i in enumerate(range(187, 324)) }
 
 	# convert to hex_list for programming
-	hex_list = []
+	# hex_list = []
 	for hexArray, array_i in zip(["8", "A"], [array_1, array_2]):
 		for key, val in array_i.items():
 			address = hex(key)[2:]
