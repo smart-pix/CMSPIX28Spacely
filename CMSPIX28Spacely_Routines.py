@@ -588,22 +588,22 @@ def ROUTINE_scanChain_counter():
         ROUTINE_sw_write32_0(hex_list)
         sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
-        # send an execute for test 1 and loopback enabled
-        # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
-        hex_lists = [
-        	[
-            	"4'h1",  # firmware id
-            	"4'hF",  # op code execute
-            	"1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            	"4'h0", # 3 bits for spare_index_max
-            	"1'h1",  # 1 bit for w_execute_cfg_test_loopback
-            	"4'h4",  # 3 bits for test number
-                "7'h04", # 6 bits test sample
-                "7'h12"  # 6 bits for test delay
-        	]
-    	]
-        ROUTINE_sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
+        # # send an execute for test 1 and loopback enabled
+        # # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
+        # hex_lists = [
+        # 	[
+        #     	"4'h1",  # firmware id
+        #     	"4'hF",  # op code execute
+        #     	"1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+        #     	"4'h0", # 3 bits for spare_index_max
+        #     	"1'h1",  # 1 bit for w_execute_cfg_test_loopback
+        #     	"4'h4",  # 3 bits for test number
+        #         "7'h04", # 6 bits test sample
+        #         "7'h12"  # 6 bits for test delay
+        # 	]
+    	# ]
+        # ROUTINE_sw_write32_0(hex_lists)
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code="ihb")
  
 
 #<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
@@ -637,21 +637,22 @@ def ROUTINE_IP1_test1():
     ROUTINE_sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
-    hex_list = [
-        [
-            "4'h1",  # firmware id
-            "4'hf",  # op code execute
-            "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            "4'h0", # 3 bits for spare_index_max
-            "1'h1",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h4",  # 3 bits for test number
-            "7'h04", # 6 bits test sample
-            "7'h12"  # 6 bits for test delay
-        ]
-    ]
-    nwrites = 511
-    ROUTINE_sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+    # hex_list = [
+    #     [
+    #         "4'h1",  # firmware id
+    #         "4'hf",  # op code execute
+    #         "1'h0",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+    #         "4'h0", # 3 bits for spare_index_max
+    #         "1'h1",  # 1 bit for w_execute_cfg_test_loopback
+    #         "4'h4",  # 3 bits for test number
+    #         "7'h04", # 6 bits test sample
+    #         "7'h12"  # 6 bits for test delay
+    #     ]
+    # ]
+    # nwrites = 511
+    # ROUTINE_sw_write32_0(hex_list)
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
+
 
      # write on array0    
     hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(256)]
@@ -1551,18 +1552,26 @@ def ROUTINE_pixelProg_scanChain_CDF():
 
     #<<Registered w/ Spacely as ROUTINE 14, call as ~r164>
 #<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
-def ROUTINE_DNN_FINAL(loopbackBit=0, patternIndexes = [0], verbose=False, vin_test='1D', freq='28', start_bxclk_state='0',scanload_delay='13', prog_delay='7f', prog_sample='20', prog_reset_mask='0'):
+def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='7f', progSample='20', progResetMask='0', progFreq='64'):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
 
     # ROUTINE_sw_write32_0(hex_lists)
     # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() #print_code = "ihb")
+    ROUTINE_startup_test_OP_CODE_RST_FW()
 
+    hex_list = [
+        ["4'h1", "4'h1", "16'h0", "1'h1", "7'h64"], # OP_CODE_W_RST_FW
+        ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
+   ]
+    ROUTINE_sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
-        ["4'h1", "4'h2", "16'h0", "1'h1", "7'h64"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
+        # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
+        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"],
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
 
@@ -1606,106 +1615,106 @@ def ROUTINE_DNN_FINAL(loopbackBit=0, patternIndexes = [0], verbose=False, vin_te
 
         # increment counter of number of patterns
         iN += 1
-
+        hiddenBit="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
         # pick up pixel config for the given pattern
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
         # Programming the NN weights and biases
-        hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug.csv', pixelConfig = pixelConfig)
+        hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         ROUTINE_sw_write32_0(hex_lists, doPrint=False)
-        print(hex_lists)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() 
 
         hex_lists = [
             [
                 "4'h1",  # firmware id
                 "4'hf",  # op code d for execute
-                f"1'h{prog_reset_mask}",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
+                f"1'h{progResetMask}",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
                 "4'h0", # 3 bits for spare_index_max
                 "1'h0",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h1",  # 4 bits for test number
-                f"7'h{prog_sample}", # 6 bits test sample
-                f"7'h{prog_delay}"  # 6 bits for test delay
+                f"7'h{progSample}", # 6 bits test sample
+                f"7'h{progDly}"  # 6 bits for test delay
             ]
         
         ]
-        print(f"write command is {hex_lists}")
         ROUTINE_sw_write32_0(hex_lists)
+        time.sleep(0.5)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
-        #ReadBack from READ_ARRAY 1
-        words_A0 = []      
-        words_A1 = []
-        words_A2 = []    
-        words_DA0 = []
-        words_DA1 = []              
-        for i in range(0, 256,2):
-            address = hex(i)[2:]
-            hex_list0 = [
-            [
-                "4'h1", "4'h7", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 0            
-            ]
-            ROUTINE_sw_write32_0(hex_list0)
-            sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
-            words_A0.append([address,int_to_32bit(sw_read32_0)])
+        if(progDebug==True):
+            #ReadBack from READ_ARRAY 1
+            words_A0 = []      
+            words_A1 = []
+            words_A2 = []    
+            words_DA0 = []
+            words_DA1 = []              
+            for i in range(0, 256,2):
+                address = hex(i)[2:]
+                hex_list0 = [
+                [
+                    "4'h1", "4'h7", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 0            
+                ]
+                ROUTINE_sw_write32_0(hex_list0)
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
+                words_A0.append([address,int_to_32bit(sw_read32_0)])
 
-            hex_list1 = [
-            [
-                "4'h1", "4'h9", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 1            
-            ]
-            ROUTINE_sw_write32_0(hex_list1)
-            sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
-            words_A1.append([address,int_to_32bit(sw_read32_0)])
+                hex_list1 = [
+                [
+                    "4'h1", "4'h9", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 1            
+                ]
+                ROUTINE_sw_write32_0(hex_list1)
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
+                words_A1.append([address,int_to_32bit(sw_read32_0)])
 
-            hex_list2 = [
-            [
-                "4'h1", "4'hB", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 2            
-            ]
-            ROUTINE_sw_write32_0(hex_list2)
-            sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
-            words_A2.append([address,int_to_32bit(sw_read32_0)])
-       
-        for i in range(256):
-            address = hex(i)[2:]
-            hex_list_rdata0 = [
-            [
-                "4'h1", "4'hC", f"8'h{address}", "16'h0"]         #ReadBack from READ DATA ARRAY 0            
-            ]
-            ROUTINE_sw_write32_0(hex_list_rdata0)
-            sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
-            words_DA0.append([address,int_to_32bit(sw_read32_0)])
+                hex_list2 = [
+                [
+                    "4'h1", "4'hB", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 2            
+                ]
+                ROUTINE_sw_write32_0(hex_list2)
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
+                words_A2.append([address,int_to_32bit(sw_read32_0)])
+            
+            for i in range(256):
+                address = hex(i)[2:]
+                hex_list_rdata0 = [
+                [
+                    "4'h1", "4'hC", f"8'h{address}", "16'h0"]         #ReadBack from READ DATA ARRAY 0            
+                ]
+                ROUTINE_sw_write32_0(hex_list_rdata0)
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
+                words_DA0.append([address,int_to_32bit(sw_read32_0)])
 
-            hex_list_rdata1 = [
-            [
-                "4'h1", "4'hD", f"8'h{address}", "16'h0"]         #ReadBack from READ DATA ARRAY 1            
-            ]
-            ROUTINE_sw_write32_0(hex_list_rdata1)
-            sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
-            words_DA1.append([address,int_to_32bit(sw_read32_0)])
+                hex_list_rdata1 = [
+                [
+                    "4'h1", "4'hD", f"8'h{address}", "16'h0"]         #ReadBack from READ DATA ARRAY 1            
+                ]
+                ROUTINE_sw_write32_0(hex_list_rdata1)
+                sw_read32_0, sw_read32_1, _, _ = ROUTINE_sw_read32() 
+                words_DA1.append([address,int_to_32bit(sw_read32_0)])
 
-        print("CFG ARRAY 0")
-        s0 = (words_A0)
-        print(s0)
-        print("CFG ARRAY 1")
-        s1 = (words_A1)
-        print(s1)
-        print("CFG ARRAY 2")        
-        s2 = (words_A2)
-        print(s2)
-        print("READ DATA 0")        
-        sd0 = (words_DA0)
-        print(sd0)
-        print("READ DATA 1")        
-        sd1 = (words_DA1)
-        print(sd1)
+            print("CFG ARRAY 0")
+            for i in words_A0:
+                print(i)
+            print("CFG ARRAY 1")
+            for i in words_A1:
+                print(i)
+            print("CFG ARRAY 2")  
+            for i in words_A2:
+                print(i)           
+            print("READ DATA 0")   
+            for i in words_DA0:
+                print(i)    
+            print("READ DATA 1")  
+            for i in words_DA1:
+                print(i)                
+
 
 
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
-        time.sleep(0.2)
 
         # # hex lists                                                                                                                    
         hex_lists = [
-            ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanload_delay}", "1'h1", f"1'h{start_bxclk_state}", "5'h0B", f"6'h{freq}"], #BSDG7102A and CARBOARD
+            ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", "5'h0B", f"6'h{freq}"], #BSDG7102A and CARBOARD 
             #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
             
             # BxCLK is set to 10MHz : "6'h28"
@@ -1733,7 +1742,7 @@ def ROUTINE_DNN_FINAL(loopbackBit=0, patternIndexes = [0], verbose=False, vin_te
                 "4'hF",  # op code for execute
                 "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
                 #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                f"6'h{vin_test}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                f"6'h{vinTest}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                 f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                 #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
@@ -1914,8 +1923,8 @@ def ROUTINE_DNN_SCAN(loopbackBit=0, patternIndexes = [2], verbose=False, vin_tes
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
         time.sleep(0.5)
         settingList=[]
-        hex_list_6b = [f'{i:X}' for i in range(0, 64)]
-        hex_list_5b = [f'{i:X}' for i in range(0, 32)]
+        hex_list_6b = 1 #[f'{i:X}' for i in range(0, 64)]
+        hex_list_5b = 1 #[f'{i:X}' for i in range(0, 32)]
         hex_list_1b =1
         for scanload_delay in hex_list_6b:
             for bxclk_delay in hex_list_5b:
