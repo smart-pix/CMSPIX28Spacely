@@ -1552,7 +1552,7 @@ def ROUTINE_pixelProg_scanChain_CDF():
 
     #<<Registered w/ Spacely as ROUTINE 14, call as ~r164>
 #<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
-def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='7f', progSample='20', progResetMask='0', progFreq='64'):
+def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0'):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -1620,7 +1620,10 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
         # Programming the NN weights and biases
-        hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+        if(progDebug==True):
+            hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+        else:
+            hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         ROUTINE_sw_write32_0(hex_lists, doPrint=False)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32() 
 
@@ -1629,7 +1632,8 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
                 "4'h1",  # firmware id
                 "4'hf",  # op code d for execute
                 f"1'h{progResetMask}",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
-                "4'h0", # 3 bits for spare_index_max
+                "3'h0", # 3 bits for spare_index_max
+                f"1'h{configClkGate}", # 1 bit for gating configClk
                 "1'h0",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h1",  # 4 bits for test number
                 f"7'h{progSample}", # 6 bits test sample
@@ -1641,7 +1645,7 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
         time.sleep(0.5)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = ROUTINE_sw_read32(print_code = "ihb")
 
-        if(progDebug==True):
+        if(verbose==True and progDebug==True):
             #ReadBack from READ_ARRAY 1
             words_A0 = []      
             words_A1 = []
@@ -1706,15 +1710,25 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
                 print(i)    
             print("READ DATA 1")  
             for i in words_DA1:
-                print(i)                
-
-
+                print(i)
+            cfgArray0File = "cfgArray0.csv"
+            with open(cfgArray0File, 'a+', newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(words_A0)
+            array0File = "array0.csv"                  
+            with open(array0File, 'a+', newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(words_DA0)
+            array1File = "array1.csv"                  
+            with open(array1File, 'a+', newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(words_DA1)
 
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
 
         # # hex lists                                                                                                                    
         hex_lists = [
-            ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", "5'h0B", f"6'h{freq}"], #BSDG7102A and CARBOARD 
+            ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{freq}"], #BSDG7102A and CARBOARD 
             #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
             
             # BxCLK is set to 10MHz : "6'h28"
@@ -1746,8 +1760,8 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
                 f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                 #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                f"6'h{sampleDelaySC}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                f"6'h{testDelaySC}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
             ]
         ]       
 
@@ -1814,10 +1828,14 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
         if verbose:
             print(f"the input vector to the DNN is {row_sums}")
             # Printout of data seen in FW
-            dnn_0=dnn_s[-48:] 
-            dnn_1=dnn_s[-96:-48] 
-            bxclk_ana=dnn_s[-144:-96] 
-            bxclk=dnn_s[-192:-144] 
+            # dnn_0=dnn_s[-48:] 
+            # dnn_1=dnn_s[-96:-48] 
+            # bxclk_ana=dnn_s[-144:-96] 
+            # bxclk=dnn_s[-192:-144] 
+            dnn_0=dnn_s[-64:] 
+            dnn_1=dnn_s[-128:-64] 
+            bxclk_ana=dnn_s[-192:-128] 
+            bxclk=dnn_s[-256:-192]            
             print(f"reversed dnn_0     = {dnn_0}", len(dnn_0), hex(int(dnn_0, 2)))
             print(f"reversed dnn_1     = {dnn_1}", len(dnn_1), hex(int(dnn_1, 2))) 
             print(f"reversed bxclk_ana = {bxclk_ana}", len(bxclk_ana), hex(int(bxclk_ana, 2)))
@@ -1851,7 +1869,7 @@ def ROUTINE_DNN_FINAL(progDebug=False,loopbackBit=0, patternIndexes = [0], verbo
 
 # ~r17
 #<<Registered w/ Spacely as ROUTINE 17, call as ~r17>>
-def ROUTINE_DNN_SCAN(loopbackBit=0, patternIndexes = [2], verbose=False, vin_test='1D', freq='30', start_bxclk_state='0', cfg_test_delay='08',cfg_test_sample='08', bxclk_delay='0B',scanload_delay='13' ):
+def ROUTINE_DNN_SCAN(loopbackBit=0, patternIndexes = [2], verbose=False, vin_test='1D', freq='3f', start_bxclk_state='0', cfg_test_delay='08',cfg_test_sample='08', bxclk_delay='0B',scanload_delay='13' ):
     hex_lists = [
         ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     ]
@@ -1923,11 +1941,11 @@ def ROUTINE_DNN_SCAN(loopbackBit=0, patternIndexes = [2], verbose=False, vin_tes
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
         time.sleep(0.5)
         settingList=[]
-        hex_list_6b = 1 #[f'{i:X}' for i in range(0, 64)]
+        hex_list_6b = [f'{i:X}' for i in range(0, 64)]
         hex_list_5b = 1 #[f'{i:X}' for i in range(0, 32)]
         hex_list_1b =1
         for scanload_delay in hex_list_6b:
-            for bxclk_delay in hex_list_5b:
+            for bxclk_delay in ['14']: #hex_list_5b:
                 for vin_test in hex_list_6b:
                     for cfg_test_sample in ['08']:
                         for cfg_test_delay in ['08']:
@@ -2042,6 +2060,10 @@ def ROUTINE_DNN_SCAN(loopbackBit=0, patternIndexes = [2], verbose=False, vin_tes
                                 dnn_1=dnn_s[-96:-48] 
                                 bxclk_ana=dnn_s[-144:-96] 
                                 bxclk=dnn_s[-192:-144] 
+                                dnn_0=dnn_s[-64:] 
+                                dnn_1=dnn_s[-128:-64] 
+                                bxclk_ana=dnn_s[-192:-128] 
+                                bxclk=dnn_s[-256:-192]     
                                 print(f"reversed dnn_0     = {dnn_0}", len(dnn_0), hex(int(dnn_0, 2)))
                                 print(f"reversed dnn_1     = {dnn_1}", len(dnn_1), hex(int(dnn_1, 2))) 
                                 print(f"reversed bxclk_ana = {bxclk_ana}", len(bxclk_ana), hex(int(bxclk_ana, 2)))

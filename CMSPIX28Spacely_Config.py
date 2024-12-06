@@ -33,7 +33,7 @@ V_LEVEL = {"vdda": 0.9,
             "VTH1": 0.04,
             "VTH0": 0.04,
            "VMC": 0.4,
-           "SUPERPIX":0,
+           "SUPERPIX":0.9,
            "INJ_1": 2
            }
 
