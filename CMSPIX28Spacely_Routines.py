@@ -15,9 +15,6 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
-superpixel = 0
-# note that all functions in CMSPIX28_Subroutines.py will automatically be imported by Master_Config.py
-
 def onstartup():
 
     # GLOBAL CONFIG VARIABLES
