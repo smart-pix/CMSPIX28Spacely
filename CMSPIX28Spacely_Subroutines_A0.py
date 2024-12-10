@@ -284,36 +284,60 @@ def time_sw_write32(ran=10):
     write_time = time.process_time() - start
     print(f"write time={write_time}")
 
-def dnnConfig(weightsCSVFile, pixelConfig=None):
-	# load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
-	dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
-	dnn = [0]*12 + dnn + [0]*8
+def dnnConfig(weightsCSVFile, pixelConfig=None, hiddenBitCSV=None):
+    # load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
+    dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
+    dnn_frame1 = [0]*24 + dnn + [0]*12   # first frame
+    dnn_frame2 = [0]*28 + dnn + [0]*8  # second frame
 
-	# if user gave 512 PIXEL_CONFIG_F2 then replace the last bits
-	if pixelConfig != None:
-		dnn[-512-8:-8] = pixelConfig
+    
+    # if user gave 512 PIXEL_CONFIG_F2 then replace the last bits
+    if pixelConfig != None:
+        dnn_frame1[-512-12:-12] = pixelConfig
+        dnn_frame2[-512-8:-8] = pixelConfig
 
-	# reshape into 16 bit words
-	dnn = np.array(dnn).reshape(-1, 16)
-    #print(dnn[-33:])
+    # if user gave 24 hidden values then replace the first bits
+    if hiddenBitCSV != None:
+        hiddenBit = list(genfromtxt(hiddenBitCSV, delimiter=',').astype(int))
+        dnn_frame1[0:24] = hiddenBit
+        dnn_frame2[4:24+4] = hiddenBit
 
-	# split into array 1 and 2
-	array_1 = { 69+i : dnn[i][::-1].tolist() for i in range(187) }
-	array_2 = { iA : dnn[i][::-1].tolist() for iA, i in enumerate(range(187, 324)) }
+    # reshape into 16 bit words
+    dnn_frame1 = np.array(dnn_frame1).reshape(-1, 16)
+    dnn_frame2 = np.array(dnn_frame2).reshape(-1, 16) 
 
-	# convert to hex_list for programming
-	hex_list = []
-	for hexArray, array_i in zip(["8", "A"], [array_1, array_2]):
-		for key, val in array_i.items():
-			address = hex(key)[2:]
-			data = hex(int("".join([str(i) for i in val]),2))[2:]
-			data = "0"*(4-len(data)) + data
-			temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"] 
-			hex_list.append(temp)
-			#print(key, val, temp)
+    # split into array 0 and 1
+    array_0 = { i : dnn_frame1[i][::-1].tolist() for i in range(256) }
+    array_1 = { iA : dnn_frame1[i][::-1].tolist() for iA, i in enumerate(range(256,325)) }
 
-	#print(len(hex_list))
-	return hex_list
+    # convert to hex_list for programming
+    hex_list = []
+    for hexArray, array_i in zip(["6", "8"], [array_0, array_1]):
+        for key, val in array_i.items():
+            address = hex(key)[2:]
+            data = hex(int("".join([str(i) for i in val]),2))[2:]
+            data = "0"*(4-len(data)) + data
+            temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"]  #spells out 0x0FFF instead of 0xFFF
+            hex_list.append(temp)
+            #print(key, val, temp)
+
+    # split into array 1 and 2
+    array_1 = { i : dnn_frame2[iA][::-1].tolist() for iA, i in enumerate(range(68,256)) }    #256-69 = 187
+    array_2 = { iA : dnn_frame2[i][::-1].tolist() for iA, i in enumerate(range((256-68), 325)) }
+
+    # convert to hex_list for programming
+    # hex_list = []
+    for hexArray, array_i in zip(["8", "A"], [array_1, array_2]):
+        for key, val in array_i.items():
+            address = hex(key)[2:]
+            data = hex(int("".join([str(i) for i in val]),2))[2:]
+            data = "0"*(4-len(data)) + data
+            temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"] 
+            hex_list.append(temp)
+            #print(key, val, temp)
+
+    #print(len(hex_list))
+    return hex_list
 
 # programming pixel
 
