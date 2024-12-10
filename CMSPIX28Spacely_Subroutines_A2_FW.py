@@ -1,5 +1,14 @@
-#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
-def ROUTINE_clk_divide():
+# spacely
+from Master_Config import *
+
+def fw_status_clear():
+    hex_lists = [
+        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code E (status clear)
+        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
+    ]
+    sw_write32_0(hex_lists)
+
+def clk_divide():
 
     # create hex lists
     hex_lists = []
@@ -19,11 +28,10 @@ def ROUTINE_clk_divide():
 
     print(f"Writing {len(hex_lists)} hex lists to register sw_write32_0")
 
-    # call ROUTINE_sw_write32_0
-    ROUTINE_sw_write32_0(hex_lists)
+    # call sw_write32_0
+    sw_write32_0(hex_lists)
 
-#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
-def ROUTINE_clk_delay():
+def clk_delay():
     
     # create hex lists
     hex_lists = []
@@ -52,5 +60,5 @@ def ROUTINE_clk_delay():
         
     print(f"Writing {len(hex_lists)} hex lists to register sw_write32_0")
 
-    # call ROUTINE_sw_write32_0
-    ROUTINE_sw_write32_0(hex_lists)
+    # call sw_write32_0
+    sw_write32_0(hex_lists)

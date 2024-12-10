@@ -61,27 +61,33 @@ def onstartup():
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
         print("Programming of the ASIC shift register")
-        ROUTINE_IP1_test1()
+        # ROUTINE_IP1_test1() -> converted to ROUTINE_ProgPixelsOnly()
         print("shift register Programmed")
         iDVDD = V_PORT["vddd"].get_current()
         iAVDD = V_PORT["vdda"].get_current()
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
 
+#<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_ProgPixelsOnly():
     return ProgPixelsOnly()
 
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
 def ROUTINE_ProgShiftRegs():
     return ProgShiftRegs()
 
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
 def ROUTINE_ScanChainOneShot():
     return ScanChainOneShot()
 
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_PreProgSCurve():
     return PreProgSCurve()
 
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_IterMatrixSCurve():
     return IterMatrixSCurve()
 
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_DNN():
     return DNN()

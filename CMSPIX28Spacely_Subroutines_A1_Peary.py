@@ -1,5 +1,7 @@
-#<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
-def ROUTINE_sw_write32_0(
+# spacely
+from Master_Config import *
+
+def sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
         cleanup = False,
         doPrint = False
@@ -34,8 +36,7 @@ def ROUTINE_sw_write32_0(
         sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
         print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
 
-#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_sw_read32(
+def sw_read32(
         sw_read32_0_expected = None, 
         sw_read32_1_expected = None,
         sw_read32_1_nbitsToCheck = 32, # number of bits to check. for some cases it is better to leave out the testX_o_status_done bits
