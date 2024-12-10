@@ -3,13 +3,6 @@ Author: Anthony Badea, Benjamin Parpillon
 Date: June, 2024
 '''
 
-# python
-import time
-import tqdm
-import h5py
-from datetime import datetime
-import csv
-
 # spacely
 from Master_Config import *
 import Spacely_Globals as sg
