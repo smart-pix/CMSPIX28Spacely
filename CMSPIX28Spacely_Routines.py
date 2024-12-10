@@ -89,5 +89,18 @@ def ROUTINE_IterMatrixSCurve():
     return IterMatrixSCurve()
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
-def ROUTINE_DNN():
-    return DNN()
+def ROUTINE_DNN(
+        progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
+        vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+        progDly='5', progSample='20', progResetMask='0', progFreq='64', 
+        testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0'
+):
+        return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, freq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelaySC, sampleDelaySC, bxclkDelay,configClkGate)
+
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+def ROUTINE_SettingsScan(
+        loopbackBit=0, patternIndexes = [2], verbose=False, vin_test='1D', 
+        freq='3f', start_bxclk_state='0', cfg_test_delay='08', cfg_test_sample='08', 
+        bxclk_delay='0B', scanload_delay='13'
+):
+    return SettingsScan(loopbackBit, patternIndexes, verbose, vin_test, freq, start_bxclk_state, cfg_test_delay, cfg_test_sample, bxclk_delay, scanload_delay)
