@@ -284,9 +284,13 @@ def time_sw_write32(ran=10):
     write_time = time.process_time() - start
     print(f"write time={write_time}")
 
-def dnnConfig(weightsCSVFile, pixelConfig=None, hiddenBitCSV=None):
+def dnnConfig(weightsCSVFile=None, pixelConfig=None, hiddenBitCSV=None):
+    
+    if weightsCSVFile != None:   
     # load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
-    dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
+        dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
+    else: 
+        dnn = [0]*5164
     dnn_frame1 = [0]*24 + dnn + [0]*12   # first frame
     dnn_frame2 = [0]*28 + dnn + [0]*8  # second frame
 
