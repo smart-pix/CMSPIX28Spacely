@@ -58,27 +58,32 @@ def onstartup():
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
 
+
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
-def ROUTINE_ProgPixelsOnly():
-    return ProgPixelsOnly()
+def ROUTINE_ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate='1'):
+    return ProgShiftRegManualOnly(progFreq, progDly, progSample,progConfigClkGate)
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_ProgShiftRegs():
-    return ProgShiftRegs()
+def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[3]):
+    return ProgPixelsOnly(progFreq, progDly, progSample,progConfigClkGate,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
+def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0):
+    return ProgShiftRegs(progDebug, verbose, progFreq, progDly, progSample,progConfigClkGate, iP)
+
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_ScanChainOneShot():
     return ScanChainOneShot()
 
-#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_PreProgSCurve():
     return PreProgSCurve()
 
-#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_IterMatrixSCurve():
     return IterMatrixSCurve()
 
-#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
         vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
@@ -87,7 +92,7 @@ def ROUTINE_DNN(
 ):
         return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, freq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelaySC, sampleDelaySC, bxclkDelay,configClkGate)
 
-#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_SettingsScan(
         loopbackBit=0, patternIndexes = [2], verbose=False, vin_test='1D', 
         freq='3f', start_bxclk_state='0', cfg_test_delay='08', cfg_test_sample='08', 
