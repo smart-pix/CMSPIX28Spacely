@@ -30,6 +30,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import SparseCategoricalAccuracy
 from tensorflow.keras.utils import Progbar
+from tensorflow.keras.models import clone_model
 
 # QKeras imports
 from qkeras import *
@@ -102,9 +103,81 @@ def prepareWeights(path):
     with open(csv_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(b5_w5_b2_w2_pixel_list)
+    
+    return csv_file
+
+def input_to_pixelout(x):
+    N_INFERENCES = x.shape[0]
+
+    # first create compout
+    encoder_values_Ninferences = []
+    for i in range(N_INFERENCES):
+        encoder_values = []
+        for j in range(16):
+            a = x[i][j]
+            encoder_sum = []
+            if(a==0):
+                encoder_sum = [0 for _ in range(16)]
+                encoder_sum.reverse()
+                
+            elif(a==1):
+                encoder_sum = [1]+[0 for _ in range(15)]
+                encoder_sum.reverse()
+
+            elif(a==2):
+                encoder_sum = [2]+[0 for _ in range(15)]
+                encoder_sum.reverse()
+
+            elif(a==3):
+                encoder_sum = [3]+[0 for _ in range(15)]
+                encoder_sum.reverse()
+
+            else:
+                l3=[]
+                if a%3 == 0:
+                    result = int(a/3)
+                    l3 = [3 for _ in range(result)]
+                    l_diff = 16-len(l3)
+                    encoder_sum = l3 + [0 for _ in range(l_diff)]
+                    encoder_sum.reverse()
+                else:
+                    result = int(a//3)
+                    l3 = [3 for _ in range(result)]
+                    diff = a-sum(l3)
+                    l3.append(diff)
+                    l_diff = 16-len(l3)
+                    encoder_sum = l3 + [0 for _ in range(l_diff)]
+                    encoder_sum.reverse()
+
+            encoder_values.append(encoder_sum)
+        encoder_values = [j for i in encoder_values for j in i]
+        encoder_values_Ninferences.append(encoder_values)
+    
+    print(len(encoder_values_Ninferences), len(encoder_values_Ninferences[0]))
+    print(encoder_values_Ninferences[0])
+    
+    compout_values_Ninferences = []
+    for i in range(N_INFERENCES):
+        compout_values = []
+        for j in range(256):
+            a = encoder_values_Ninferences[i][j]
+            if(a==3):
+                compout_values.append(7)
+            elif(a==2):
+                compout_values.append(3)
+            elif(a==1):
+                compout_values.append(1)
+            else:
+                compout_values.append(0)
+        compout_values_Ninferences.append(compout_values)
+
+    print(len(compout_values_Ninferences))
+    print(compout_values_Ninferences[0])
+
+    return compout_values_Ninferences
 
 class ModelPipeline:
-    def __init__(self, model, optimizer, loss_fn, train_acc_metric, val_acc_metric, batch_size=32):
+    def __init__(self, model, optimizer, train_acc_metric, val_acc_metric, batch_size=32):
         self.model = model
         self.optimizer = optimizer
         self.train_acc_metric = train_acc_metric
@@ -149,15 +222,73 @@ class ModelPipeline:
         Performs a forward pass of the model.
         """
         return self.model(x, training=training)
+        
+    def forward_pass_asic(self, x):
+        """
+        Performs a forward pass of the model on the asic
+        """
+        # push the model weights to chip
+
+        # # Generate a simple configuration from keras model
+        # model_file = "./tmp/model.h5"
+        # self.model.save_weights(model_file)
+        # # tmp_model = CreateQModel(16, 3)
+        # # Clone the model's architecture
+        # tmp_model = clone_model(self.model)
+        # # tmp_model.set_weights(self.model.get_weights())
+        # co = {}
+        # utils._add_supported_quantized_objects(co)
+        # tmp_model = tf.keras.models.load_model(model_file, custom_objects=co)
+        # config = hls4ml.utils.config_from_keras_model(tmp_model, granularity='name')
+        # # Convert to an hls model
+        # hls_model = hls4ml.converters.convert_from_keras_model(tmp_model, hls_config=config, output_dir='./tmp/test_prj')
+        # hls_model.write() 
+        # convert weights to a csv file that can be pushed to the chip
+        dnn_csv = prepareWeights("./tmp/test_prj/firmware/weights/")
+
+        # generate input csv
+        pixelout = input_to_pixelout(x)
+        pixel_compout_csv = './tmp/compouts.csv'
+        with open(pixel_compout_csv, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(compout_values_Ninferences)
+
+        # run to chip -> output saved to readout.csv
+        DNN(
+            progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
+            vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+            progDly='5', progSample='20', progResetMask='0', progFreq='64', 
+            testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B', configClkGate='0',  
+            dnn_csv = dnn_csv,
+            pixel_compout_csv = pixel_compout_csv,
+        )
+        
+        # interpret data from chip to just give NN prediction
+        exit()
+        return
 
     @tf.function
     def train_step(self, x_batch, y_batch):
         """
         Performs a single training step.
         """
+        
+        # write the current weights to file
+        config = hls4ml.utils.config_from_keras_model(self.model, granularity='name')
+        # Convert to an hls model
+        hls_model = hls4ml.converters.convert_from_keras_model(self.model, hls_config=config, output_dir='./tmp/test_prj')
+        hls_model.write()
+
         with tf.GradientTape() as tape:
-            logits = self.forward_pass(x_batch, training=True)
-            loss_value = self.loss_fn(y_batch, logits)
+            # evaluate model off
+            #logits = self.forward_pass(x_batch, training=True)
+            #loss_value = self.loss_fn(y_batch, logits)
+            # evaluate model on chip
+            logits_asic = self.forward_pass_asic(x_batch)
+            loss_value_asic = self.loss_fn(y_batch, logits_asic)
+            # sum them
+            loss_value = loss_value + loss_value_asic
+
         grads = tape.gradient(loss_value, self.model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         self.train_acc_metric.update_state(y_batch, logits)
@@ -267,7 +398,7 @@ def DNNTraining():
     y_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/layer7_out_ref_int.csv", header=None)
     y_test = np.array(y_test.values.tolist()).flatten()
     print(x_test.shape, y_test.shape)
-
+    
     # decide if train
     train_and_save = True # <<< PAY ATTENTION <<<
     model_file = 'model.h5' if train_and_save == True else model_file # use default value
@@ -275,12 +406,12 @@ def DNNTraining():
     if train_and_save:
         
         optimizer = tf.keras.optimizers.Adam()
-        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        # loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         train_acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
         val_acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
 
         # Initialize pipeline
-        pipeline = ModelPipeline(model, optimizer, loss_fn, train_acc_metric, val_acc_metric, batch_size=1024)
+        pipeline = ModelPipeline(model, optimizer, train_acc_metric, val_acc_metric, batch_size=1024)
         pipeline.split_data(x_test, y_test)
         pipeline.train(epochs=10, patience=5)
 

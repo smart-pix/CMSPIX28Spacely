@@ -1,7 +1,7 @@
 # spacely
 from Master_Config import *
 
-def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0'):
+def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', dnn_csv=None, pixel_compout_csv=None):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -49,7 +49,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
     #pixelValues = [i[1] for i in pixels]
 
     # load all of the configs
-    filename = "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
+    filename = pixel_compout_csv if pixel_compout_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
     pixelLists, pixelValues = genPixelConfigFromInputCSV(filename)
 
     # loop over test cases
@@ -72,7 +72,9 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         if(progDebug==True):
             hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         else:
-            hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+            filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
+            # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+            hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         sw_write32_0(hex_lists, doPrint=False)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
 
