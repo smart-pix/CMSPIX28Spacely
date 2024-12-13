@@ -27,6 +27,9 @@ from tensorflow.keras.callbacks import CSVLogger, EarlyStopping
 from tensorflow.keras.layers import Activation, Conv2D, Dense, Dropout, Flatten, Input, Lambda, MaxPooling2D
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.metrics import SparseCategoricalAccuracy
+from tensorflow.keras.utils import Progbar
 
 # QKeras imports
 from qkeras import *
@@ -100,6 +103,129 @@ def prepareWeights(path):
         writer = csv.writer(file)
         writer.writerow(b5_w5_b2_w2_pixel_list)
 
+class ModelPipeline:
+    def __init__(self, model, optimizer, loss_fn, train_acc_metric, val_acc_metric, batch_size=32):
+        self.model = model
+        self.optimizer = optimizer
+        self.train_acc_metric = train_acc_metric
+        self.val_acc_metric = val_acc_metric
+        self.batch_size = batch_size
+        
+        # Initialize custom loss function
+        self.loss_fn = self.custom_loss_function
+
+    def print_model(self):
+        """
+        Iterate through each layer and print weights and biases
+        """
+        for layer in self.model.layers:
+            print(f"Layer: {layer.name}")
+            for weight in layer.weights:
+                print(f"  {weight.name}: shape={weight.shape}")
+                print(f"    Values:\n{weight.numpy()}\n")
+
+    def custom_loss_function(self, y_true, y_pred):
+        """
+        Custom loss function.
+        Default: Sparse Categorical Crossentropy with from_logits=True.
+        Modify this function as needed.
+        """
+        loss = tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=True)
+        return tf.reduce_mean(loss)
+
+    def split_data(self, x_data, y_data, test_size=0.2, shuffle=True, random_state=42):
+        """
+        Splits data into training and testing datasets.
+        """
+        x_train, x_val, y_train, y_val = train_test_split(
+            x_data, y_data, test_size=test_size, random_state=random_state, shuffle=shuffle
+        )
+        self.train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(self.batch_size)
+        self.val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(self.batch_size)
+    
+    @tf.function
+    def forward_pass(self, x, training=False):
+        """
+        Performs a forward pass of the model.
+        """
+        return self.model(x, training=training)
+
+    @tf.function
+    def train_step(self, x_batch, y_batch):
+        """
+        Performs a single training step.
+        """
+        with tf.GradientTape() as tape:
+            logits = self.forward_pass(x_batch, training=True)
+            loss_value = self.loss_fn(y_batch, logits)
+        grads = tape.gradient(loss_value, self.model.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        self.train_acc_metric.update_state(y_batch, logits)
+        return loss_value
+
+    @tf.function
+    def val_step(self, x_batch, y_batch):
+        """
+        Performs a single validation step.
+        """
+        logits = self.forward_pass(x_batch, training=False)
+        val_loss = self.loss_fn(y_batch, logits)
+        self.val_acc_metric.update_state(y_batch, logits)
+        return val_loss
+
+    def train(self, epochs, patience=20):
+        """
+        Trains the model for a specified number of epochs with early stopping.
+        """
+        best_val_loss = float("inf")
+        wait = 0
+        best_weights = None
+
+        for epoch in range(epochs):
+            print(f"Epoch {epoch + 1}/{epochs}")
+
+            # Training loop
+            train_loss = 0
+            train_steps = len(self.train_dataset)
+            train_progbar = Progbar(target=train_steps, stateful_metrics=["loss", "sparse_categorical_accuracy"])
+            
+            for step, (x_batch, y_batch) in enumerate(self.train_dataset):
+                loss_value = self.train_step(x_batch, y_batch)
+                train_loss += loss_value
+                train_acc = self.train_acc_metric.result()
+                train_progbar.update(step + 1, values=[("loss", loss_value.numpy()), ("sparse_categorical_accuracy", train_acc.numpy())])
+
+            train_loss /= train_steps
+            train_acc = self.train_acc_metric.result()
+            self.train_acc_metric.reset_states()
+
+            # Validation loop
+            val_loss = 0
+            val_steps = len(self.val_dataset)
+            val_progbar = Progbar(target=val_steps, stateful_metrics=["val_loss", "val_sparse_categorical_accuracy"])
+            
+            for step, (x_batch, y_batch) in enumerate(self.val_dataset):
+                val_loss_batch = self.val_step(x_batch, y_batch)
+                val_loss += val_loss_batch
+                val_acc = self.val_acc_metric.result()
+                val_progbar.update(step + 1, values=[("val_loss", val_loss_batch.numpy()), ("val_sparse_categorical_accuracy", val_acc.numpy())])
+
+            val_loss /= val_steps
+            val_acc = self.val_acc_metric.result()
+            self.val_acc_metric.reset_states()
+
+            # Early stopping logic
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                wait = 0
+                best_weights = self.model.get_weights()
+            else:
+                wait += 1
+                if wait >= patience:
+                    print("Early stopping triggered.")
+                    self.model.set_weights(best_weights)
+                    break
+        
 def DNNTraining():
     # create model
     shape = 16 # y-profile ... why is this 16 and not 8?
@@ -127,13 +253,6 @@ def DNNTraining():
         co = {}
         utils._add_supported_quantized_objects(co)
         model = tf.keras.models.load_model(model_file, custom_objects=co)
-        # Iterate through each layer and print weights and biases
-        # for layer in model.layers:
-        #     print(f"Layer: {layer.name}")
-        #     for weight in layer.weights:
-        #         print(f"  {weight.name}: shape={weight.shape}")
-        #         print(f"    Values:\n{weight.numpy()}\n")
-
         # Generate a simple configuration from keras model
         config = hls4ml.utils.config_from_keras_model(model, granularity='name')
         # Convert to an hls model
@@ -154,28 +273,38 @@ def DNNTraining():
     model_file = 'model.h5' if train_and_save == True else model_file # use default value
     history = None
     if train_and_save:
+        
+        optimizer = tf.keras.optimizers.Adam()
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        train_acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
+        val_acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
 
-        # compile
-        model.compile(optimizer=Adam(),
-              loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True), # default from_logits=False
-              metrics=[keras.metrics.SparseCategoricalAccuracy()])
+        # Initialize pipeline
+        pipeline = ModelPipeline(model, optimizer, loss_fn, train_acc_metric, val_acc_metric, batch_size=1024)
+        pipeline.split_data(x_test, y_test)
+        pipeline.train(epochs=10, patience=5)
 
-        # early stopping
-        es = EarlyStopping(monitor='val_loss',
-                           #monitor='val_sparse_categorical_accuracy',
-                           #mode='max', # don't minimize the accuracy!
-                           patience=20,
-                           restore_best_weights=True)
+        # # compile
+        # model.compile(optimizer=Adam(),
+        #       loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True), # default from_logits=False
+        #       metrics=[keras.metrics.SparseCategoricalAccuracy()])
 
-        # perform training
-        history = model.fit(x_test, #X_train,
-                            y_test, #y_train,
-                            callbacks=[es],
-                            epochs=10,
-                            batch_size=1024,
-                            validation_split=0.2,
-                            shuffle=True,
-                            verbose=1)
+        # # early stopping
+        # es = EarlyStopping(monitor='val_loss',
+        #                    #monitor='val_sparse_categorical_accuracy',
+        #                    #mode='max', # don't minimize the accuracy!
+        #                    patience=20,
+        #                    restore_best_weights=True)
+
+        # # perform training
+        # history = model.fit(x_test, #X_train,
+        #                     y_test, #y_train,
+        #                     callbacks=[es],
+        #                     epochs=10,
+        #                     batch_size=1024,
+        #                     validation_split=0.2,
+        #                     shuffle=True,
+        #                     verbose=1)
 
         # save model
         model.save(model_file)
