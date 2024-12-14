@@ -1,3 +1,7 @@
+# spacely
+from Master_Config import *
+
+# os settings
 import os
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -73,7 +77,7 @@ def prepareWeights(path):
     w5_data = pd.read_csv(os.path.join(path, 'w5.txt'), header=None)
     b2_data = pd.read_csv(os.path.join(path, 'b2.txt'), header=None)
     w2_data = pd.read_csv(os.path.join(path, 'w2.txt'), header=None)
-    print(b5_data)
+    # print(b5_data)
 
     b5_data_list = []
     w5_data_list = []
@@ -152,10 +156,7 @@ def input_to_pixelout(x):
             encoder_values.append(encoder_sum)
         encoder_values = [j for i in encoder_values for j in i]
         encoder_values_Ninferences.append(encoder_values)
-    
-    print(len(encoder_values_Ninferences), len(encoder_values_Ninferences[0]))
-    print(encoder_values_Ninferences[0])
-    
+        
     compout_values_Ninferences = []
     for i in range(N_INFERENCES):
         compout_values = []
@@ -171,18 +172,16 @@ def input_to_pixelout(x):
                 compout_values.append(0)
         compout_values_Ninferences.append(compout_values)
 
-    print(len(compout_values_Ninferences))
-    print(compout_values_Ninferences[0])
-
     return compout_values_Ninferences
 
 class ModelPipeline:
-    def __init__(self, model, optimizer, train_acc_metric, val_acc_metric, batch_size=32):
+    def __init__(self, model, optimizer, train_acc_metric, val_acc_metric, batch_size=32, asic_training=False):
         self.model = model
         self.optimizer = optimizer
         self.train_acc_metric = train_acc_metric
         self.val_acc_metric = val_acc_metric
         self.batch_size = batch_size
+        self.asic_training = asic_training
         
         # Initialize custom loss function
         self.loss_fn = self.custom_loss_function
@@ -222,40 +221,33 @@ class ModelPipeline:
         Performs a forward pass of the model.
         """
         return self.model(x, training=training)
-        
-    def forward_pass_asic(self, x):
-        """
-        Performs a forward pass of the model on the asic
-        """
-        # push the model weights to chip
+    
+    def prepare_weights_asic(self, x):        
 
-        # # Generate a simple configuration from keras model
-        # model_file = "./tmp/model.h5"
-        # self.model.save_weights(model_file)
-        # # tmp_model = CreateQModel(16, 3)
-        # # Clone the model's architecture
-        # tmp_model = clone_model(self.model)
-        # # tmp_model.set_weights(self.model.get_weights())
-        # co = {}
-        # utils._add_supported_quantized_objects(co)
-        # tmp_model = tf.keras.models.load_model(model_file, custom_objects=co)
-        # config = hls4ml.utils.config_from_keras_model(tmp_model, granularity='name')
-        # # Convert to an hls model
-        # hls_model = hls4ml.converters.convert_from_keras_model(tmp_model, hls_config=config, output_dir='./tmp/test_prj')
-        # hls_model.write() 
-        # convert weights to a csv file that can be pushed to the chip
+        # write the current weights to file
+        config = hls4ml.utils.config_from_keras_model(self.model, granularity='name')
+        # Convert to an hls model
+        hls_model = hls4ml.converters.convert_from_keras_model(self.model, hls_config=config, output_dir='./tmp/test_prj')
+        hls_model.write()
         dnn_csv = prepareWeights("./tmp/test_prj/firmware/weights/")
-
+        
         # generate input csv
-        pixelout = input_to_pixelout(x)
+        pixelout = input_to_pixelout(x) #.numpy())
         pixel_compout_csv = './tmp/compouts.csv'
         with open(pixel_compout_csv, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerows(compout_values_Ninferences)
+            writer.writerows(pixelout)
+
+        return dnn_csv, pixel_compout_csv
+
+    def forward_pass_asic(self, x, dnn_csv = None, pixel_compout_csv = None):
+        """
+        Performs a forward pass of the model on the asic
+        """
 
         # run to chip -> output saved to readout.csv
         DNN(
-            progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
+            progDebug=False, loopbackBit=0, patternIndexes = range(10), verbose=False, # update range when finished
             vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
             progDly='5', progSample='20', progResetMask='0', progFreq='64', 
             testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B', configClkGate='0',  
@@ -264,30 +256,27 @@ class ModelPipeline:
         )
         
         # interpret data from chip to just give NN prediction
-        exit()
-        return
+        return 0
 
     @tf.function
-    def train_step(self, x_batch, y_batch):
+    def train_step(self, 
+                   x_batch, y_batch, 
+                   dnn_csv = None, pixel_compout_csv = None # for asic training
+    ):
         """
         Performs a single training step.
         """
-        
-        # write the current weights to file
-        config = hls4ml.utils.config_from_keras_model(self.model, granularity='name')
-        # Convert to an hls model
-        hls_model = hls4ml.converters.convert_from_keras_model(self.model, hls_config=config, output_dir='./tmp/test_prj')
-        hls_model.write()
 
         with tf.GradientTape() as tape:
             # evaluate model off
-            #logits = self.forward_pass(x_batch, training=True)
-            #loss_value = self.loss_fn(y_batch, logits)
+            logits = self.forward_pass(x_batch, training=True)
+            loss_value = self.loss_fn(y_batch, logits)
             # evaluate model on chip
-            logits_asic = self.forward_pass_asic(x_batch)
-            loss_value_asic = self.loss_fn(y_batch, logits_asic)
-            # sum them
-            loss_value = loss_value + loss_value_asic
+            if self.asic_training:
+                logits_asic = self.forward_pass_asic(x_batch, dnn_csv, pixel_compout_csv)
+                # loss_value_asic = self.loss_fn(y_batch, logits_asic)
+                # sum them
+                # loss_value = loss_value + loss_value_asic
 
         grads = tape.gradient(loss_value, self.model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
@@ -321,7 +310,16 @@ class ModelPipeline:
             train_progbar = Progbar(target=train_steps, stateful_metrics=["loss", "sparse_categorical_accuracy"])
             
             for step, (x_batch, y_batch) in enumerate(self.train_dataset):
-                loss_value = self.train_step(x_batch, y_batch)
+
+                # prepare weights for asic
+                if self.asic_training:
+                    dnn_csv, pixel_compout_csv = self.prepare_weights_asic(x_batch)
+                    loss_value = self.train_step(x_batch, y_batch, dnn_csv, pixel_compout_csv)
+                else:
+                    loss_value = self.train_step(x_batch, y_batch)
+                
+                # do training step
+                # loss_value = self.train_step(x_batch, y_batch, dnn_csv, pixel_compout_csv)
                 train_loss += loss_value
                 train_acc = self.train_acc_metric.result()
                 train_progbar.update(step + 1, values=[("loss", loss_value.numpy()), ("sparse_categorical_accuracy", train_acc.numpy())])
@@ -357,7 +355,8 @@ class ModelPipeline:
                     self.model.set_weights(best_weights)
                     break
         
-def DNNTraining():
+def DNNTraining(asic_training=False):
+    
     # create model
     shape = 16 # y-profile ... why is this 16 and not 8?
     nb_classes = 3 # positive low pt, negative low pt, high pt
@@ -411,31 +410,9 @@ def DNNTraining():
         val_acc_metric = tf.keras.metrics.SparseCategoricalAccuracy()
 
         # Initialize pipeline
-        pipeline = ModelPipeline(model, optimizer, train_acc_metric, val_acc_metric, batch_size=1024)
+        pipeline = ModelPipeline(model, optimizer, train_acc_metric, val_acc_metric, batch_size=1024, asic_training=asic_training)
         pipeline.split_data(x_test, y_test)
         pipeline.train(epochs=10, patience=5)
-
-        # # compile
-        # model.compile(optimizer=Adam(),
-        #       loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True), # default from_logits=False
-        #       metrics=[keras.metrics.SparseCategoricalAccuracy()])
-
-        # # early stopping
-        # es = EarlyStopping(monitor='val_loss',
-        #                    #monitor='val_sparse_categorical_accuracy',
-        #                    #mode='max', # don't minimize the accuracy!
-        #                    patience=20,
-        #                    restore_best_weights=True)
-
-        # # perform training
-        # history = model.fit(x_test, #X_train,
-        #                     y_test, #y_train,
-        #                     callbacks=[es],
-        #                     epochs=10,
-        #                     batch_size=1024,
-        #                     validation_split=0.2,
-        #                     shuffle=True,
-        #                     verbose=1)
 
         # save model
         model.save(model_file)

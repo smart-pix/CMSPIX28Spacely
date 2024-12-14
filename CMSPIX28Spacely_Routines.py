@@ -100,6 +100,6 @@ def ROUTINE_SettingsScan(
 ):
     return SettingsScan(loopbackBit, patternIndexes, verbose, vin_test, freq, start_bxclk_state, cfg_test_delay, cfg_test_sample, bxclk_delay, scanload_delay)
 
-#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
-def ROUTINE_DNNTraining():
-    return DNNTraining()
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
+def ROUTINE_DNNTraining(asic_training=False):
+    return DNNTraining(asic_training = asic_training)
