@@ -185,6 +185,7 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
     sw_write32_0(hex_lists)
     time.sleep(0.5)
 
+    #This needs to be replaced with smog test
     if(verbose==True and progDebug==True):
             #ReadBack from READ_ARRAY 1
             words_A0 = []      

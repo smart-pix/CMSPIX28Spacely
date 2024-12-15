@@ -72,12 +72,12 @@ def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly
     return ProgShiftRegs(progDebug, verbose, progFreq, progDly, progSample,progConfigClkGate, iP)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_ScanChainOneShot():
-    return ScanChainOneShot()
+def ROUTINE_ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08'):
+    return ScanChainOneShot(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly)
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve():
-    return PreProgSCurve()
+def ROUTINE_PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.0005, nSample=1000):
+    return PreProgSCurve(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly, vmin, vmax, vstep, nSample)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_IterMatrixSCurve():
