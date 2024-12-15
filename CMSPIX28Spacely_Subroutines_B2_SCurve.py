@@ -6,7 +6,7 @@ import tqdm
 import numpy as np
 import h5py
 
-def PreProgSCurve():
+def PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.0005, nSample=1000):
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
     
@@ -14,7 +14,7 @@ def PreProgSCurve():
     hex_lists = [
         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],  #BK4600HLEV
         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h09", "6'h28"],  #BSDG7102A
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"]
         # ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h14", "1'h1", "1'h0", "5'h0B", "6'h28"],#BSDG7102A and CARBOARD new setup
           
          # BxCLK is set to 10MHz : "6'h28"
@@ -53,15 +53,18 @@ def PreProgSCurve():
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = 0.025
-    v_max = 0.1
-    v_step = 0.0005
+    v_min = vmin
+    v_max = vmax
+    v_step = vstep
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = 1000
-    
+    nsample = nSample
+    nWord = 24  #number of 32bit word to read the scanChain
+
+    nStream = nSample*n_step*nWord
+
          #number of sample for each charge settings
 
     outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
@@ -82,32 +85,7 @@ def PreProgSCurve():
         save_data = []
         
         for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
-            #start = time.time()
-            #hex_lists = [["4'h2", "4'h6", "8'h" + hex(i)[2:], "16'h0000"] for i in range(nwrites)]
-            #sw_read32_0_expected_list = [int_to_32bit_hex(0)]*len(hex_lists)
 
-            # call sw_write32_0
-            #sw_write32_0(hex_lists,doPrint=False)
-            #print(f"time to do the for first part of the loop is {time.time()-start} second")
-            #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
-  
-            # send an execute for test 1 and loopback enabled
-            # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
-            #start_exec = time.process_time()
-
-            # BK4600HLEV SETTINGS
-            # hex_lists = [
-            #     [
-            #         "4'h2",  # firmware id
-            #         "4'hF",  # op code for execute
-            #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            #         "6'h0A", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-            #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            #         "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-            #     ]
-            # ]
 
             # SDG7102A SETTINGS
             hex_lists = [
@@ -115,42 +93,20 @@ def PreProgSCurve():
                     "4'h2",  # firmware id
                     "4'hF",  # op code for execute
                     "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                    "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-                    "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                    "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
+                    f"6'h{scanSampleDly}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
-            ]           
-            #   SDG7102A SETTINGS, CARBOARD and NEW SETUP
-            # hex_lists = [
-            #     [
-            #         "4'h2",  # firmware id
-            #         "4'hF",  # op code for execute
-            #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            #         "6'h1C", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-            #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            #         "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            #         "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-            #     ]
-            # ]
-            sw_write32_0(hex_lists, doPrint=False)
-            #read_exec=time.process_time()-start_exec
-            #print(f"exec_time={read_exec}")
-
-            #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code="ihb")
-        
-            # boolean to store overall test pass or fail
-            #PASS = True
-
-            # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
-            # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
+            ] 
             
+            sw_write32_0(hex_lists, doPrint=False)
 
-            # nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
             wordList = [0] # list(range(24))
-            words = ["0"*32] * 24
+            words = ["0"*32] * nWord
             #words = []
 
             #start_readback = time.process_time()
@@ -162,13 +118,18 @@ def PreProgSCurve():
                     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                 ]
                 sw_write32_0(hex_lists,doPrint=False)
-                
                 # read back data
-                sw_read32_0, sw_read32_1, _, _ = sw_read32(do_sw_read32_1=False)
-     
+               
+                #STREAN
+                # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
+                #no stream
+                sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
 
+                # print(f"stream read data {sw_read32_0_stream}")
+                # print(f"reg read data v1 {sw_read32_0_get}")
+                # print(f"reg read data v2 {sw_read32_0}")
                 # store data
-                # words.append(int_to_32bit(sw_read32_0)[::-1])
+                # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
                 words[iW] = int_to_32bit(sw_read32_0)[::-1]
             
             #read_time=time.process_time()-start_readback
