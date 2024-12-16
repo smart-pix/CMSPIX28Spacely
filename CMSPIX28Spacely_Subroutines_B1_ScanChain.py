@@ -1,13 +1,11 @@
 # spacely
 from Master_Config import *
 
-def ScanChainOneShot():
+def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08'):
 
     # hex lists                                                                                                                    
     hex_lists = [
-        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"],#BSDG7102A and CARBOARD and long cable
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
-          
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"]
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -17,8 +15,6 @@ def ScanChainOneShot():
          # SPARE bits:  "4'h0"
          # Register Static 0 is programmed : "4'h2"
          # IP 2 is selected: "4'h2"
-
-  
 
     ]
 
@@ -35,35 +31,21 @@ def ScanChainOneShot():
     # call sw_write32_0
     sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
-
-    # send an execute for test 1 and loopback enabled
-    # https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L251-L260
-    # hex_lists = [
-    #     [
-    #         "4'h2",  # firmware id
-    #         "4'hF",  # op code for execute
-    #         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-    #         "6'h1C", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-    #         "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-    #         "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-    #         "6'h1A", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-    #         "6'h18"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-    #     ]
-    # ]
-    # SDG7102A SETTINGS
+       
     hex_lists = [
         [
             "4'h2",  # firmware id
             "4'hF",  # op code for execute
             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            "6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            "1'h0",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-            "6'h08", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            "6'h08"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+            "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+            #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
+            f"6'h{scanSampleDly}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
-    ]           
-
+    ] 
     sw_write32_0(hex_lists)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code="ihb")
    
@@ -86,9 +68,9 @@ def ScanChainOneShot():
         sw_write32_0(hex_lists)
         
         # read back data
-        sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
+        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
+        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
+        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
         sw_read32_0, sw_read32_1, _, _ = sw_read32(print_code = "ihb")
         
         # update
