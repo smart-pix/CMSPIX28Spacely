@@ -208,6 +208,13 @@ class ModelPipeline:
         loss = tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=True)
         return tf.reduce_mean(loss)
 
+    def loss_fn_asic(self, y_true, y_pred):
+        """
+        Custom loss function for asic usage
+        """
+        pass
+
+
     def split_data(self, x_data, y_data, test_size=0.2, shuffle=True, random_state=42):
         """
         Splits data into training and testing datasets.
@@ -264,13 +271,14 @@ class ModelPipeline:
         #Take in the pixel_compout_csv files and return the DNN output value in decimal
         dnnOut=DNN_analyse(debug=False, latency_bit=20,  bxclkFreq=freq, readout_CSV = "./tmp/readout.csv" )
         print(dnnOut.shape)
+        dnnOut = tf.convert_to_tensor(dnnOut)
         return dnnOut
 
 
     # @tf.function
     def train_step(self, 
                    x_batch, y_batch, 
-                   dnn_csv = None, pixel_compout_csv = None # for asic training
+                   dnn_csv = None, pixel_compout_csv = None, alpha = 0.5, # for asic training
     ):
         """
         Performs a single training step.
@@ -285,11 +293,15 @@ class ModelPipeline:
             if self.asic_training:
                 print("Forward pass asic")
                 logits_asic = self.forward_pass_asic(x_batch, dnn_csv, pixel_compout_csv)
-                # loss_value_asic = self.loss_fn(y_batch, logits_asic)
+                print(y_batch[:3], logits_asic[:3])
+                loss_value_asic = self.loss_fn(logits_asic, logits[:3])
+                print(loss_value_asic, loss_value)
                 # sum them
-                # loss_value = loss_value + loss_value_asic
-
+                loss_value = loss_value  + alpha*loss_value_asic
+                print(loss_value)
         grads = tape.gradient(loss_value, self.model.trainable_weights)
+        print(grads)
+        print("Total Gradients: ", [g.numpy() for g in grads])
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         self.train_acc_metric.update_state(y_batch, logits)
         return loss_value
