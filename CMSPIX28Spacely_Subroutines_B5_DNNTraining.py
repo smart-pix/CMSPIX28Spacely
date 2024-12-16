@@ -245,9 +245,11 @@ class ModelPipeline:
         Performs a forward pass of the model on the asic
         """
 
+        print("   within forward pass asic")
+
         # run to chip -> output saved to readout.csv
         DNN(
-            progDebug=False, loopbackBit=0, patternIndexes = range(10), verbose=False, # update range when finished
+            progDebug=False, loopbackBit=0, patternIndexes = range(1), verbose=False, # update range when finished
             vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
             progDly='5', progSample='20', progResetMask='0', progFreq='64', 
             testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B', configClkGate='0',  
@@ -269,10 +271,12 @@ class ModelPipeline:
 
         with tf.GradientTape() as tape:
             # evaluate model off
+            print("Forward pass")
             logits = self.forward_pass(x_batch, training=True)
             loss_value = self.loss_fn(y_batch, logits)
             # evaluate model on chip
             if self.asic_training:
+                print("Forward pass asic")
                 logits_asic = self.forward_pass_asic(x_batch, dnn_csv, pixel_compout_csv)
                 # loss_value_asic = self.loss_fn(y_batch, logits_asic)
                 # sum them
@@ -310,6 +314,7 @@ class ModelPipeline:
             train_progbar = Progbar(target=train_steps, stateful_metrics=["loss", "sparse_categorical_accuracy"])
             
             for step, (x_batch, y_batch) in enumerate(self.train_dataset):
+                print(f"Batch {step}/{len(self.train_dataset)}")
 
                 # prepare weights for asic
                 if self.asic_training:
