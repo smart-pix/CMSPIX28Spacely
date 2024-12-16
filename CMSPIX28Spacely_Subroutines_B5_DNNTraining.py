@@ -1,5 +1,8 @@
 # spacely
-from Master_Config import *
+try:
+    from Master_Config import *
+except:
+    print("Cannot import Master_Config likely you are not running spacely.")
 
 # os settings
 import os
@@ -215,7 +218,7 @@ class ModelPipeline:
         self.train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(self.batch_size)
         self.val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(self.batch_size)
     
-    @tf.function
+    # @tf.function
     def forward_pass(self, x, training=False):
         """
         Performs a forward pass of the model.
@@ -248,19 +251,23 @@ class ModelPipeline:
         print("   within forward pass asic")
 
         # run to chip -> output saved to readout.csv
+        freq = '28'
         DNN(
-            progDebug=False, loopbackBit=0, patternIndexes = range(1), verbose=False, # update range when finished
-            vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+            progDebug=False, loopbackBit=0, patternIndexes = range(3), verbose=False, # update range when finished
+            vinTest='1D', freq=freq, startBxclkState='0',scanloadDly='13', 
             progDly='5', progSample='20', progResetMask='0', progFreq='64', 
             testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B', configClkGate='0',  
             dnn_csv = dnn_csv,
             pixel_compout_csv = pixel_compout_csv,
+            outDir = "./tmp",
         )
-        
-        # interpret data from chip to just give NN prediction
-        return 0
+        #Take in the pixel_compout_csv files and return the DNN output value in decimal
+        dnnOut=DNN_analyse(debug=False, latency_bit=20,  bxclkFreq=freq, readout_CSV = "./tmp/readout.csv" )
+        print(dnnOut.shape)
+        return dnnOut
 
-    @tf.function
+
+    # @tf.function
     def train_step(self, 
                    x_batch, y_batch, 
                    dnn_csv = None, pixel_compout_csv = None # for asic training
@@ -287,7 +294,7 @@ class ModelPipeline:
         self.train_acc_metric.update_state(y_batch, logits)
         return loss_value
 
-    @tf.function
+    # @tf.function
     def val_step(self, x_batch, y_batch):
         """
         Performs a single validation step.

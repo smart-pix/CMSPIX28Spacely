@@ -1,7 +1,8 @@
 # spacely
 from Master_Config import *
+import os
 
-def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', dnn_csv=None, pixel_compout_csv=None):
+def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', dnn_csv=None, pixel_compout_csv=None, outDir = "./"):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -301,13 +302,13 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         if iN % 25 == 0 or iN == len(patternIndexes):
             
             # save to csv file
-            yprofileOutputFile = "yprofiles.csv"
+            yprofileOutputFile = os.path.join(outDir,"yprofiles.csv")
             with open(yprofileOutputFile, 'w', newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(yprofiles)
         
             # save readouts to csv
-            readoutOutputFile = "readout.csv"
+            readoutOutputFile = os.path.join(outDir,"readout.csv")
             with open(readoutOutputFile, "w", newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(readouts)
@@ -315,3 +316,88 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
             print("Saving to: ", yprofileOutputFile, readoutOutputFile, iN)
 
     return None
+
+def DNN_analyse(debug=False, latency_bit=20, bxclkFreq='3F', readout_CSV="readout.csv"):
+    #divider used in the test for bxclk frequency
+    fdivider= int(bxclkFreq, 16) # Convert the frequency divider for BxCLK into decimal to recover latency #63       
+    dnn_words = []
+    dnn_0 =[]
+    dnn_1 =[]
+    dnn_s = []
+    dnn_out =[]
+    reshaped_dnn_out =[]
+
+    with open(readout_CSV, mode='r', newline='') as file:
+        reader = csv.reader(file)
+
+        for row in reader:
+            dnn_words.append(row)
+            # data.append([int(value) for value in row])
+
+    # print(dnn_words[0])
+    # print(len(dnn_words))
+
+    # Reformatting the DNN list - removing extract bits
+    for tv in range(len(dnn_words)):
+        dnn_s.append(''.join(dnn_words[tv]))
+    
+    dnn_0= [item[-fdivider:] for item in dnn_s]
+    dnn_1= [item[-(64+fdivider):-64]  for item in dnn_s]
+    bxclk_ana= [item[-(128+fdivider):-128] for item in dnn_s]
+    bxclk= [item[-(192+fdivider):-192]  for item in dnn_s]
+
+    if debug==True:
+        debug_tv = 1  #print test vector #1
+        print("signal before latency correction")
+        print(dnn_0[debug_tv])
+        print(dnn_1[debug_tv])
+        print(bxclk_ana[debug_tv])
+        print(bxclk[debug_tv])
+
+        # Shifting the DNN lists to compensate for system latencies
+        dnn_0 = [shift_right(item,latency_bit) for item in dnn_0]
+        dnn_1 = [shift_right(item,latency_bit) for item in dnn_1]
+        print("signal after latency correction")
+        print(dnn_0[debug_tv])
+        print(dnn_1[debug_tv])
+        print(bxclk_ana[debug_tv])
+        print(bxclk[debug_tv])
+
+
+    # for tv in [debug_tv]: #range(len(dnn_words)):
+    for tv in range(len(dnn_words)):   
+        cnt_dnn0_zeros = 0   #preference to count the zero since default is 1 and pull down is hard
+        cnt_dnn1_ones = 0        #preference to count the zero since default is 1 and pull down is hard
+        cnt_bxclkana = 0
+        for index, element in enumerate(bxclk_ana[tv]):
+
+            if element == '1':
+                cnt_bxclkana += 1
+                if dnn_0[tv][index] =='0':
+                    cnt_dnn0_zeros += 1
+                if dnn_1[tv][index] =='1':
+                    cnt_dnn1_ones += 1
+
+        # Voting system
+        if cnt_dnn0_zeros>1:
+            dnn_0[tv] = '0'
+        else:
+            dnn_0[tv] = '1'
+        if cnt_dnn1_ones > 1:
+            dnn_1[tv] = '1'
+        else:
+            dnn_1[tv] = '0'       
+        dnn_out.append(int(dnn_1[tv]+(dnn_0[tv]),2))
+
+    #Reshaping the list into 13000 rows of column 1
+    for tv in range(len(dnn_words)):
+        reshaped_dnn_out.append(dnn_out[tv:tv+1])
+    reshaped_dnn_out = np.array(reshaped_dnn_out).flatten()
+    
+    # dnnAsicOutFile = 'dnn_ASIC_out.csv'
+    # with open(dnnAsicOutFile, 'w', newline="") as file:
+    #     writer = csv.writer(file)
+    #     writer.writerows(reshaped_dnn_out)
+
+    # interpret data from chip to just give NN prediction
+    return reshaped_dnn_out

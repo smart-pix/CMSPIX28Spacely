@@ -30,6 +30,11 @@ def gen_sw_write32_0(hex_list):
     # print(binary_str, resulting_int)
     return resulting_int
 
+def shift_right(lst, n):
+    # Handle cases where n is larger than the list length
+    n = n % len(lst) if lst else 0
+    return lst[-n:] + lst[:-n]
+    
 def int_to_32bit_hex(number):
     # Ensure the number is treated as a 32-bit number
     # by masking with 0xFFFFFFFF
