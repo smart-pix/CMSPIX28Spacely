@@ -2,7 +2,12 @@
 from Master_Config import *
 import os
 
-def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', dnn_csv=None, pixel_compout_csv=None, outDir = "./"):
+def DNN(
+    progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, 
+    vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+    progDly='5', progSample='20', progResetMask='0', progFreq='64', 
+    testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', 
+    dnn_csv=None, pixel_compout_csv=None, outDir = "./", readYproj=True):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -16,7 +21,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
    ]
     sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
@@ -27,7 +32,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
 
     # call sw_write32_0
     sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
 
 #     hex_lists = [
 #         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
@@ -62,7 +67,6 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
     iN = 0
 
     for iP in tqdm.tqdm(patternIndexes):
-
         # increment counter of number of patterns
         iN += 1
         hiddenBit="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
@@ -70,12 +74,14 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
         # Programming the NN weights and biases
+        # THIS TAKES SIGNIFICANT AMOUNT OF TIME (~0.3sec) --> COULD IMPROVE --<
         if(progDebug==True):
             hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         else:
             filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+
         sw_write32_0(hex_lists, doPrint=False)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
 
@@ -94,7 +100,8 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         
         ]
         sw_write32_0(hex_lists)
-        time.sleep(0.5)
+
+        time.sleep(0.011)  # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1. We went 10% above breaking point 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
         if(verbose==True and progDebug==True):
@@ -197,7 +204,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ]
 
         sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
         
         # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
         
@@ -218,47 +225,49 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ]       
 
         sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
         
         # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
         # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-        nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-        words = []
         
-        for iW in range(nwords):
-
-            # send read
-            address = "8'h" + hex(iW)[2:]
-            hex_lists = [
-                ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-            ]
-            sw_write32_0(hex_lists)
+        if readYproj:
+            nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+            words = []
             
-            sw_read32_0, sw_read32_1, _, _ = sw_read32() 
+            for iW in range(nwords):
 
-            # store data
-            words.append(int_to_32bit(sw_read32_0)[::-1])
-        
-        s = ''.join(words)
-        row_sums = [0]*16
-        if s.find("1") != -1:
-            #Y-projection
-            temp = np.array([int(i) for i in s]).reshape(256,3)
-            superpixel_array = np.zeros((8,32))
-            for iP, val in enumerate(temp):
-                if 1 in val:
-                    result_string = ''.join(val.astype(str))
-                    row = 7-find_grid_cell_superpix(iP)[0]
-                    col = find_grid_cell_superpix(iP)[1]
-                    superpixel_array[row][col]=int(thermometric_to_integer(result_string[::-1]))
-                    even_columns = superpixel_array[:,::2].sum(axis=1)
-                    odd_columns = superpixel_array[:,1::2].sum(axis=1)
-                    row_sums = []
-                    for i, j in zip(even_columns, odd_columns):
-                        row_sums.append(int(i))
-                        row_sums.append(int(j))
-                    # row_sums = np.array(row_sums) 
-            row_sums = row_sums[::-1]
+                # send read
+                address = "8'h" + hex(iW)[2:]
+                hex_lists = [
+                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                ]
+                sw_write32_0(hex_lists)
+                
+                sw_read32_0, sw_read32_1, _, _ = sw_read32() 
+
+                # store data
+                words.append(int_to_32bit(sw_read32_0)[::-1])
+            
+            s = ''.join(words)
+            row_sums = [0]*16
+            if s.find("1") != -1:
+                #Y-projection
+                temp = np.array([int(i) for i in s]).reshape(256,3)
+                superpixel_array = np.zeros((8,32))
+                for iP, val in enumerate(temp):
+                    if 1 in val:
+                        result_string = ''.join(val.astype(str))
+                        row = 7-find_grid_cell_superpix(iP)[0]
+                        col = find_grid_cell_superpix(iP)[1]
+                        superpixel_array[row][col]=int(thermometric_to_integer(result_string[::-1]))
+                        even_columns = superpixel_array[:,::2].sum(axis=1)
+                        odd_columns = superpixel_array[:,1::2].sum(axis=1)
+                        row_sums = []
+                        for i, j in zip(even_columns, odd_columns):
+                            row_sums.append(int(i))
+                            row_sums.append(int(j))
+                        # row_sums = np.array(row_sums) 
+                row_sums = row_sums[::-1]
                  
 
         dnn_nwords = 8
@@ -295,25 +304,28 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
             get_power()
 
         # append to y profile list and dnn output list
-        yprofiles.append(row_sums)
+        if readYproj:
+            yprofiles.append(row_sums)
         readouts.append(dnn_s)
 
         # save every 25 and on the last one
         if iN % 25 == 0 or iN == len(patternIndexes):
-            
-            # save to csv file
-            yprofileOutputFile = os.path.join(outDir,"yprofiles.csv")
-            with open(yprofileOutputFile, 'w', newline="") as file:
-                writer = csv.writer(file)
-                writer.writerows(yprofiles)
-        
+            if readYproj:
+                # save to csv file
+                yprofileOutputFile = os.path.join(outDir,"yprofiles.csv")
+                with open(yprofileOutputFile, 'w', newline="") as file:
+                    writer = csv.writer(file)
+                    writer.writerows(yprofiles)
+                print("Saving to: ", yprofileOutputFile)
+               
             # save readouts to csv
+
             readoutOutputFile = os.path.join(outDir,"readout.csv")
             with open(readoutOutputFile, "w", newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(readouts)
 
-            print("Saving to: ", yprofileOutputFile, readoutOutputFile, iN)
+            print("Saving to: ", readoutOutputFile, iN)
 
     return None
 
