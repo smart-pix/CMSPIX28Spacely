@@ -1,7 +1,13 @@
 # spacely
 from Master_Config import *
+import os
 
-def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', progDly='5', progSample='20', progResetMask='0', progFreq='64', testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', dnn_csv=None, pixel_compout_csv=None):
+def DNN(
+    progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, 
+    vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+    progDly='5', progSample='20', progResetMask='0', progFreq='64', 
+    testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', 
+    dnn_csv=None, pixel_compout_csv=None, outDir = "./", readYproj=True):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -15,7 +21,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
    ]
     sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
@@ -26,7 +32,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
 
     # call sw_write32_0
     sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
+    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
 
 #     hex_lists = [
 #         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
@@ -61,7 +67,6 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
     iN = 0
 
     for iP in tqdm.tqdm(patternIndexes):
-
         # increment counter of number of patterns
         iN += 1
         hiddenBit="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
@@ -69,12 +74,14 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
         # Programming the NN weights and biases
+        # THIS TAKES SIGNIFICANT AMOUNT OF TIME (~0.3sec) --> COULD IMPROVE --<
         if(progDebug==True):
             hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         else:
             filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+
         sw_write32_0(hex_lists, doPrint=False)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
 
@@ -93,7 +100,8 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         
         ]
         sw_write32_0(hex_lists)
-        time.sleep(0.5)
+
+        time.sleep(0.011)  # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1. We went 10% above breaking point 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
         if(verbose==True and progDebug==True):
@@ -196,7 +204,7 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ]
 
         sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
         
         # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
         
@@ -217,47 +225,49 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
         ]       
 
         sw_write32_0(hex_lists)
-        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
         
         # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
         # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-        nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-        words = []
         
-        for iW in range(nwords):
-
-            # send read
-            address = "8'h" + hex(iW)[2:]
-            hex_lists = [
-                ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-            ]
-            sw_write32_0(hex_lists)
+        if readYproj:
+            nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
+            words = []
             
-            sw_read32_0, sw_read32_1, _, _ = sw_read32() 
+            for iW in range(nwords):
 
-            # store data
-            words.append(int_to_32bit(sw_read32_0)[::-1])
-        
-        s = ''.join(words)
-        row_sums = [0]*16
-        if s.find("1") != -1:
-            #Y-projection
-            temp = np.array([int(i) for i in s]).reshape(256,3)
-            superpixel_array = np.zeros((8,32))
-            for iP, val in enumerate(temp):
-                if 1 in val:
-                    result_string = ''.join(val.astype(str))
-                    row = 7-find_grid_cell_superpix(iP)[0]
-                    col = find_grid_cell_superpix(iP)[1]
-                    superpixel_array[row][col]=int(thermometric_to_integer(result_string[::-1]))
-                    even_columns = superpixel_array[:,::2].sum(axis=1)
-                    odd_columns = superpixel_array[:,1::2].sum(axis=1)
-                    row_sums = []
-                    for i, j in zip(even_columns, odd_columns):
-                        row_sums.append(int(i))
-                        row_sums.append(int(j))
-                    # row_sums = np.array(row_sums) 
-            row_sums = row_sums[::-1]
+                # send read
+                address = "8'h" + hex(iW)[2:]
+                hex_lists = [
+                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                ]
+                sw_write32_0(hex_lists)
+                
+                sw_read32_0, sw_read32_1, _, _ = sw_read32() 
+
+                # store data
+                words.append(int_to_32bit(sw_read32_0)[::-1])
+            
+            s = ''.join(words)
+            row_sums = [0]*16
+            if s.find("1") != -1:
+                #Y-projection
+                temp = np.array([int(i) for i in s]).reshape(256,3)
+                superpixel_array = np.zeros((8,32))
+                for iP, val in enumerate(temp):
+                    if 1 in val:
+                        result_string = ''.join(val.astype(str))
+                        row = 7-find_grid_cell_superpix(iP)[0]
+                        col = find_grid_cell_superpix(iP)[1]
+                        superpixel_array[row][col]=int(thermometric_to_integer(result_string[::-1]))
+                        even_columns = superpixel_array[:,::2].sum(axis=1)
+                        odd_columns = superpixel_array[:,1::2].sum(axis=1)
+                        row_sums = []
+                        for i, j in zip(even_columns, odd_columns):
+                            row_sums.append(int(i))
+                            row_sums.append(int(j))
+                        # row_sums = np.array(row_sums) 
+                row_sums = row_sums[::-1]
                  
 
         dnn_nwords = 8
@@ -294,24 +304,112 @@ def DNN(progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, vinT
             get_power()
 
         # append to y profile list and dnn output list
-        yprofiles.append(row_sums)
+        if readYproj:
+            yprofiles.append(row_sums)
         readouts.append(dnn_s)
 
         # save every 25 and on the last one
         if iN % 25 == 0 or iN == len(patternIndexes):
-            
-            # save to csv file
-            yprofileOutputFile = "yprofiles.csv"
-            with open(yprofileOutputFile, 'w', newline="") as file:
-                writer = csv.writer(file)
-                writer.writerows(yprofiles)
-        
+            if readYproj:
+                # save to csv file
+                yprofileOutputFile = os.path.join(outDir,"yprofiles.csv")
+                with open(yprofileOutputFile, 'w', newline="") as file:
+                    writer = csv.writer(file)
+                    writer.writerows(yprofiles)
+                print("Saving to: ", yprofileOutputFile)
+               
             # save readouts to csv
-            readoutOutputFile = "readout.csv"
+
+            readoutOutputFile = os.path.join(outDir,"readout.csv")
             with open(readoutOutputFile, "w", newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(readouts)
 
-            print("Saving to: ", yprofileOutputFile, readoutOutputFile, iN)
+            print("Saving to: ", readoutOutputFile, iN)
 
     return None
+
+def DNN_analyse(debug=False, latency_bit=20, bxclkFreq='3F', readout_CSV="readout.csv"):
+    #divider used in the test for bxclk frequency
+    fdivider= int(bxclkFreq, 16) # Convert the frequency divider for BxCLK into decimal to recover latency #63       
+    dnn_words = []
+    dnn_0 =[]
+    dnn_1 =[]
+    dnn_s = []
+    dnn_out =[]
+    reshaped_dnn_out =[]
+
+    with open(readout_CSV, mode='r', newline='') as file:
+        reader = csv.reader(file)
+
+        for row in reader:
+            dnn_words.append(row)
+            # data.append([int(value) for value in row])
+
+    # print(dnn_words[0])
+    # print(len(dnn_words))
+
+    # Reformatting the DNN list - removing extract bits
+    for tv in range(len(dnn_words)):
+        dnn_s.append(''.join(dnn_words[tv]))
+    
+    dnn_0= [item[-fdivider:] for item in dnn_s]
+    dnn_1= [item[-(64+fdivider):-64]  for item in dnn_s]
+    bxclk_ana= [item[-(128+fdivider):-128] for item in dnn_s]
+    bxclk= [item[-(192+fdivider):-192]  for item in dnn_s]
+
+    if debug==True:
+        debug_tv = 1  #print test vector #1
+        print("signal before latency correction")
+        print(dnn_0[debug_tv])
+        print(dnn_1[debug_tv])
+        print(bxclk_ana[debug_tv])
+        print(bxclk[debug_tv])
+
+        # Shifting the DNN lists to compensate for system latencies
+        dnn_0 = [shift_right(item,latency_bit) for item in dnn_0]
+        dnn_1 = [shift_right(item,latency_bit) for item in dnn_1]
+        print("signal after latency correction")
+        print(dnn_0[debug_tv])
+        print(dnn_1[debug_tv])
+        print(bxclk_ana[debug_tv])
+        print(bxclk[debug_tv])
+
+
+    # for tv in [debug_tv]: #range(len(dnn_words)):
+    for tv in range(len(dnn_words)):   
+        cnt_dnn0_zeros = 0   #preference to count the zero since default is 1 and pull down is hard
+        cnt_dnn1_ones = 0        #preference to count the zero since default is 1 and pull down is hard
+        cnt_bxclkana = 0
+        for index, element in enumerate(bxclk_ana[tv]):
+
+            if element == '1':
+                cnt_bxclkana += 1
+                if dnn_0[tv][index] =='0':
+                    cnt_dnn0_zeros += 1
+                if dnn_1[tv][index] =='1':
+                    cnt_dnn1_ones += 1
+
+        # Voting system
+        if cnt_dnn0_zeros>1:
+            dnn_0[tv] = '0'
+        else:
+            dnn_0[tv] = '1'
+        if cnt_dnn1_ones > 1:
+            dnn_1[tv] = '1'
+        else:
+            dnn_1[tv] = '0'       
+        dnn_out.append(int(dnn_1[tv]+(dnn_0[tv]),2))
+
+    #Reshaping the list into 13000 rows of column 1
+    for tv in range(len(dnn_words)):
+        reshaped_dnn_out.append(dnn_out[tv:tv+1])
+    reshaped_dnn_out = np.array(reshaped_dnn_out).flatten()
+    
+    # dnnAsicOutFile = 'dnn_ASIC_out.csv'
+    # with open(dnnAsicOutFile, 'w', newline="") as file:
+    #     writer = csv.writer(file)
+    #     writer.writerows(reshaped_dnn_out)
+
+    # interpret data from chip to just give NN prediction
+    return reshaped_dnn_out

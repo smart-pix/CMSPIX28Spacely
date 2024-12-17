@@ -8,10 +8,10 @@ def sw_write32_0(
 ):
 
     # check register initial value and store it
-    sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    if doPrint: 
-        print(f"Starting register value sw_write32_0 = {sw_write32_0}")
-    sw_write32_0_init = sw_write32_0
+    # sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+    # if doPrint: 
+    #     print(f"Starting register value sw_write32_0 = {sw_write32_0}")
+    # sw_write32_0_init = sw_write32_0
 
     # loop over the write values
     for hex_list in hex_lists:
@@ -23,18 +23,18 @@ def sw_write32_0(
         sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
 
         # read back
-        sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+        # sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
 
         # verify
-        successful = (sw_write32_0 == temp)
-        if doPrint:
-            print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
+        # successful = (sw_write32_0 == temp)
+        # if doPrint:
+        #     print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
     
-    if cleanup:
-        print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
-        sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
-        sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-        print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
+    # if cleanup:
+    #     print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
+    #     sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
+    #     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
+    #     print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
 
 def sw_read32(
         sw_read32_0_expected = None, 

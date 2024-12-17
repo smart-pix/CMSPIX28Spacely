@@ -68,8 +68,8 @@ def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConf
     return ProgPixelsOnly(progFreq, progDly, progSample,progConfigClkGate,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
-def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0):
-    return ProgShiftRegs(progDebug, verbose, progFreq, progDly, progSample,progConfigClkGate, iP)
+def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0, timeSleep=0.011):
+    return ProgShiftRegs(progDebug, verbose, progFreq, progDly, progSample,progConfigClkGate, iP, timeSleep)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08'):
@@ -88,9 +88,10 @@ def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
         vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
         progDly='5', progSample='20', progResetMask='0', progFreq='64', 
-        testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0'
+        testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0',
+        readYproj=True,
 ):
-        return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, freq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelaySC, sampleDelaySC, bxclkDelay,configClkGate)
+        return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, freq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelaySC, sampleDelaySC, bxclkDelay,configClkGate, readYproj=readYproj)
 
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_SettingsScan(

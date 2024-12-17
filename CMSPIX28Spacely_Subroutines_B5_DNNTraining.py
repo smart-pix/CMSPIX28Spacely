@@ -1,5 +1,8 @@
 # spacely
-from Master_Config import *
+try:
+    from Master_Config import *
+except:
+    print("Cannot import Master_Config likely you are not running spacely.")
 
 # os settings
 import os
@@ -202,8 +205,24 @@ class ModelPipeline:
         Default: Sparse Categorical Crossentropy with from_logits=True.
         Modify this function as needed.
         """
+
+        # only valid y_true is 0,1,2. Any patterns with a 3 should be ignored 
+        mask = tf.cast(tf.not_equal(y_true, 3), dtype=tf.float32) 
+
+        # artificially set y_true = 3 values to 0
+        y_true *= tf.cast(mask, dtype=tf.int64)
+
+        # compute loss
         loss = tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=True)
-        return tf.reduce_mean(loss)
+        
+        # mask loss
+        loss *= mask
+
+        # compute mean loss, ignoring masked entries
+        loss = tf.reduce_sum(loss) / tf.reduce_sum(mask)
+
+        return loss # tf.reduce_mean(loss)
+
 
     def split_data(self, x_data, y_data, test_size=0.2, shuffle=True, random_state=42):
         """
@@ -215,7 +234,7 @@ class ModelPipeline:
         self.train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(self.batch_size)
         self.val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(self.batch_size)
     
-    @tf.function
+    # @tf.function
     def forward_pass(self, x, training=False):
         """
         Performs a forward pass of the model.
@@ -245,25 +264,31 @@ class ModelPipeline:
         Performs a forward pass of the model on the asic
         """
 
-        print("   within forward pass asic")
+        # print("   within forward pass asic")
 
         # run to chip -> output saved to readout.csv
+        freq = '3F'
         DNN(
-            progDebug=False, loopbackBit=0, patternIndexes = range(1), verbose=False, # update range when finished
-            vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
-            progDly='5', progSample='20', progResetMask='0', progFreq='64', 
-            testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B', configClkGate='0',  
+            progDebug=False, loopbackBit=0, patternIndexes = None, verbose=False, # update range when finished
+            vinTest='20', freq=freq, startBxclkState='0',scanloadDly='B', 
+            progDly='40', progSample='4', progResetMask='0', progFreq='64', 
+            testDelaySC='08', sampleDelaySC='08', bxclkDelay='14', configClkGate='1',  
             dnn_csv = dnn_csv,
             pixel_compout_csv = pixel_compout_csv,
+            outDir = "./tmp",
+            readYproj=False,
         )
-        
-        # interpret data from chip to just give NN prediction
-        return 0
+        #Take in the pixel_compout_csv files and return the DNN output value in decimal
+        dnnOut=DNN_analyse(debug=False, latency_bit=20,  bxclkFreq=freq, readout_CSV = "./tmp/readout.csv" )
+        # print(dnnOut.shape)
+        dnnOut = tf.convert_to_tensor(dnnOut)
+        return dnnOut
 
-    @tf.function
+
+    # @tf.function
     def train_step(self, 
                    x_batch, y_batch, 
-                   dnn_csv = None, pixel_compout_csv = None # for asic training
+                   dnn_csv = None, pixel_compout_csv = None, alpha = 1, # for asic training
     ):
         """
         Performs a single training step.
@@ -271,23 +296,27 @@ class ModelPipeline:
 
         with tf.GradientTape() as tape:
             # evaluate model off
-            print("Forward pass")
+            # print("Forward pass")
             logits = self.forward_pass(x_batch, training=True)
             loss_value = self.loss_fn(y_batch, logits)
             # evaluate model on chip
             if self.asic_training:
-                print("Forward pass asic")
+                # print("Forward pass asic")
                 logits_asic = self.forward_pass_asic(x_batch, dnn_csv, pixel_compout_csv)
-                # loss_value_asic = self.loss_fn(y_batch, logits_asic)
+                # print(y_batch, logits_asic)
+                loss_value_asic = self.loss_fn(logits_asic, logits)
+                # print(loss_value_asic, loss_value)
                 # sum them
-                # loss_value = loss_value + loss_value_asic
-
+                loss_value = loss_value  + alpha*loss_value_asic
+                # print(loss_value)
         grads = tape.gradient(loss_value, self.model.trainable_weights)
+        # print(grads)
+        # print("Total Gradients: ", [g.numpy() for g in grads])
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         self.train_acc_metric.update_state(y_batch, logits)
         return loss_value
 
-    @tf.function
+    # @tf.function
     def val_step(self, x_batch, y_batch):
         """
         Performs a single validation step.
@@ -314,7 +343,7 @@ class ModelPipeline:
             train_progbar = Progbar(target=train_steps, stateful_metrics=["loss", "sparse_categorical_accuracy"])
             
             for step, (x_batch, y_batch) in enumerate(self.train_dataset):
-                print(f"Batch {step}/{len(self.train_dataset)}")
+                # print(f"Batch {step}/{len(self.train_dataset)}")
 
                 # prepare weights for asic
                 if self.asic_training:
@@ -385,16 +414,18 @@ def DNNTraining(asic_training=False):
         model.summary()
         # load the model
         model_file = "/fasic_home/gdg/research/projects/CMS_PIX_28/directional-pixel-detectors/multiclassifier/models/ds8l6_padded_noscaling_qkeras_foldbatchnorm_d58w4a8model.h5"
+        # model_file = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/model.h5"
         co = {}
         utils._add_supported_quantized_objects(co)
         model = tf.keras.models.load_model(model_file, custom_objects=co)
         # Generate a simple configuration from keras model
         config = hls4ml.utils.config_from_keras_model(model, granularity='name')
         # Convert to an hls model
-        hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config, output_dir='test_prj')
+        output_dir = "newModelWeights"
+        hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config, output_dir=output_dir)
         hls_model.write()
         # prepare weights
-        prepareWeights("test_prj/firmware/weights/")
+        prepareWeights(os.path.join(output_dir, "firmware/weights/"))
 
     # load example inputs and outputs
     x_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/input_1.csv", header=None)
@@ -417,7 +448,7 @@ def DNNTraining(asic_training=False):
         # Initialize pipeline
         pipeline = ModelPipeline(model, optimizer, train_acc_metric, val_acc_metric, batch_size=1024, asic_training=asic_training)
         pipeline.split_data(x_test, y_test)
-        pipeline.train(epochs=10, patience=5)
+        pipeline.train(epochs=20, patience=3)
 
         # save model
         model.save(model_file)
