@@ -64,7 +64,7 @@ def ROUTINE_ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',p
     return ProgShiftRegManualOnly(progFreq, progDly, progSample,progConfigClkGate)
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[3]):
+def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[1]):
     return ProgPixelsOnly(progFreq, progDly, progSample,progConfigClkGate,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
@@ -76,7 +76,7 @@ def ROUTINE_ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='
     return ScanChainOneShot(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly)
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.0005, nSample=1000):
+def ROUTINE_PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.001, nSample=1000):
     return PreProgSCurve(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly, vmin, vmax, vstep, nSample)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>

@@ -162,6 +162,7 @@ def BK4600HLEV_SWEEP(HLEV=0.2):
             time.sleep(1)
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
+    os.close(d)
 
 def BSDG7102A_QUERY():
     import os
@@ -183,6 +184,7 @@ def BSDG7102A_QUERY():
         if(input[i][-1]=="?"):   #If the last character of the request is a question 
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
+    os.close(d)
 
 def SDG7102A_INIT():
     import os
@@ -234,12 +236,14 @@ def SDG7102A_INIT():
         if(input[i][-1]=="?"):   #If the last character of the request is a question 
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
+    os.close(d)
 
 def SDG7102A_SWEEP(HLEV=0.2):
     import os
     import time
     import io
     d = os.open('/dev/usbtmc0', os.O_RDWR)
+    #with os.open('/dev/usbtmc0', os.O_RDWR) as d:
     input = [
     #"*IDN?",
     # "C1:BTWV STATE,ON",
@@ -267,6 +271,8 @@ def SDG7102A_SWEEP(HLEV=0.2):
             time.sleep(1)
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
+    os.close(d)
+
 def time_sw_read32(ran=10):
     
     # read value of register

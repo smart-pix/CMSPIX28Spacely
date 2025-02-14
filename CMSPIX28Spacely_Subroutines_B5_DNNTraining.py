@@ -288,7 +288,7 @@ class ModelPipeline:
     # @tf.function
     def train_step(self, 
                    x_batch, y_batch, 
-                   dnn_csv = None, pixel_compout_csv = None, alpha = 1, # for asic training
+                   dnn_csv = None, pixel_compout_csv = None, alpha = 0.1, # for asic training
     ):
         """
         Performs a single training step.
@@ -413,8 +413,8 @@ def DNNTraining(asic_training=False):
         model = CreateQModel(shape, nb_classes)
         model.summary()
         # load the model
-        model_file = "/fasic_home/gdg/research/projects/CMS_PIX_28/directional-pixel-detectors/multiclassifier/models/ds8l6_padded_noscaling_qkeras_foldbatchnorm_d58w4a8model.h5"
-        # model_file = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/model.h5"
+        # model_file = "/fasic_home/gdg/research/projects/CMS_PIX_28/directional-pixel-detectors/multiclassifier/models/ds8l6_padded_noscaling_qkeras_foldbatchnorm_d58w4a8model.h5"
+        model_file = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/model.h5"
         co = {}
         utils._add_supported_quantized_objects(co)
         model = tf.keras.models.load_model(model_file, custom_objects=co)
@@ -435,7 +435,7 @@ def DNNTraining(asic_training=False):
     print(x_test.shape, y_test.shape)
     
     # decide if train
-    train_and_save = True # <<< PAY ATTENTION <<<
+    train_and_save = False # <<< PAY ATTENTION <<<
     model_file = 'model.h5' if train_and_save == True else model_file # use default value
     history = None
     if train_and_save:

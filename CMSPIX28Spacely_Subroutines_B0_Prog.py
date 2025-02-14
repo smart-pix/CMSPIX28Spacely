@@ -131,7 +131,7 @@ def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate
     pass
 
 
-def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0, timeSleep=0.5):
+def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0, timeSleep=0.015):
     fw_status_clear()
 
     hex_list = [

@@ -143,7 +143,7 @@ def PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFr
         save_data = np.stack(save_data, 0)
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
         np.savez(outFileName, **{"data": save_data})
-
+    
     return None
 
 def pixelProg_scanChain_CDF(pixelList=[0], pixelSettings=[2], scan_address=[0], vmin=0.025, vmax = 0.2, vstep = 0.0005, nsample =100):
@@ -266,7 +266,7 @@ def pixelProg_scanChain_CDF(pixelList=[0], pixelSettings=[2], scan_address=[0], 
     #os.makedirs(full_folder_path, exist_ok=True)  # Create the folder
 
 
-    outDir =  f"pixel{pixNumber}_config{configBit}_scanAddress{scanAddress}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.3f}_nSample{nsample:.3f}"
+    outDir =  f"pixel{pixNumber}_config{configBit}_scanAddress{scanAddress}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}"
     outDir = os.path.join(test_path, outDir)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
