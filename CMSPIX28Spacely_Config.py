@@ -7,12 +7,12 @@ INSTR = {"car" : {"type": "Caribou",
 
 
 
-V_SEQUENCE = ["vdda", "vddd", "VTH2", "VTH1","VTH0", "VMC", "SUPERPIX", "INJ_1"]
+V_SEQUENCE = ["vdda", "vddd", "VTH", "vleak","VTH0", "VMC", "SUPERPIX", "INJ_1"]
 
 V_INSTR = {"vdda": "car",
            "vddd": "car",
-           "VTH2":"car",
-           "VTH1":"car",
+           "VTH":"car",
+           "vleak":"car",
            "VTH0":"car",
            "VMC":"car",
            "SUPERPIX":"car",
@@ -20,8 +20,8 @@ V_INSTR = {"vdda": "car",
 
 V_CHAN = {"vdda": "PWR_OUT_4",
            "vddd": "PWR_OUT_3",
-           "VTH2":"BIAS_1",
-           "VTH1":"BIAS_3",
+           "VTH":"BIAS_1",
+           "vleak":"BIAS_3",
            "VTH0":"BIAS_5",
            "VMC":"BIAS_2",
            "SUPERPIX":"BIAS_4",
@@ -29,10 +29,10 @@ V_CHAN = {"vdda": "PWR_OUT_4",
 
 V_LEVEL = {"vdda": 0.9,
            "vddd": 0.9,
-           "VTH2": 1.2,
-            "VTH1": 0.04,
+           "VTH": 1.2,
+            "vleak": 0.23,
             "VTH0": 0.04,
-           "VMC": 0.4,
+           "VMC": 0,
            "SUPERPIX":0.9,
            "INJ_1": 2
            }
@@ -43,8 +43,8 @@ V_WARN_VOLTAGE = {"vdda": [0.82,0.99],
 
 V_PORT  = {"vdda": None,
            "vddd": None,
-           "VTH2": None,
-           "VTH1": None,
+           "VTH": None,
+           "vleak": None,
            "VTH0": None,                      
            "VMC":None,
            "SUPERPIX":None,

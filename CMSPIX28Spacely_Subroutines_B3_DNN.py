@@ -101,7 +101,7 @@ def DNN(
         ]
         sw_write32_0(hex_lists)
 
-        time.sleep(0.011)  # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1. We went 10% above breaking point 
+        time.sleep(0.02)  # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1. We went 10% above breaking point 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
         if(verbose==True and progDebug==True):
@@ -329,7 +329,7 @@ def DNN(
 
     return None
 
-def DNN_analyse(debug=False, latency_bit=20, bxclkFreq='3F', readout_CSV="readout.csv"):
+def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='3F', readout_CSV="readout.csv"):
     #divider used in the test for bxclk frequency
     fdivider= int(bxclkFreq, 16) # Convert the frequency divider for BxCLK into decimal to recover latency #63       
     dnn_words = []
@@ -378,8 +378,10 @@ def DNN_analyse(debug=False, latency_bit=20, bxclkFreq='3F', readout_CSV="readou
 
     # for tv in [debug_tv]: #range(len(dnn_words)):
     for tv in range(len(dnn_words)):   
-        cnt_dnn0_zeros = 0   #preference to count the zero since default is 1 and pull down is hard
-        cnt_dnn1_ones = 0        #preference to count the zero since default is 1 and pull down is hard
+        cnt_dnn0_zeros = 0  
+        cnt_dnn0_ones = 0     
+        cnt_dnn1_zeros = 0       
+        cnt_dnn1_ones = 0    
         cnt_bxclkana = 0
         for index, element in enumerate(bxclk_ana[tv]):
 
@@ -387,18 +389,24 @@ def DNN_analyse(debug=False, latency_bit=20, bxclkFreq='3F', readout_CSV="readou
                 cnt_bxclkana += 1
                 if dnn_0[tv][index] =='0':
                     cnt_dnn0_zeros += 1
-                if dnn_1[tv][index] =='1':
-                    cnt_dnn1_ones += 1
+                else:
+                    cnt_dnn0_ones += 1
+                if dnn_1[tv][index] =='0':
+                    cnt_dnn1_zeros += 1
+                else:
+                    cnt_dnn1_ones +=1
+            if element =='0':
+                break
 
         # Voting system
-        if cnt_dnn0_zeros>1:
+        if cnt_dnn0_zeros>cnt_dnn0_ones:
             dnn_0[tv] = '0'
         else:
             dnn_0[tv] = '1'
-        if cnt_dnn1_ones > 1:
+        if cnt_dnn1_zeros<cnt_dnn1_ones:
             dnn_1[tv] = '1'
         else:
-            dnn_1[tv] = '0'       
+            dnn_1[tv] = '0'         
         dnn_out.append(int(dnn_1[tv]+(dnn_0[tv]),2))
 
     #Reshaping the list into 13000 rows of column 1
