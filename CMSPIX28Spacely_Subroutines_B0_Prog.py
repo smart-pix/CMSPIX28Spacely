@@ -152,19 +152,19 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
 
     # load all of the configs
-    filename = "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
+    filename = os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/compouts.csv")
     pixelLists, pixelValues = genPixelConfigFromInputCSV(filename)
 
 
-    hiddenBit="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
+    hiddenBit=os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/hidden_debug.csv")
     # pick up pixel config for the given pattern
     pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
     # Programming the NN weights and biases
     if(progDebug==True):
-        hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+        hex_lists = dnnConfig(os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin_debug2.csv"), pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
     else:
-        hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+        hex_lists = dnnConfig(os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin.csv"), pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
     sw_write32_0(hex_lists, doPrint=False)
     # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
 
@@ -252,15 +252,15 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
             print("READ DATA 1")  
             for i in words_DA1:
                 print(i)
-            cfgArray0File = "cfgArray0.csv"
+            cfgArray0File = os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/cfgArray0.csv")
             with open(cfgArray0File, 'a+', newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(words_A0)
-            array0File = "array0.csv"                  
+            array0File = os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/array0.csv")               
             with open(array0File, 'a+', newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(words_DA0)
-            array1File = "array1.csv"                  
+            array1File = os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/array1.csv")                
             with open(array1File, 'a+', newline="") as file:
                 writer = csv.writer(file)
                 writer.writerows(words_DA1)

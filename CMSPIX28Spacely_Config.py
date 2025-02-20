@@ -49,3 +49,7 @@ V_PORT  = {"vdda": None,
            "VMC":None,
            "SUPERPIX":None,
            "INJ_1": None}
+
+FNAL_SETTINGS = {
+    "storageDirectory" : "/mnt/local/CMSPIX28/Scurve/data",
+}
