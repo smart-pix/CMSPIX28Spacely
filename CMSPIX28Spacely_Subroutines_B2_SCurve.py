@@ -73,8 +73,8 @@ def PreProgSCurve(
     # create output directory
     outDir = os.path.join(
         FNAL_SETTINGS["storageDirectory"],
-        ("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "",
-        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
+        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix"),
+        f"nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
     )
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -172,10 +172,10 @@ def IterMatrixSCurve():
             scanLoopBackBit='0', 
             scanSampleDly='08', 
             scanDly='08', 
-            vmin = 0.001, 
-            vmax=0.2, 
-            vstep=0.001, 
-            nSample=1000, 
+            v_min = 0.001, 
+            v_max=0.2, 
+            v_step=0.001, 
+            nsample=1000, 
             SuperPix=True, 
             nPix=i,
         )
