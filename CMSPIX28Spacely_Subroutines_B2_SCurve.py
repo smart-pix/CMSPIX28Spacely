@@ -6,8 +6,14 @@ import tqdm
 import numpy as np
 import h5py
 
-def PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.0005, nSample=1000,SuperPix=False, nPix=0):
-
+def PreProgSCurve(
+        scanloadDly='13', startBxclkState='0', bxclkDelay='0B', 
+        scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', 
+        scanSampleDly='08', scanDly='08', 
+        v_min = 0.001, v_max=0.2, v_step=0.0005, nsample=1000, 
+        SuperPix=False, nPix=0
+):
+    
     # Note we do not yet have a smoke test. verify this on scope as desired.
     
     # hex lists                                                                                                                    
@@ -53,25 +59,23 @@ def PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFr
     #npulse_step = 20
 
     # define range of asic voltages
-    v_min = vmin
-    v_max = vmax
-    v_step = vstep
+    # v_min = vmin
+    # v_max = vmax
+    # v_step = vstep
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # number of samples to run for each charge setting
-    nsample = nSample
+    # nsample = nSample
     nWord = 24  #number of 32bit word to read the scanChain
+    nStream = nsample*n_step*nWord
 
-    nStream = nSample*n_step*nWord
-
-         #number of sample for each charge settings
-
-    outDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}"
-    if(SuperPix==True):
-        outDir = os.path.join("/mnt/local/CMSPIX28/Scurve/data/SuperPixV2", outDir)
-    else:
-        outDir = os.path.join("/mnt/local/CMSPIX28/Scurve/data", outDir)
+    # create output directory
+    outDir = os.path.join(
+        FNAL_SETTINGS["storageDirectory"],
+        ("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "",
+        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
+    )
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
 
@@ -158,7 +162,23 @@ def IterMatrixSCurve():
     nPix = 256
     for i in range(nPix):
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
-        PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.001, nSample=1000, SuperPix=True, nPix=i)
+        
+        PreProgSCurve(
+            scanloadDly='13', 
+            startBxclkState='0', 
+            bxclkDelay='0B', 
+            scanFreq='28', 
+            scanInjDly='1D', 
+            scanLoopBackBit='0', 
+            scanSampleDly='08', 
+            scanDly='08', 
+            vmin = 0.001, 
+            vmax=0.2, 
+            vstep=0.001, 
+            nSample=1000, 
+            SuperPix=True, 
+            nPix=i,
+        )
     
     
 
