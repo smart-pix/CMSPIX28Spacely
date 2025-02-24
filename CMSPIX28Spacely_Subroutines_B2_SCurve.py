@@ -7,11 +7,21 @@ import numpy as np
 import h5py
 
 def PreProgSCurve(
-        scanloadDly='13', startBxclkState='0', bxclkDelay='0B', 
-        scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', 
-        scanSampleDly='08', scanDly='08', 
-        v_min = 0.001, v_max=0.2, v_step=0.0005, nsample=1000, 
-        SuperPix=False, nPix=0
+        scanloadDly = '13', 
+        startBxclkState = '0', 
+        bxclkDelay = '0B', 
+        scanFreq = '28',
+        scanInjDly = '1D', 
+        scanLoopBackBit = '0', 
+        scanSampleDly = '08', 
+        scanDly = '08', 
+        v_min = 0.001, 
+        v_max = 0.2, 
+        v_step = 0.0005, 
+        nsample = 1000, 
+        SuperPix = False, 
+        nPix = 0, 
+        topOutDir = None,
 ):
     
     # Note we do not yet have a smoke test. verify this on scope as desired.
@@ -71,13 +81,29 @@ def PreProgSCurve(
     nStream = nsample*n_step*nWord
 
     # create output directory
-    outDir = os.path.join(
-        FNAL_SETTINGS["storageDirectory"],
-        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix"),
-        f"nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
-    )
+    if topOutDir is None:
+        topDir = FNAL_SETTINGS["storageDirectory"]
+        subDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix")
+    else:
+        topDir = topOutDir
+        subDir = ""
+    # create baseline tag
+    tag = f"nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
+    os.path.join(topDir, subDir, tag)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
+
+    # topOutDir if topOutDir is not None else FNAL_SETTINGS["storageDirectory"]
+    # subDir = 
+    # tag = f"nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
+    # if topOutDir is not None:
+    #     outDir = os.path.join(topOutDir, tag)
+    # else:
+    #     subDir = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix")
+    #     outDir = os.path.join(FNAL_SETTINGS["storageDirectory"], subDir, tag)
+
+    # print(f"Saving results to {outDir}")
+    # os.makedirs(outDir, exist_ok=True)
 
     # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
@@ -159,25 +185,37 @@ def PreProgSCurve(
     return None
 
 def IterMatrixSCurve():
+
+    # global settings
     nPix = 256
+
+    # create an output directory
+    topOutDir = os.path.join(
+        FNAL_SETTINGS["storageDirectory"],
+        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix"),
+    )
+    print(f"Saving results to {topOutDir}")
+    os.makedirs(topOutDir, exist_ok=True)
+    
     for i in range(nPix):
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         
         PreProgSCurve(
-            scanloadDly='13', 
-            startBxclkState='0', 
-            bxclkDelay='0B', 
-            scanFreq='28', 
-            scanInjDly='1D', 
-            scanLoopBackBit='0', 
-            scanSampleDly='08', 
-            scanDly='08', 
+            scanloadDly = '13', 
+            startBxclkState = '0', 
+            bxclkDelay = '0B', 
+            scanFreq = '28', 
+            scanInjDly = '1D', 
+            scanLoopBackBit = '0', 
+            scanSampleDly = '08', 
+            scanDly = '08', 
             v_min = 0.001, 
-            v_max=0.3, 
-            v_step=0.001, 
-            nsample=1000, 
-            SuperPix=True, 
-            nPix=i,
+            v_max = 0.3, 
+            v_step = 0.001, 
+            nsample = 1000, 
+            SuperPix = True, 
+            nPix = i,
+            topOutDir = topOutDir
         )
     
     
