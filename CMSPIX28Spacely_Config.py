@@ -52,6 +52,6 @@ V_PORT  = {"vdda": None,
 
 FNAL_SETTINGS = {
     "storageDirectory" : "/mnt/local/CMSPIX28/Scurve/data",
-    "chipVersion" : v1
+    "chipVersion" : 1,
     "chipID" : 4
 }
