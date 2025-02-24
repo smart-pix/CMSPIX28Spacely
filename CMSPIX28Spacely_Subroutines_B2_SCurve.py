@@ -82,9 +82,11 @@ def PreProgSCurve(
     nWord = 24  #number of 32bit word to read the scanChain
     nStream = nsample*n_step*nWord
 
+    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+
     # create output directory
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
-    testInfo = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
+    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
     pixelInfo = f"nPix{nPix}"
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
