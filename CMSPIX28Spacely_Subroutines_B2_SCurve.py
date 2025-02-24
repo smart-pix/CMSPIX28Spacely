@@ -173,7 +173,7 @@ def IterMatrixSCurve():
             scanSampleDly='08', 
             scanDly='08', 
             v_min = 0.001, 
-            v_max=0.2, 
+            v_max=0.3, 
             v_step=0.001, 
             nsample=1000, 
             SuperPix=True, 
