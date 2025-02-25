@@ -29,10 +29,10 @@ V_CHAN = {"vdda": "PWR_OUT_4",
 
 V_LEVEL = {"vdda": 0.9,
            "vddd": 0.9,
-           "VTH": 1.2,
-            "vleak": 0.23,
+           "VTH": 0.8,
+            "vleak": 0,
             "VTH0": 0.04,
-           "VMC": 0,
+           "VMC": 0.9,
            "SUPERPIX":0.9,
            "INJ_1": 2
            }
@@ -52,4 +52,6 @@ V_PORT  = {"vdda": None,
 
 FNAL_SETTINGS = {
     "storageDirectory" : "/mnt/local/CMSPIX28/Scurve/data",
+    "chipVersion" : 1,
+    "chipID" : 4
 }

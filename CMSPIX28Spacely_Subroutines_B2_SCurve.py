@@ -7,11 +7,23 @@ import numpy as np
 import h5py
 
 def PreProgSCurve(
-        scanloadDly='13', startBxclkState='0', bxclkDelay='0B', 
-        scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', 
-        scanSampleDly='08', scanDly='08', 
-        v_min = 0.001, v_max=0.2, v_step=0.0005, nsample=1000, 
-        SuperPix=False, nPix=0
+        scanloadDly = '13', 
+        startBxclkState = '0', 
+        bxclkDelay = '0B', 
+        scanFreq = '28',
+        scanInjDly = '1D', 
+        scanLoopBackBit = '0', 
+        scanSampleDly = '08', 
+        scanDly = '08', 
+        v_min = 0.001, 
+        v_max = 0.2, 
+        v_step = 0.0005, 
+        nsample = 1000, 
+        SuperPix = False, 
+        nPix = 0, 
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        dateTime = None,
+        testType = "Single"
 ):
     
     # Note we do not yet have a smoke test. verify this on scope as desired.
@@ -70,12 +82,13 @@ def PreProgSCurve(
     nWord = 24  #number of 32bit word to read the scanChain
     nStream = nsample*n_step*nWord
 
+    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+
     # create output directory
-    outDir = os.path.join(
-        FNAL_SETTINGS["storageDirectory"],
-        datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + "_" + (("SuperPixV2" if V_LEVEL["SUPERPIX"] == 0.9 else "SuperPixV1") if SuperPix == True else "SinglePix"),
-        f"nPix{nPix}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}"
-    )
+    chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
+    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+    pixelInfo = f"nPix{nPix}"
+    outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
 
@@ -159,25 +172,35 @@ def PreProgSCurve(
     return None
 
 def IterMatrixSCurve():
+
+    # global settings
     nPix = 256
+
+    # create an output directory
+    dataDir = FNAL_SETTINGS["storageDirectory"]
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+    
     for i in range(nPix):
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         
         PreProgSCurve(
-            scanloadDly='13', 
-            startBxclkState='0', 
-            bxclkDelay='0B', 
-            scanFreq='28', 
-            scanInjDly='1D', 
-            scanLoopBackBit='0', 
-            scanSampleDly='08', 
-            scanDly='08', 
+            scanloadDly = '13', 
+            startBxclkState = '0', 
+            bxclkDelay = '0B', 
+            scanFreq = '28', 
+            scanInjDly = '1D', 
+            scanLoopBackBit = '0', 
+            scanSampleDly = '08', 
+            scanDly = '08', 
             v_min = 0.001, 
-            v_max=0.2, 
-            v_step=0.001, 
-            nsample=1000, 
-            SuperPix=True, 
-            nPix=i,
+            v_max = 0.3, 
+            v_step = 0.001, 
+            nsample = 1000, 
+            SuperPix = True, 
+            nPix = i,
+            dataDir = dataDir,
+            dateTime = now,
+            testType = "Matrix"
         )
     
     
