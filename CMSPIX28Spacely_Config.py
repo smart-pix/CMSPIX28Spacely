@@ -32,7 +32,7 @@ V_LEVEL = {"vdda": 0.9,
            "VTH": 0.8,
             "vleak": 0,
             "VTH0": 0.04,
-           "VMC": 0.9,
+           "VMC": 0.4,
            "SUPERPIX":0.9,
            "INJ_1": 2
            }
@@ -53,5 +53,5 @@ V_PORT  = {"vdda": None,
 FNAL_SETTINGS = {
     "storageDirectory" : "/mnt/local/CMSPIX28/Scurve/data",
     "chipVersion" : 1,
-    "chipID" : 4
+    "chipID" : 9
 }
