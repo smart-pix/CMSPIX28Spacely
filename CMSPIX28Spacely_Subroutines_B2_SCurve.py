@@ -101,7 +101,7 @@ def PreProgSCurve(
     elif testType == "Single":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
         pixelInfo = ""
-        
+
     # configure per pixel info
     # pixelInfo = f"nPix{nPix}"
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
@@ -214,7 +214,7 @@ def IterMatrixSCurve():
             nPix = i,
             dataDir = dataDir,
             dateTime = now,
-            testType = "Matrix"
+            testType = "MatrixNPix"
         )
     
 def IterSCurveSweep():
@@ -257,7 +257,7 @@ def IterSCurveSweep():
             nPix = nPix,
             dataDir = dataDir,
             dateTime = now,
-            testType = "Matrix"
+            testType = "MatrixVTH"
         )
 
 
