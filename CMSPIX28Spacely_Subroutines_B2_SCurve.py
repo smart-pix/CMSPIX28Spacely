@@ -107,6 +107,7 @@ def PreProgSCurve(
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
+    os.chmod(outDir, mode=0o777)
 
     # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
@@ -250,7 +251,7 @@ def IterSCurveSweep():
             scanSampleDly = '08', 
             scanDly = '08', 
             v_min = 0.001, 
-            v_max = 0.36, 
+            v_max = 0.4, 
             v_step = 0.001, 
             nsample = 1000, 
             SuperPix = True, 
