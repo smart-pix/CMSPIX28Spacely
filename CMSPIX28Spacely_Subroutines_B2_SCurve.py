@@ -85,12 +85,29 @@ def PreProgSCurve(
     scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
 
     # create output directory
+    print(V_LEVEL['VTH'])
+    # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
-    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
-    pixelInfo = f"nPix{nPix}"
+    # configure test info
+    # testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
+    # configure based on test type
+    if testType == "MatrixNPix":
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+        pixelInfo = f"nPix{nPix}"
+    elif testType == "MatrixVTH":
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        pixelInfo = f"VTH{V_LEVEL['VTH']:.3f}"
+    elif testType == "Single":
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        pixelInfo = ""
+
+    # configure per pixel info
+    # pixelInfo = f"nPix{nPix}"
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
+    os.chmod(outDir, mode=0o777)
 
     # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
@@ -175,11 +192,9 @@ def IterMatrixSCurve():
 
     # global settings
     nPix = 256
-
     # create an output directory
     dataDir = FNAL_SETTINGS["storageDirectory"]
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-    
     for i in range(nPix):
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         
@@ -193,15 +208,57 @@ def IterMatrixSCurve():
             scanSampleDly = '08', 
             scanDly = '08', 
             v_min = 0.001, 
-            v_max = 0.3, 
+            v_max = 0.6, 
             v_step = 0.001, 
             nsample = 1000, 
             SuperPix = True, 
             nPix = i,
             dataDir = dataDir,
             dateTime = now,
-            testType = "Matrix"
+            testType = "MatrixNPix"
         )
     
-    
+def IterSCurveSweep():
+
+# This function programs a single pixel and extrac Scurve while sweeping a bias voltage
+# the voltage being sweep is VTH but could be changed to VDDA or VDDD
+# This is useful to extract linearity
+
+    # global settings
+    nPix = 0
+    #program single pixel
+    ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
+
+    # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
+    dataDir = FNAL_SETTINGS["storageDirectory"]
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    # Sweep range
+    vthList = np.arange(0.5,2.0,0.05)
+    # vthList = [0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4,1.45,1.5,1.55,1.6,1.65,1.7,1.75,1.8,1.85,1.9,1.95,2.0]
+    # vthList = [1.5,1.55,1.6]
+    for i in vthList:
+
+        V_PORT["VTH"].set_voltage(i)
+        V_LEVEL["VTH"] = i
+        PreProgSCurve(
+            scanloadDly = '13', 
+            startBxclkState = '0', 
+            bxclkDelay = '0B', 
+            scanFreq = '28', 
+            scanInjDly = '1D', 
+            scanLoopBackBit = '0', 
+            scanSampleDly = '08', 
+            scanDly = '08', 
+            v_min = 0.001, 
+            v_max = 0.4, 
+            v_step = 0.001, 
+            nsample = 1000, 
+            SuperPix = True, 
+            nPix = nPix,
+            dataDir = dataDir,
+            dateTime = now,
+            testType = "MatrixVTH"
+        )
+
 
