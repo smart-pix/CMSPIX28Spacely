@@ -182,9 +182,18 @@ def PreProgSCurve(
             save_data.append(s)
 
         # save the data to a file
+        # save_data = np.stack(save_data, 0)
+        # outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
+        # np.savez(outFileName, **{"data": save_data})
+
+        # save just the correct npix
         save_data = np.stack(save_data, 0)
-        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
-        np.savez(outFileName, **{"data": save_data})
+        print(save_data.shape)
+        save_data = save_data.reshape(-1, 256, 3)
+        print(save_data.shape)
+        save_data = save_data[:,nPix]
+        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
+        np.save(outFileName, save_data)
     
     return None
 
