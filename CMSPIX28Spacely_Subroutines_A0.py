@@ -194,8 +194,8 @@ def SDG7102A_INIT():
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,10000HZ",
-    "C1:BSWV PERI,0.001S",
+    "C1:BSWV FRQ,10e6HZ",
+    "C1:BSWV PERI,8e-6S",
     "C1:BSWV HLEV,0.2V",
     "C1:BSWV LLEV,0V",
     "C1:BSWV DUTY,20",
@@ -205,16 +205,17 @@ def SDG7102A_INIT():
     "C1:BSWV?",
 
     "C1:BTWV STATE,ON",
-    "C1:BTWV PRD,0.00200099S",
+    # "C1:BTWV PRD,0.00200099S",
+    "C1:BTWV PRD,80e-6S",
     "C1:BTWV TRSR,EXT",
     "C1:BTWV TIME,1",
-
+    "C1:BTWV COUNT,1",
     "C1:BTWV DLAY,2.106e-06S",   
     "C1:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
     #"C1:BTWV EDGE,RISE",   
     "C1:BTWV CARR,WVTP,PULSE",
-    "C1:BTWV FRQ,1000000HZ",
-    "C1:BTWV PERI,0.001S",
+    "C1:BTWV FRQ,10e6HZ",
+    "C1:BTWV PERI,8e-6S",
     "C1:BTWV HLEV,0.2V",
     "C1:BTWV LLEV,0V",
     "C1:BTWV DUTY,20",
@@ -272,6 +273,46 @@ def SDG7102A_SWEEP(HLEV=0.2):
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
     os.close(d)
+
+
+
+# def SDG7102A_SWEEP(HLEV=0.2):
+#     import os
+#     import time
+#     import io
+#     input = [
+#         #"*IDN?",
+#         # "C1:BTWV STATE,ON",
+#         # "C1:BTWV PRD,0.00200099S",
+#         # "C1:BTWV TRSR,EXT",
+#         # "C1:BTWV TIME,1",
+#         # "C1:BTWV COUNT,1",
+#         # "C1:BTWV DLAY,2.106e-06S",
+#         # "C1:BTWV EDGE,RISE",
+#         # "C1:BTWV WVTP,PULSE",
+#         # "C1:BTWV FRQ,1000000HZ",
+#         f"C1:BSWV HLEV,{HLEV}V",
+#         "C1:BSWV LLEV,0V",
+#         # "C1:BSWV RISE,5e-10S",
+#         # "C1:BSWV FALL,5e-10S",
+#         # "C1:BSWV  DLY,-0S",
+#         ]
+#     try: 
+#         d = os.open('/dev/usbtmc0', os.O_RDWR)
+#         if not d:
+#             print(Exception)
+#             raise Exception
+#         for cmd in input:
+#             d.write(cmd.encode())
+#             if(cmd[-1] == "?"):
+#                 time.sleep(1)
+#                 out = d.read(1024)
+#                 print(out.decode)
+#             else:
+#                 out =b''
+#     finally:
+#         os.close(d)
+ 
 
 def time_sw_read32(ran=10):
     

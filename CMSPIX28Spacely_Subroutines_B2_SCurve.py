@@ -205,9 +205,9 @@ def PreProgSCurveGinguMaster(
         scanLoopBackBit = '0', 
         scanSampleDly = '08', 
         scanDly = '08', 
-        v_min = 0.1, 
+        v_min = 0.001, 
         v_max = 0.2, 
-        v_step = 0.1, 
+        v_step = 0.01, 
         nsample = 1000,
         nIter = 1,  
         SuperPix = False, 
@@ -240,12 +240,6 @@ def PreProgSCurveGinguMaster(
          # SPARE bits:  "3'h0"
          # Register Static 0 is programmed : "4'h3"
          # IP 2 is selected: "4'h2"
-    ]
-
-    sw_write32_0(hex_lists)
-    sw_read32_0= sw_read32()
-
-    hex_lists = [
 
         ["4'h2", "4'h4", "5'h3", f"11'h{nsampleHex}", f"8'h{nPixHex}"],          
          # 8 - bits to identify pixel number
@@ -253,17 +247,17 @@ def PreProgSCurveGinguMaster(
          # SPARE bits:  "4'h0"
          # Register Static 1 is programmed : "4'h4"
          # IP 2 is selected: "4'h2"
-
     ]
 
     sw_write32_0(hex_lists)
     sw_read32_0= sw_read32()
 
+
     hex_lists = [
         ["4'h2", "4'h5", "24'h0"],
     ]
     sw_write32_0(hex_lists)
-    sw_read32_0 = sw_read32(print_code = "ihb")
+    # sw_read32_0 = sw_read32(print_code = "ihb")
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
     nwrites = 24 # updated from 48
 
@@ -323,8 +317,12 @@ def PreProgSCurveGinguMaster(
             v_asic = 0 
             return 
         #BK4600HLEV_SWEEP(v_asic*2)
+        if 0.160 < i < 0.200:
+            time.sleep(0.2) #added time for pulse generator to settle
+            if i ==0.185:
+                time.sleep(0.5) # extra step for 0.185V
         SDG7102A_SWEEP(v_asic*2)
-        # time.sleep(nsample*100e-6)
+
 
         #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
 
@@ -351,19 +349,45 @@ def PreProgSCurveGinguMaster(
             ] 
 
             sw_write32_0(hex_lists, doPrint=False)
-            sw_read32_0 = sw_read32(print_code = "ihb")
+            # sw_read32_0 = sw_read32(print_code = "ihb")
             # if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
             #     wordList = [int(((nPix-1)*3+1)/32)]
             # else:
             #     wordList = [int(((nPix-1)*3+1)/32),int(((nPix-1)*3+3)/32)]
+            maxWordFWArray = 128
             nword = math.ceil(nsample*3/32)
-            wordList =  list(range(nword))
+            wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
             words = ["0"*32] * nword
-            #words = []
+            time.sleep(80e-6*nsample) #added time for burst to complete
+            time.sleep(0.2) #added time for pulse generator to settle
 
-            time.sleep(1)
+            #read back DATA_ARRAY_0
+            #data should be stored in the MSBs of row 0
+            # address = "8'h" + hex(0)[2:]
+            # hex_lists = [
+            #     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
+            # ]
+
+            # sw_write32_0(hex_lists,doPrint=False)
+            # sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
+            # print("DATA_ARRAY_0")
+            # print(int_to_32bit(sw_read32_0)[::-1])
+            # #start_readback = time.process_time()
+
+            # #read back DATA_ARRAY_1
+            # #data should be stored in the MSBs of row 0
+            # address = "8'h" + hex(127)[2:]
+            # hex_lists = [
+            #     ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
+            # ]
+            # print("DATA_ARRAY_1")
+            # sw_write32_0(hex_lists,doPrint=False)
+            # sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
+            # print(int_to_32bit(sw_read32_0))
+
             #start_readback = time.process_time()
-            for iW in wordList: #range(nwords):
+
+            for iW in wordList:
 
                 # DATA ARRAY 0 only contain LAST READ 
                 address = "8'h" + hex(iW)[2:]
@@ -376,9 +400,10 @@ def PreProgSCurveGinguMaster(
                     ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
                 ]
                 sw_write32_0(hex_lists,doPrint=False)
+
                 # read back data
                
-                #STREAN
+                #STREAM
                 # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
                 #no stream
                 sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
@@ -387,7 +412,8 @@ def PreProgSCurveGinguMaster(
                 # print(f"reg read data v2 {sw_read32_0}")
                 # store data
                 # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
-                words[iW] = int_to_32bit(sw_read32_0)[::-1]
+
+                words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
             
             # read_time=time.process_time()-start_readback
 
@@ -405,7 +431,9 @@ def PreProgSCurveGinguMaster(
 
         # save just the correct npix
         save_data = np.stack(save_data, 0)
+        # Bit order might have to be reversed in the next line since b2-b1-b0
         save_data = save_data.reshape(nsample*nIter, 3)
+        save_data = save_data[:,::-1]
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
         np.save(outFileName, save_data)
     
@@ -421,7 +449,7 @@ def IterMatrixSCurve():
     for i in range(nPix):
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         
-        PreProgSCurve(
+        PreProgSCurveGinguMaster(
             scanloadDly = '13', 
             startBxclkState = '0', 
             bxclkDelay = '0B', 
@@ -431,24 +459,24 @@ def IterMatrixSCurve():
             scanSampleDly = '08', 
             scanDly = '08', 
             v_min = 0.001, 
-            v_max = 0.1, 
+            v_max = 0.4, 
             v_step = 0.001, 
-            nsample = 1000, 
+            nsample = 1365, 
             SuperPix = True, 
             nPix = i,
+            nIter=1,
             dataDir = dataDir,
             dateTime = now,
             testType = "MatrixNPix"
         )
     
-def IterSCurveSweep():
+def IterSCurveSweep(nPix=0):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
 # This is useful to extract linearity
 
-    # global settings
-    nPix = 0
+    print(nPix)
     #program single pixel
     ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
 
@@ -464,7 +492,7 @@ def IterSCurveSweep():
 
         V_PORT["VTH"].set_voltage(i)
         V_LEVEL["VTH"] = i
-        PreProgSCurve(
+        PreProgSCurveGinguMaster(
             scanloadDly = '13', 
             startBxclkState = '0', 
             bxclkDelay = '0B', 
@@ -474,9 +502,10 @@ def IterSCurveSweep():
             scanSampleDly = '08', 
             scanDly = '08', 
             v_min = 0.001, 
-            v_max = 0.1, 
+            v_max = 0.4, 
             v_step = 0.001, 
-            nsample = 1000, 
+            nsample = 1365,
+            nIter = 1,  
             SuperPix = True, 
             nPix = nPix,
             dataDir = dataDir,
