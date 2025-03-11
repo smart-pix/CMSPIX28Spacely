@@ -708,9 +708,8 @@ def calibrationMatrixHighStat(
                             s = s[:nsample*3]
                             save_data.append(s)
                             pixSetting.append(s)
-                            pixSettingNP = np.stack(pixSetting, 0)
-                            print(pixSettingNP.shape)
-                            
+        pixSettingNP = np.stack(pixSetting, 0)
+
         pixSettingNP = pixSettingNP.reshape(nsample*32*64, 3)
         pixSettingNP = pixSettingNP[:,::-1]
 
