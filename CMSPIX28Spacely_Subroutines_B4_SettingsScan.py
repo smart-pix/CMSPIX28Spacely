@@ -703,13 +703,14 @@ def calibrationMatrixHighStat(
                                 sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
                                 # store data
                                 words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
-                        s = [int(i) for i in "".join(words)]
-                        # Cutting last bit because 3x1365 = 4095
-                        s = s[:nsample*3]
-                        save_data.append(s)
-                        pixSetting.append(s)
-                        pixSettingNP = np.stack(pixSetting, 0)
-                        print(pixSettingNP.shape)
+                            s = [int(i) for i in "".join(words)]
+                            # Cutting last bit because 3x1365 = 4095
+                            s = s[:nsample*3]
+                            save_data.append(s)
+                            pixSetting.append(s)
+                            pixSettingNP = np.stack(pixSetting, 0)
+                            print(pixSettingNP.shape)
+                            
         pixSettingNP = pixSettingNP.reshape(nsample*32*64, 3)
         pixSettingNP = pixSettingNP[:,::-1]
 
