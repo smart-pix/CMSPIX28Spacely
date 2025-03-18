@@ -76,10 +76,6 @@ def split_bits_to_numpy(bit_string, chunk_size=3):
     return np.array(bit_chunks)
 
 def BK4600_INIT():
-    #!/bin/python3
-    import os
-    import time
-    import io
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",
@@ -123,10 +119,6 @@ def BK4600_INIT():
             print(out.decode())
 
 def BK4600HLEV_SWEEP(HLEV=0.2):
-    #!/bin/python3
-    import os
-    import time
-    import io
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     #"*IDN?",
@@ -165,9 +157,6 @@ def BK4600HLEV_SWEEP(HLEV=0.2):
     os.close(d)
 
 def BSDG7102A_QUERY():
-    import os
-    import time
-    import io
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",    
@@ -187,9 +176,6 @@ def BSDG7102A_QUERY():
     os.close(d)
 
 def SDG7102A_INIT():
-    import os
-    import time
-    import io
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",
@@ -239,79 +225,79 @@ def SDG7102A_INIT():
             print(out.decode())
     os.close(d)
 
-def SDG7102A_SWEEP(HLEV=0.2):
-    import os
-    import time
-    import io
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
-    #with os.open('/dev/usbtmc0', os.O_RDWR) as d:
-    input = [
-    #"*IDN?",
-    # "C1:BTWV STATE,ON",
-    # "C1:BTWV PRD,0.00200099S",
-    # "C1:BTWV TRSR,EXT",
-    # "C1:BTWV TIME,1",
-    # "C1:BTWV COUNT,1",
-    # "C1:BTWV DLAY,2.106e-06S",
-    # "C1:BTWV EDGE,RISE",
-    # "C1:BTWV WVTP,PULSE",
-    # "C1:BTWV FRQ,1000000HZ",
-    f"C1:BSWV HLEV,{HLEV}V",
-    "C1:BSWV LLEV,0V",
-    # "C1:BSWV RISE,5e-10S",
-    # "C1:BSWV FALL,5e-10S",
-    # "C1:BSWV  DLY,-0S",
-    ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        #print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            time.sleep(1)
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
-
-
-
 # def SDG7102A_SWEEP(HLEV=0.2):
-#     import os
-#     import time
-#     import io
+
+#     d = os.open('/dev/usbtmc0', os.O_RDWR)
+#     #with os.open('/dev/usbtmc0', os.O_RDWR) as d:
 #     input = [
-#         #"*IDN?",
-#         # "C1:BTWV STATE,ON",
-#         # "C1:BTWV PRD,0.00200099S",
-#         # "C1:BTWV TRSR,EXT",
-#         # "C1:BTWV TIME,1",
-#         # "C1:BTWV COUNT,1",
-#         # "C1:BTWV DLAY,2.106e-06S",
-#         # "C1:BTWV EDGE,RISE",
-#         # "C1:BTWV WVTP,PULSE",
-#         # "C1:BTWV FRQ,1000000HZ",
-#         f"C1:BSWV HLEV,{HLEV}V",
-#         "C1:BSWV LLEV,0V",
-#         # "C1:BSWV RISE,5e-10S",
-#         # "C1:BSWV FALL,5e-10S",
-#         # "C1:BSWV  DLY,-0S",
-#         ]
-#     try: 
-#         d = os.open('/dev/usbtmc0', os.O_RDWR)
-#         if not d:
-#             print(Exception)
-#             raise Exception
-#         for cmd in input:
-#             d.write(cmd.encode())
-#             if(cmd[-1] == "?"):
-#                 time.sleep(1)
-#                 out = d.read(1024)
-#                 print(out.decode)
-#             else:
-#                 out =b''
-#     finally:
-#         os.close(d)
+#     #"*IDN?",
+#     # "C1:BTWV STATE,ON",
+#     # "C1:BTWV PRD,0.00200099S",
+#     # "C1:BTWV TRSR,EXT",
+#     # "C1:BTWV TIME,1",
+#     # "C1:BTWV COUNT,1",
+#     # "C1:BTWV DLAY,2.106e-06S",
+#     # "C1:BTWV EDGE,RISE",
+#     # "C1:BTWV WVTP,PULSE",
+#     # "C1:BTWV FRQ,1000000HZ",
+#     f"C1:BSWV HLEV,{HLEV}V",
+#     "C1:BSWV LLEV,0V",
+#     # "C1:BSWV RISE,5e-10S",
+#     # "C1:BSWV FALL,5e-10S",
+#     # "C1:BSWV  DLY,-0S",
+#     ]
+#     nlist=len(input)
+#     for i in range(nlist): 
+#         os.write(d,input[i].encode())
+#         out = b' '
+#         # let's wait one second before reading output (let's give device time to answer)
+#         #print(input[i])
+#         if(input[i][-1]=="?"):   #If the last character of the request is a question 
+#             time.sleep(1)
+#             out=os.read(d,1024)  #Print out the response
+#             print(out.decode())
+#     os.close(d)
+
+
+def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    input_commands = [
+        f"C1:BSWV HLEV,{HLEV}V",  # Set high-level voltage
+        # "C1:BSWV LLEV,0V",  # Set low-level voltage
+    ]
+    
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Attempt to open the device file in read/write binary mode using 'with'
+            with open('/dev/usbtmc0', 'r+b') as d:
+                # print("Device connected successfully.")
+                for cmd in input_commands:
+                    d.write(cmd.encode())  # Send command to device
+
+                    # Only wait and read response if command ends with "?"
+                    if cmd.endswith("?"):
+                        time.sleep(1)  # Give the device time to respond
+                        out = d.read(1024)  # Read the response
+                        print(out.decode())  # Print the decoded output
+
+                    # If the command is not a query, we just continue
+                    else:
+                        out = b''  # No output for non-query commands
+
+                break  # Exit the loop once the connection and commands are successful
+
+        except (OSError, FileNotFoundError) as e:
+            # Catch specific exceptions related to the device connection
+            print(f"Connection failed at voltage {HLEV}: {e}. Retrying ({retries + 1}/{max_retries})...")
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)  # Delay before retrying
+            else:
+                print("Max retries reached. Could not connect to the device.")
+                break
+
+
+
  
 
 def time_sw_read32(ran=10):

@@ -10,15 +10,15 @@ import h5py
 def PreProgSCurve(
         scanloadDly = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '0B', 
+        bxclkDelay = '11', #'0B', 
         scanFreq = '28',
-        scanInjDly = '1D', 
+        scanInjDly = '17', #'1D', 
         scanLoopBackBit = '0', 
         scanSampleDly = '08', 
         scanDly = '08', 
         v_min = 0.001, 
-        v_max = 0.2, 
-        v_step = 0.0005, 
+        v_max = 0.3, 
+        v_step = 0.01, 
         nsample = 1000, 
         SuperPix = False, 
         nPix = 0, 
@@ -84,7 +84,8 @@ def PreProgSCurve(
     nStream = nsample*n_step*nWord
 
     scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
-
+    scanInjDly_in_ns = int(scanInjDly,16)*2.5
+    bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
     # create output directory
     print(V_LEVEL['VTH'])
     # configure chip info
@@ -94,7 +95,7 @@ def PreProgSCurve(
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
     # configure based on test type
     if testType == "MatrixNPix":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}"
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixVTH":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
@@ -118,6 +119,7 @@ def PreProgSCurve(
             return 
         #BK4600HLEV_SWEEP(v_asic*2)
         SDG7102A_SWEEP(v_asic*2)
+
         #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
 
         save_data = []
@@ -199,12 +201,13 @@ def PreProgSCurve(
 def PreProgSCurveGinguMaster(
         scanloadDly = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '0B', 
+        bxclkDelay = '11', 
         scanFreq = '28',
-        scanInjDly = '1D', 
+        scanInjDly = '17', 
         scanLoopBackBit = '0', 
         scanSampleDly = '08', 
         scanDly = '08', 
+        tsleep = 100e-3,
         v_min = 0.001, 
         v_max = 0.2, 
         v_step = 0.01, 
@@ -253,10 +256,10 @@ def PreProgSCurveGinguMaster(
     sw_read32_0= sw_read32()
 
 
-    hex_lists = [
-        ["4'h2", "4'h5", "24'h0"],
-    ]
-    sw_write32_0(hex_lists)
+    # hex_lists = [
+    #     ["4'h2", "4'h5", "24'h0"],
+    # ]
+    # sw_write32_0(hex_lists)
     # sw_read32_0 = sw_read32(print_code = "ihb")
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
     nwrites = 24 # updated from 48
@@ -284,9 +287,10 @@ def PreProgSCurveGinguMaster(
 
 
     scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
-
+    scanInjDly_in_ns = int(scanInjDly,16)*2.5
+    bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
     # create output directory
-
+    print(V_LEVEL['VTH'])
     # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
@@ -294,13 +298,13 @@ def PreProgSCurveGinguMaster(
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
     # configure based on test type
     if testType == "MatrixNPix":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}"
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixVTH":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}_nPix{nPix}"
         pixelInfo = f"VTH{V_LEVEL['VTH']:.3f}"
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}_nPix{nPix}"
         pixelInfo = ""
 
     # configure per pixel info
@@ -317,12 +321,12 @@ def PreProgSCurveGinguMaster(
             v_asic = 0 
             return 
         #BK4600HLEV_SWEEP(v_asic*2)
-        if 0.160 < i < 0.200:
-            time.sleep(0.2) #added time for pulse generator to settle
-            if i ==0.185:
-                time.sleep(0.5) # extra step for 0.185V
+        # if 0.160 < i < 0.200:
+        #     time.sleep(0.2) #added time for pulse generator to settle
+        #     if i ==0.185:
+        #         time.sleep(0.5) # extra step for 0.185V
         SDG7102A_SWEEP(v_asic*2)
-
+        time.sleep(tsleep) #added time for pulse generator to settle
 
         #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
 
@@ -358,8 +362,8 @@ def PreProgSCurveGinguMaster(
             nword = math.ceil(nsample*3/32)
             wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
             words = ["0"*32] * nword
-            time.sleep(80e-6*nsample) #added time for burst to complete
-            time.sleep(0.2) #added time for pulse generator to settle
+            time.sleep(100e-6*nsample) #added time for burst to complete
+            # time.sleep(0.2) #added time for pulse generator to settle
 
             #read back DATA_ARRAY_0
             #data should be stored in the MSBs of row 0
@@ -386,7 +390,6 @@ def PreProgSCurveGinguMaster(
             # print(int_to_32bit(sw_read32_0))
 
             #start_readback = time.process_time()
-
             for iW in wordList:
 
                 # DATA ARRAY 0 only contain LAST READ 
@@ -452,14 +455,14 @@ def IterMatrixSCurve():
         PreProgSCurveGinguMaster(
             scanloadDly = '13', 
             startBxclkState = '0', 
-            bxclkDelay = '0B', 
+            bxclkDelay = '11', #'0B', 
             scanFreq = '28', 
-            scanInjDly = '1D', 
+            scanInjDly = '18', #'1D', 
             scanLoopBackBit = '0', 
-            scanSampleDly = '08', 
+            scanSampleDly = '07', #'08' 
             scanDly = '08', 
             v_min = 0.001, 
-            v_max = 0.4, 
+            v_max = 0.3, 
             v_step = 0.001, 
             nsample = 1365, 
             SuperPix = True, 
