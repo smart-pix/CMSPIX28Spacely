@@ -77,7 +77,7 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
     # Step 4
     # Execute the test for different cfg_test_sample delay values
     
-    hex_list_6b = ['17', '18'] #[f'{i:X}' for i in range(0, 64)]  # create the list of setting space to range from
+    hex_list_6b = [f'{i:X}' for i in range(0, 64)] #['17', '18'] #  # create the list of setting space to range from
     settingList = []
     settingPass = []
 
@@ -134,14 +134,15 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
         # Compare the data read back from DATA_ARRAY_0 with the data written to CFG_ARRAY_0
 
         # are_equal = np.array_equal(s, words_A0) # PUT BACK WHEN READY
-        if np.array_equal(s, words_A0):
-            cnt_True += 1
-            if cnt_True == 1:
-                firstSetting = cfg_test_sample
+
         settingList = [cfg_test_sample, np.array_equal(s, s)]  # To test
-        settingPass.append(settingList) 
-    print(settingPass)
-    return None
+        settingPass.append(settingList)
+    settingPass = np.stack(settingPass, 0)  
+    cnt_True = np.sum(np.char.find(settingPass, 'True') !=-1)                   #count how many pass
+    firstTrue = np.argmax(np.char.find(settingPass[:,1], 'True') !=-1)          #return the index of the first pass
+    sampleDelay = settingPass[int((cnt_True+firstTrue)/2+firstTrue),0]          #return the sample delay for middle setting
+    print(sampleDelay)
+    return sampleDelay
 
 
 
