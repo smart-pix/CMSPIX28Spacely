@@ -7,16 +7,20 @@ import numpy as np
 import math
 import csv
 
+# This function uses IP2 test 1:  serial readout of the schanChain : scanIn -> scanOut
 # This first test needs to be run to evaluate the Sample Delay Settings
 # Sample Delay is internal to the FW and needs to be tuned ONCE for the entire chip
 # Sample Delay varies with the setup delay such as cable length, LVDS driver, level shifter
-# it encompasses ASIC to FPGA delay (how long BxCLK takes to arrive to ASIC) and FPGA to ASIC delay (how data takes to come back)
-# Once the setting range has be found for BxCKL frequency and BxCLK_DELAY, select the middle value for the Scurve test 
+# it encompasses ASIC to FPGA delay (how long BxCLK takes to arrive to ASIC) and FPGA to ASIC delay (how long data takes to come back)
+# Once the setting range has be found for a single BxCKL frequency and BxCLK_DELAY, select the middle value for the Scurve test 
 # If BxCLK_DELAY shifts, the Sample Delay will need to shift by the same amount
 # If BxCLK frequency shifts, the Sample Delay will need to be retuned 
 
-
 def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample='08', bxclkDelay='0B', scanInjDly='04', loopbackBit='0', cfg_test_delay='03', scanload_delay='13'):
+    
+    # Step 1: Program Static Array 0 for IP2 and BxCLK frequencies and BxCLK delay
+    # the other settings like scanLoad are not important for this test because we are not injecting charges
+
     hex_lists = [
         ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanload_delay}", "1'h0", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{bxclkFreq}"], #BSDG7102A and CARBOARD
         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
@@ -34,68 +38,104 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
     ]
 
     sw_write32_0(hex_lists)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ibh")
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
 
-    # Write scanIn data through CFG_ARRAY_0
+    # Step 2
+    # Program CFG ARRAY 0 with a data stream of 256 words of 16 bits data = 4096 bits
+    # The data stream is going to be sent to the ASIC through the scanIn input
+
     hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'hAAAA"] for i in range(256)]
     sw_write32_0(hex_list)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
-
-    # words_A0 = []      
-
-    # for i in range(0, 256,2):
-    #     address = hex(i)[2:]
-    #     hex_list0 = [
-    #     [
-    #         "4'h1", "4'h7", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 0            
-    #     ]
-    #     sw_write32_0(hex_list0)
-    #     sw_read32_0, sw_read32_1, _, _ = sw_read32() 
-    #     words_A0.append([address,int_to_32bit(sw_read32_0)])
-    # print(words_A0)
-    hex_lists = [
-        [
-            "4'h2",  # firmware id
-            "4'hF",  # op code for execute
-            "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-            #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
-            "4'h1",   # Test 1 we run scanchain like a shift register  
-            f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-        ]
-    ]       
-    sw_write32_0(hex_lists)
-
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code="ihb")
-    print("dodo")
-    PASS = True
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
     nWord = 128
-    wordList =   list(range(nWord)) #[23]
-    words = []
+    words = ["0"*32] * nWord
+    words_A0 = []      
 
-    for iW in wordList: #range(nwords):
+    # Step 3
+    # Let's read back CFG_ARRAY 0 from the FW first before starting 
+    # We read back in 128 addresses of 32-bit words  
 
-        # send read
-        address = "8'h" + hex(iW)[2:]
-        hex_lists = [
-            ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+    for iW in range(0, 128, 2):                                 
+        address = hex(iW)[2:]
+        hex_list0 = [
+        [
+            "4'h1", "4'h7", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 0            
         ]
-        sw_write32_0(hex_lists)
-        
-        # read back data
-        sw_read32_0, sw_read32_1, _, _ = sw_read32(print_code = "ihb")
-        
-        # update
-        PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+        sw_write32_0(hex_list0)
+        sw_read32_0, sw_read32_1, _, _ = sw_read32() 
+        words[iW] = int_to_32bit(sw_read32_0)[::-1]
 
-        # store data
-        words.append(int_to_32bit(sw_read32_0)[::-1])
+    words_A0 = [int(i) for i in "".join(words)] 
+    words_A0 = np.stack(words_A0, 0)   #should be 0hAAAAAAAA repeated 128 times
+    words_A0 = np.reshape(words_A0, (128, 32))  
+
+    # Step 4
+    # Execute the test for different cfg_test_sample delay values
     
-    s = ''.join(words)
-    
-    print(len(words), s)
+    hex_list_6b = ['17', '18'] #[f'{i:X}' for i in range(0, 64)]  # create the list of setting space to range from
+    settingList = []
+    settingPass = []
+
+    for cfg_test_sample in hex_list_6b:
+        cnt_True = 0
+         
+        hex_lists = [
+            [
+                "4'h2",  # firmware id
+                "4'hF",  # op code for execute
+                "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                "4'h1",   # Test 1 we run scanchain like a shift register  
+                f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            ]
+        ]       
+        sw_write32_0(hex_lists)
+
+        sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
+        PASS = True
+        nWord = 128
+        wordList =   list(range(nWord)) #[23]
+        words = []
+
+        # Step 5
+        # Readback the data from DATA_ARRAY_0
+
+        for iW in wordList: #range(nwords):
+
+            # send read
+            address = "8'h" + hex(iW)[2:]
+            hex_lists = [
+                ["4'h2", "4'hC", address, "16'h0"] 
+            ]
+            sw_write32_0(hex_lists)
+            
+            # read back data
+            sw_read32_0, sw_read32_1, _, _ = sw_read32()
+            
+            # update
+            PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+            # store data
+            words.append(int_to_32bit(sw_read32_0)[::-1])
+        
+        s = ''.join(words)
+        s = np.stack(s, 0)
+        s = np.reshape(s, (128, 32))
+
+        # Step 6
+        # Compare the data read back from DATA_ARRAY_0 with the data written to CFG_ARRAY_0
+
+        # are_equal = np.array_equal(s, words_A0) # PUT BACK WHEN READY
+        if np.array_equal(s, words_A0):
+            cnt_True += 1
+            if cnt_True == 1:
+                firstSetting = cfg_test_sample
+        settingList = [cfg_test_sample, np.array_equal(s, s)]  # To test
+        settingPass.append(settingList) 
+    print(settingPass)
     return None
 
 
@@ -720,7 +760,7 @@ def calibrationMatrixHighStat(
         hex_list_5b = ['11'] #[f'{i:X}' for i in range(0, 32)]
         hex_list_2b = [f'{i:X}' for i in range(0, 2)]
         scanloadDlyList = ['13'] #['12', '13', '14']
-        bxclkDelayList = ['0B'] #['0E', '0F', '10', '11', '12']
+        bxclkDelayList = ['11'] #['0E', '0F', '10', '11', '12']
         scanInjDlyList = ['18'] #['14', '15', '16','17', '18', '19', '1A', '1B']
         hex_list_1b =1
 
