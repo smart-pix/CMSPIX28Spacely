@@ -1,11 +1,17 @@
 # spacely
 from Master_Config import *
 
-# python
-import tqdm
-import numpy as np
-import math
-import h5py
+# python modules
+import sys
+try:
+    import tqdm
+    import numpy as np
+    import math
+    import h5py 
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
 
 def PreProgSCurve(
         scanloadDly = '13', 

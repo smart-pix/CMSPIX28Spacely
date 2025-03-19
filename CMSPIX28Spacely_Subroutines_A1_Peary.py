@@ -1,6 +1,14 @@
 # spacely
 from Master_Config import *
 
+# python modules
+import sys
+try:
+    pass 
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
 def sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
         cleanup = False,

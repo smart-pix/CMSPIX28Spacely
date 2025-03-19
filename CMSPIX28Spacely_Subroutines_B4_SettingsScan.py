@@ -1,11 +1,16 @@
 # spacely
 from Master_Config import *
 
-# python
-import tqdm
-import numpy as np
-import math
-import csv
+# python modules
+import sys
+try:
+    import tqdm
+    import numpy as np
+    import math
+    import csv
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
 
 # This function uses IP2 test 1:  serial readout of the schanChain : scanIn -> scanOut
 # This first test needs to be run to evaluate the Sample Delay Settings

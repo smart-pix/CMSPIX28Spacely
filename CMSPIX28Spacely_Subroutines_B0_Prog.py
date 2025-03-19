@@ -1,9 +1,18 @@
 # spacely
 from Master_Config import *
-import time
-import tqdm
-from datetime import datetime
-import csv
+
+# python modules
+import sys
+try:
+    import time
+    import tqdm
+    from datetime import datetime
+    import csv
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
+
 # This subroutine programs the shift register
 # The pixel address and value need to be manual inserted
 def ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate='1'):

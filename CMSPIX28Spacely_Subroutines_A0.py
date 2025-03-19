@@ -8,6 +8,8 @@ import time
 import io
 import numpy as np
 from numpy import genfromtxt
+import sys
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -601,3 +603,12 @@ def genPixelConfigFromInputCSV(filename):
             pixelValues.append(pixelValue)
 
     return pixelLists, pixelValues
+
+# helper function to print a loud message for the user
+header_import_error = "IMPORT ERROR!"
+def loud_message(header, body):
+    print("\033[91;1m" + "="*80)  # Red, bold, and large separator
+    print(" " * 20 + header) 
+    print("="*80)
+    print("\033[93;1m" + body.upper() + "\033[0m")  # Yellow, bold text
+    print("\033[91;1m" + "="*80 + "\033[0m")  # Reset color

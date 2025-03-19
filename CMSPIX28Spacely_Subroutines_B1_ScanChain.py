@@ -1,6 +1,14 @@
 # spacely
 from Master_Config import *
 
+# python modules
+import sys
+try:
+    pass 
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+    
 def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08'):
 
     # hex lists                                                                                                                    

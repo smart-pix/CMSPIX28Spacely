@@ -1,6 +1,13 @@
 # spacely
 from Master_Config import *
-import os
+
+# python modules
+import sys
+try:
+    import os
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
 
 def DNN(
     progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, 
