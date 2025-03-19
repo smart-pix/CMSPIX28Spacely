@@ -3,12 +3,22 @@
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
-import os
-import time
-import io
-import numpy as np
-from numpy import genfromtxt
+
+# python modules
 import sys
+try:
+    import os
+    import time
+    import io
+    import numpy as np
+    from numpy import genfromtxt
+    import sys
+    import importlib 
+except ImportError as e:
+    print("\033[93;1m" + f"Import error in {__file__}: {str(e)}".upper() + "\033[0m")
+    sys.exit(1)  # Exit script immediately
+
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
@@ -612,3 +622,17 @@ def loud_message(header, body):
     print("="*80)
     print("\033[93;1m" + body.upper() + "\033[0m")  # Yellow, bold text
     print("\033[91;1m" + "="*80 + "\033[0m")  # Reset color
+
+# helper function to reload all imported modules
+def reload():
+    """Finds all imported modules for routines and subroutines, prints their names, and reloads them."""
+    loaded_modules = list(sys.modules.items())
+    for module_name, module in loaded_modules:
+        if module and hasattr(module, "__file__"):  # Ignore built-in modules
+            if "spacely-asic-config.CMSPIX28Spacely" in module_name:
+                print(f"Reloading: {module_name}")
+                importlib.reload(module)
+                # Re-import everything again to update the functions and variables
+                for attr in dir(module):
+                    if not attr.startswith('_'):  # Ignore private attributes
+                        globals()[attr] = getattr(module, attr)  # This updates the functions and variables          
