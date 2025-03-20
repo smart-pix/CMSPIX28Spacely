@@ -21,7 +21,7 @@ except ImportError as e:
 # If BxCLK_DELAY shifts, the Sample Delay will need to shift by the same amount
 # If BxCLK frequency shifts, the Sample Delay will need to be retuned 
 
-def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample='08', bxclkDelay='0B', scanInjDly='04', loopbackBit='0', cfg_test_delay='03', scanload_delay='13'):
+def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample='08', bxclkDelay='0B', scanInjDly='04', loopbackBit='0', cfg_test_delay='03', scanload_delay='13', scanIndata='AAAA', nrepeat=256, debug=False):
     
     # Step 1: Program Static Array 0 for IP2 and BxCLK frequencies and BxCLK delay
     # the other settings like scanLoad are not important for this test because we are not injecting charges
@@ -49,7 +49,13 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
     # Program CFG ARRAY 0 with a data stream of 256 words of 16 bits data = 4096 bits
     # The data stream is going to be sent to the ASIC through the scanIn input
 
-    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], "16'hAAAA"] for i in range(256)]
+    # first empty the CFG_ARRAY 0 - optional but safer
+    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], f"16'h0000"] for i in range(256)]
+    sw_write32_0(hex_list)
+    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
+
+    # now fill the CFG_ARRAY 0 with the data stream
+    hex_list = [["4'h1", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanIndata}"] for i in range(nrepeat)]
     sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
     nWord = 128
@@ -73,11 +79,15 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
     words_A0 = [int(i) for i in "".join(words)] 
     words_A0 = np.stack(words_A0, 0)   #should be 0hAAAAAAAA repeated 128 times
     words_A0 = np.reshape(words_A0, (128, 32))  
-
+    if debug:
+        print(words_A0)
+        hex_list_6b = ['17', '18']                      # smaller list set for debug
+    else:
+        hex_list_6b = [f'{i:X}' for i in range(0, 64)]  # create the list of setting space to range from 0 to 63
+    
     # Step 4
     # Execute the test for different cfg_test_sample delay values
-    
-    hex_list_6b = [f'{i:X}' for i in range(0, 64)] #['17', '18'] #  # create the list of setting space to range from
+
     settingList = []
     settingPass = []
 
@@ -127,6 +137,10 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
             words.append(int_to_32bit(sw_read32_0)[::-1])
         
         s = ''.join(words)
+
+        if debug:
+            print(s)
+
         s = np.stack(s, 0)
         s = np.reshape(s, (128, 32))
 
@@ -135,14 +149,16 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
 
         # are_equal = np.array_equal(s, words_A0) # PUT BACK WHEN READY
 
-        settingList = [cfg_test_sample, np.array_equal(s, s)]  # To test
+        settingList = [cfg_test_sample, np.array_equal(words_A0, s)]  # To test
         settingPass.append(settingList)
+
+    # Step 7 - Compare arrays, extract working range and find the middle setting for the sample delay
     settingPass = np.stack(settingPass, 0)  
     cnt_True = np.sum(np.char.find(settingPass, 'True') !=-1)                   #count how many pass
     firstTrue = np.argmax(np.char.find(settingPass[:,1], 'True') !=-1)          #return the index of the first pass
-    sampleDelay = settingPass[int((cnt_True+firstTrue)/2+firstTrue),0]          #return the sample delay for middle setting
-    print(sampleDelay)
-    return sampleDelay
+    sampleDelayOut = settingPass[int((cnt_True+firstTrue)/2+firstTrue),0]       #return the sample delay for middle setting
+    print(sampleDelayOut)
+    return sampleDelayOut
 
 
 
