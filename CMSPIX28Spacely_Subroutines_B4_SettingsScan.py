@@ -730,7 +730,7 @@ def calibrationMatrixHighStat(
         v_step = 0.05, 
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
-        testType = "matrixCalibration",
+        testType = "MatrixCalibration",
 ):
     
     # break if this happens
@@ -792,14 +792,14 @@ def calibrationMatrixHighStat(
     # settings for the scan
     start_bxclk_state = '0'
     scanloadDlyList = ['13'] #['12', '13', '14']
-    bxclkDelayList =  ['11'] #['13','12','11','10']
-    scanInjDlyList =  ['17'] #[f'{i:X}' for i in range(0, int(scanFreq))]  #['14', '15', '16','17', '18', '19', '1A', '1B']
+    bxclkDelayList =  ['13','12','11','10']
+    scanInjDlyList =  [f'{i:X}' for i in range(1, int(scanFreq)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
     # hex_list_1b = 1
     # hex_list_2b = [f'{i:X}' for i in range(0, 2)]
     # hex_list_5b = ['11'] #[f'{i:X}' for i in range(0, 32)]
-    hex_list_6b = [f'{i:X}' for i in range(0, 64)]
-    cfg_test_sampleList = hex_list_6b
-    cfg_test_delayList = ['08']
+    hex_list_6b = [f'{i:X}' for i in range(9,int(scanFreq)+1,2 )] 
+    cfg_test_sampleList = [f'{i:X}' for i in range(9,int(scanFreq)+1,2 )] #step from 9 to 28 by steps of 2
+    cfg_test_delayList = [f'{i:X}' for i in range(3,int(scanFreq)+1,2 )] #step from 9 to 28 by steps of 2
     
     # loop over pulse generator voltage step first since this is the most time consuming
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
@@ -927,7 +927,7 @@ def calibrationMatrixHighStat(
         save_data = np.stack(save_data, 0)
         # reshape to reasonable format
         # save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
-        save_data = save_data.reshape(len(pixList), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
+        save_data = save_data.reshape(len(pixList), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList)*len(cfg_test_delayList), nsample, 3)
         save_data = save_data[:,:,:,::-1]
         # save to file
         outfileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
