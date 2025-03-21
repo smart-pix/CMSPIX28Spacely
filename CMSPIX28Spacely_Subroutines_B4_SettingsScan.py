@@ -66,8 +66,8 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
     # Let's read back CFG_ARRAY 0 from the FW first before starting 
     # We read back in 128 addresses of 32-bit words  
 
-    for iW in range(0, nWord, 2):                                 
-        address = hex(iW)[2:]
+    for iW in range(0, nWord, 1):                                 
+        address = hex(iW*2)[2:]
         hex_list0 = [
         [
             "4'h2", "4'h7", f"8'h{address}", "16'h0"]         #ReadBack from READ_CFG_ARRAY 0            
@@ -76,14 +76,14 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
         sw_read32_0, sw_read32_1, _, _ = sw_read32() 
         words[iW] = int_to_32bit(sw_read32_0)[::-1]
 
+
     words_A0 = [int(i) for i in "".join(words)] 
     words_A0 = np.stack(words_A0, 0)   #should be 0hAAAAAAAA repeated 128 times
     words_A0 = np.reshape(words_A0, (nWord, 32))  
     if debug:
-        print(list(words_A0))
         hex_list_6b = [cfg_test_sample]                      # smaller list set for debug
     else:
-        hex_list_6b = [f'{i:X}' for i in range(0, 64)]  # create the list of setting space to range from 0 to 63
+        hex_list_6b = [f'{i:X}' for i in range(0, int(bxclkFreq)+1)]  # create the list of setting space to range from 0 to 63
     
     # Step 4
     # Execute the test for different cfg_test_sample delay values
@@ -138,9 +138,6 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
         s = [int(i) for i in "".join(words)]     
 
 
-        if debug:
-            print(s)
-
         s = np.array(s)
         s = np.reshape(s, (nWord, 32))
 
@@ -151,8 +148,9 @@ def settingsScanSampleFW(bxclkFreq='28', start_bxclk_state='0', cfg_test_sample=
 
         settingList.append(cfg_test_sample)
         settingPass.append(int(np.all(words_A0 == s)))  # To test
-        print(s)
-        print(words_A0)
+        if debug:
+            print(s)
+            print(words_A0)
 
     # Step 7 - Compare arrays, extract working range and find the middle setting for the sample delay
     settingPass = np.array(settingPass)        
