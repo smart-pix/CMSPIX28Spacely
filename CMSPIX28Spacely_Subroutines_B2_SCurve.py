@@ -207,9 +207,9 @@ def PreProgSCurve(
 def PreProgSCurveGinguMaster(
         scanloadDly = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '11', 
+        bxclkDelay = '0B', #'11', 
         scanFreq = '28',
-        scanInjDly = '17', 
+        scanInjDly = '1D', #'17', 
         scanLoopBackBit = '0', 
         scanSampleDly = '08', 
         scanDly = '08', 
