@@ -746,7 +746,7 @@ def calibrationMatrixHighStat(
     scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
     print(testInfo)
     # configure based on test type
-    if testType == "matrixCalibration":
+    if testType == "MatrixCalibration":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
@@ -801,41 +801,42 @@ def calibrationMatrixHighStat(
     cfg_test_sampleList = hex_list_6b
     cfg_test_delayList = ['08']
     
-    # loop over the pixels
-    for iN, nPix in enumerate(pixList):
-                
-        # program shift register
-        ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
-
-        # pix value in hex
-        nPixHex = int_to_32bit_hex(nPix)
+    # loop over pulse generator voltage step first since this is the most time consuming
+    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
+    for iV, vasic_step in tqdm.tqdm(enumerate(vasic_steps), desc="Voltage Step"):
+        
+        # set the pulse gen to 2x v_asic step because of an extra resistor
+        v_asic = round(vasic_step, 3)
+        if v_asic > 0.9:
+            v_asic = 0 
+            return 
+        SDG7102A_SWEEP(v_asic*2)
+        time.sleep(tsleep2)  # necessary to prevent issue in the pulse generator settling time
 
         # list to store data and settings to scan over
         save_data = []
         settingList = []
+        
+        # loop over the pixels
+        for iN, nPix in enumerate(pixList):
+                    
+            # program shift register
+            ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
 
-        # BxCK_Delay for BxCLK_DELAY_SIGN = 0
-        # Delay between rising edge of BxCLK_ANA and rising edge of BxCLK.  
-        # BxCLK_ANA is the reference and doesn't move. 
-        # If delay is larger that half clock cycle.
-        # The delay is still functionally but duty cycle of BxCLK IS affected and get smaller than 50%
-        # (since period and delay have to be maintained).
-        # Must scan from 0 to scanFreq/2
+            # pix value in hex
+            nPixHex = int_to_32bit_hex(nPix)
 
-        # BxclkDelay for bxCLK_DELAY_SIGN = 1
-        # THE DELAY IS defined between the rising edge of BxCLK_ANA and the falling edge of BxCLK
-        # if delay is larger tha half clock cycle, the duty cycle is also impacted and get larger than 50%
+            # BxCK_Delay for BxCLK_DELAY_SIGN = 0
+            # Delay between rising edge of BxCLK_ANA and rising edge of BxCLK.  
+            # BxCLK_ANA is the reference and doesn't move. 
+            # If delay is larger that half clock cycle.
+            # The delay is still functionally but duty cycle of BxCLK IS affected and get smaller than 50%
+            # (since period and delay have to be maintained).
+            # Must scan from 0 to scanFreq/2
 
-        # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-        for iV, vasic_step in tqdm.tqdm(enumerate(vasic_steps), desc="Voltage Step"):
-            
-            # set the pulse gen to 2x v_asic step because of an extra resistor
-            v_asic = round(vasic_step, 3)
-            if v_asic > 0.9:
-                v_asic = 0 
-                return 
-            SDG7102A_SWEEP(v_asic*2)
-            time.sleep(tsleep2)  # necessary to prevent issue in the pulse generator settling time
+            # BxclkDelay for bxCLK_DELAY_SIGN = 1
+            # THE DELAY IS defined between the rising edge of BxCLK_ANA and the falling edge of BxCLK
+            # if delay is larger tha half clock cycle, the duty cycle is also impacted and get larger than 50%
 
             # append one list per v_asic step
             save_data.append([])
@@ -924,13 +925,12 @@ def calibrationMatrixHighStat(
 
         # after full loop of vasic step save                      
         save_data = np.stack(save_data, 0)
-        print(save_data.shape)
         # reshape to reasonable format
-        save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
+        # save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
+        save_data = save_data.reshape(len(pixList), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
         save_data = save_data[:,:,:,::-1]
-        print(save_data.shape)
         # save to file
-        np.save(os.path.join(outDir, f"calibrationNPix{nPix}.npy"), save_data)
+        outfileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
+        np.save(outfileName, save_data)
         
-
     return None
