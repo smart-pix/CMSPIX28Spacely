@@ -852,7 +852,7 @@ def calibrationMatrixHighStat(
     bxclkDelayList =  ['0B']                                                        #['13','12','10','0B']
     scanInjDlyList =  ['1D']                                                        #[f'{i:X}' for i in range(1, int(scanFreq,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
     cfg_test_sampleList = [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]          #['1B', '1B', '10', '18']
-    cfg_test_delayList = [f'{i:X}' for i in range(3, int(scanFreq,16)+1)]           #['4', 'C', '1A', '26']
+    cfg_test_delayList = [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]           #['4', 'C', '1A', '26']
     
     # loop over pulse generator voltage step first since this is the most time consuming
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
