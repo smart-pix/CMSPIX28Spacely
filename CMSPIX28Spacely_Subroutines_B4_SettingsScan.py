@@ -27,8 +27,8 @@ def settingsScanSampleFW(
         bxclkFreq='28', 
         start_bxclk_state='0', 
         cfg_test_sample='08', 
-        bxclkDelay='11', 
-        scanInjDly='04', 
+        bxclkDelay= '0B', #'11', 
+        scanInjDly='1D', #'04', 
         loopbackBit='0', 
         cfg_test_delay='03', 
         scanload_delay='13', 
@@ -847,12 +847,12 @@ def calibrationMatrixHighStat(
     # cfg_test_sampleList = ['08']
     # cfg_test_delayList = ['08']
 
-    start_bxclk_stateList = ['0', '1']
-    scanloadDlyList = ['12', '13', '14']
-    bxclkDelayList =  ['13','12','10','0B']
-    scanInjDlyList =  [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
-    cfg_test_sampleList = ['1B', '1B', '10', '18']
-    cfg_test_delayList = ['4', 'C', '1A', '26']
+    start_bxclk_stateList = ['0']                                                   #['0', '1']
+    scanloadDlyList = ['13']                                                        #['12', '13', '14']
+    bxclkDelayList =  ['0B']                                                        #['13','12','10','0B']
+    scanInjDlyList =  ['1D']                                                        #[f'{i:X}' for i in range(1, int(scanFreq,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
+    cfg_test_sampleList = [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]          #['1B', '1B', '10', '18']
+    cfg_test_delayList = [f'{i:X}' for i in range(3, int(scanFreq,16)+1)]           #['4', 'C', '1A', '26']
     
     # loop over pulse generator voltage step first since this is the most time consuming
     # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
