@@ -96,6 +96,7 @@ def settingsScanSampleFW(
         hex_list.append(["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanIndata}"])
     sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
+    
     nWord = 24
     words = ["0"*32] * nWord
     words_A0 = []      
@@ -118,6 +119,7 @@ def settingsScanSampleFW(
     words_A0 = [int(i) for i in "".join(words)] 
     words_A0 = np.stack(words_A0, 0)   #should be 0hAAAAAAAA repeated 128 times
     words_A0 = np.reshape(words_A0, (nWord, 32))  
+
     if debug:
         hex_list_6b = [f'{i:X}' for i in range(1, int(cfg_test_sample,16)+1)]                    # smaller list set for debug
     else:
@@ -199,7 +201,7 @@ def settingsScanSampleFW(
 
             # search through all the repeated run if any of them is failed - the setting is considered failed
             PassCondition = int(np.all(testRepeat == 1))
-            
+
             # print(PassSetting)
             settingList1.append(cfg_test_delay)
             settingList2.append(cfg_test_sample)
