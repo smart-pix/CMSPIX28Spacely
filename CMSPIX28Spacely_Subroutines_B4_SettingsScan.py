@@ -5,6 +5,7 @@ from Master_Config import *
 import sys
 try:
     import tqdm
+    import random
     import numpy as np
     import math
     import csv
@@ -33,7 +34,7 @@ def settingsScanSampleFW(
         cfg_test_delay='03', 
         scanload_delay='13', 
         scanIndata='0001', 
-        nrepeat=1, 
+        nrepeat=24, 
         debug=False,
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
@@ -49,7 +50,7 @@ def settingsScanSampleFW(
     print(testInfo)
     # configure based on test type
     if testType == "firmWareCalibration":
-        testInfo += f"_BXCLK{scanFreq_inMhz:.2f}_scanIndata{scanIndata}_nrepeat{nrepeat}"
+        testInfo += f"_BXCLK{scanFreq_inMhz:.2f}_bxclkFreq{scanFreq_inMhz}_bxclkDelay{bxclkDelay}_scanInjDly{scanInjDly}_scanload_delay{scanload_delay}_scanIndata{scanIndata}_nrepeat{nrepeat}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -87,8 +88,13 @@ def settingsScanSampleFW(
     sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
 
-    # now fill the CFG_ARRAY 0 with the data stream
-    hex_list = [["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanIndata}"] for i in range(nrepeat)]
+    # now fill the CFG_ARRAY 0 with the data stream - in this case we are going to use a random number generator
+    for i in range(nrepeat):
+        scanInRandom = random.getrandbits(16)
+        print(f"scanInRandom = {scanInRandom}")
+        if debug==False:
+            scanIndata = format(scanInRandom, '04x')
+        hex_list.append(["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanIndata}"])
     sw_write32_0(hex_list)
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
     nWord = 24
@@ -187,7 +193,8 @@ def settingsScanSampleFW(
                 print(s)
                 print(words_A0)
                 print(int(np.all(words_A0 == s)))
-
+            # print(s)
+            # print(words_A0)
     # Step 7 - Compare arrays, extract working range and find the middle setting for the sample delay
     settingPass = np.array(settingPass)        
     settingList = np.array([settingList1,settingList2])
@@ -899,77 +906,77 @@ def calibrationMatrixHighStat(
                 for scanloadDly in scanloadDlyList: #  in increment BxCLK periods - value is defined in respect to the pulse generator delay and should NOT be changed 
                     for bxclkDelay in  bxclkDelayList:   # ['13','12','11','10'] Constrain it to the following list ---> [scanFreq/2-1, scanFreq/2-2, scanFreq/2-3, scanFreq/2-4] 
                         for scanInjDly in scanInjDlyList: # [Min Value = 0x01 ; Max Value = scanFreq, INCR = 1] increment delay of 400MHz period: ie - 2.5ns : align injection time
-                            for cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = scanFreq, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
-
-                                # # DODO SETTINGS
-                                # # hex lists                                                                                                                    
-                                hex_lists = [
-                                    ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"], #BSDG7102A and CARBOARD
-                                    #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
-                                    
-                                    # BxCLK is set to 10MHz : "6'h28"
-                                    # BxCLK starts with a delay: "5'hB"
-                                    # BxCLK starts LOW: "1'h0"
-                                    # Superpixel 1 is selected: "1'h1"
-                                    # scan load delay is set : "6'h0A"                 
-                                    # scan_load delay  disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
-
-                                    # SPARE bits:  "4'h0"
-                                    # Register Static 0 is programmed : "4'h2"
-                                    # IP 2 is selected: "4'h2"
-                                    ["4'h2", "4'h4", "5'h3", f"11'h{nsampleHex}", f"8'h{nPixHex}"],          
-                                    # 8 - bits to identify pixel number
-                                    # 11 - bit to program number of samples
-                                    # SPARE bits:  "4'h0"
-                                    # Register Static 1 is programmed : "4'h4"
-                                    # IP 2 is selected: "4'h2"
-                                ]
-
-                                sw_write32_0(hex_lists)
-                                # sw_read32_0 = sw_read32() 
-                                
-                                hex_lists = [
-                                    [
-                                        "4'h2",  # firmware id
-                                        "4'hF",  # op code for execute
-                                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                                        #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                                        f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                                        f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                                        "4'h3",   # Test 5 is the only test none thermometrically encoded because of lack of code space  
-                                        f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                                        f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-                                    ]
-                                ]       
-                                sw_write32_0(hex_lists)
-
-                                # read the words back
-                                maxWordFWArray = 128
-                                nword = math.ceil(nsample*3/32)
-                                wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
-                                words = ["0"*32] * nword
-                                time.sleep(tsleep*nsample) # added time for burst to complete
-
-                                for iW in wordList:
-
-                                    # send read
-                                    address = "8'h" + hex(iW)[2:]
+                            for cfg_test_delay in cfg_test_delayList: #cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = scanFreq, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
+                                for cfg_test_sample in cfg_test_sampleList:
+                                    # # DODO SETTINGS
+                                    # # hex lists                                                                                                                    
                                     hex_lists = [
-                                        ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-                                    ]
-                                    sw_write32_0(hex_lists,doPrint=False)
-                                    sw_read32_0, _, _, _ = sw_read32()
-                                    # store data
-                                    words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
-                                
-                                s = [int(i) for i in "".join(words)]
-                                # Cutting last bit because 3x1365 = 4095
-                                s = s[:nsample*3]
-                                save_data[-1].append(s)
+                                        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"], #BSDG7102A and CARBOARD
+                                        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
+                                        
+                                        # BxCLK is set to 10MHz : "6'h28"
+                                        # BxCLK starts with a delay: "5'hB"
+                                        # BxCLK starts LOW: "1'h0"
+                                        # Superpixel 1 is selected: "1'h1"
+                                        # scan load delay is set : "6'h0A"                 
+                                        # scan_load delay  disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
 
-                                # save the settings
-                                if iN == 0 and iV == 0:
-                                    settingList.append([start_bxclk_state, scanloadDly, bxclkDelay, scanInjDly, cfg_test_sample, cfg_test_delay])
+                                        # SPARE bits:  "4'h0"
+                                        # Register Static 0 is programmed : "4'h2"
+                                        # IP 2 is selected: "4'h2"
+                                        ["4'h2", "4'h4", "5'h3", f"11'h{nsampleHex}", f"8'h{nPixHex}"],          
+                                        # 8 - bits to identify pixel number
+                                        # 11 - bit to program number of samples
+                                        # SPARE bits:  "4'h0"
+                                        # Register Static 1 is programmed : "4'h4"
+                                        # IP 2 is selected: "4'h2"
+                                    ]
+
+                                    sw_write32_0(hex_lists)
+                                    # sw_read32_0 = sw_read32() 
+                                    
+                                    hex_lists = [
+                                        [
+                                            "4'h2",  # firmware id
+                                            "4'hF",  # op code for execute
+                                            "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                                            #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                                            f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                                            f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                                            "4'h3",   # Test 5 is the only test none thermometrically encoded because of lack of code space  
+                                            f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                                            f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                                        ]
+                                    ]       
+                                    sw_write32_0(hex_lists)
+
+                                    # read the words back
+                                    maxWordFWArray = 128
+                                    nword = math.ceil(nsample*3/32)
+                                    wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
+                                    words = ["0"*32] * nword
+                                    time.sleep(tsleep*nsample) # added time for burst to complete
+
+                                    for iW in wordList:
+
+                                        # send read
+                                        address = "8'h" + hex(iW)[2:]
+                                        hex_lists = [
+                                            ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                                        ]
+                                        sw_write32_0(hex_lists,doPrint=False)
+                                        sw_read32_0, _, _, _ = sw_read32()
+                                        # store data
+                                        words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
+                                    
+                                    s = [int(i) for i in "".join(words)]
+                                    # Cutting last bit because 3x1365 = 4095
+                                    s = s[:nsample*3]
+                                    save_data[-1].append(s)
+
+                                    # save the settings
+                                    if iN == 0 and iV == 0:
+                                        settingList.append([start_bxclk_state, scanloadDly, bxclkDelay, scanInjDly, cfg_test_sample, cfg_test_delay])
             
             # for the first loop save all settings
             if iN == 0 and iV == 0:
@@ -980,7 +987,7 @@ def calibrationMatrixHighStat(
         save_data = np.stack(save_data, 0)
         # reshape to reasonable format
         # save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
-        save_data = save_data.reshape(len(pixList), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_delayList)*len(start_bxclk_stateList), nsample, 3)
+        save_data = save_data.reshape(len(pixList), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_delayList)*len(cfg_test_sampleList)*len(start_bxclk_stateList), nsample, 3)
         save_data = save_data[:,:,:,::-1]
         # save to file
         outfileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
