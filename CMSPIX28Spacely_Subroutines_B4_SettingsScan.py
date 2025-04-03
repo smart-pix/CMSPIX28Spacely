@@ -91,7 +91,6 @@ def settingsScanSampleFW(
     # now fill the CFG_ARRAY 0 with the data stream - in this case we are going to use a random number generator
     for i in range(nrepeat):
         scanInRandom = random.getrandbits(16)
-        print(f"scanInRandom = {scanInRandom}")
         if debug==False:
             scanIndata = format(scanInRandom, '04x')
         hex_list.append(["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanIndata}"])
