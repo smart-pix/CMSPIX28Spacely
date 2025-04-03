@@ -34,7 +34,7 @@ def settingsScanSampleFW(
         cfg_test_delay='03', 
         scanload_delay='13', 
         scanIndata='0001', 
-        nrepeat=24, 
+        nrepeat=1, 
         debug=False,
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
@@ -50,7 +50,7 @@ def settingsScanSampleFW(
     print(testInfo)
     # configure based on test type
     if testType == "firmWareCalibration":
-        testInfo += f"_BXCLK{scanFreq_inMhz:.2f}_bxclkFreq{scanFreq_inMhz}_bxclkDelay{bxclkDelay}_scanInjDly{scanInjDly}_scanload_delay{scanload_delay}_scanIndata{scanIndata}_nrepeat{nrepeat}"
+        testInfo += f"_BXCLK{scanFreq_inMhz:.2f}_bxclkFreq{scanFreq_inMhz}_bxclkDelay{bxclkDelay}_scanInjDly{scanInjDly}_scanload_delay{scanload_delay}_debugMode{debug}_nrepeat{nrepeat}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -89,7 +89,7 @@ def settingsScanSampleFW(
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
 
     # now fill the CFG_ARRAY 0 with the data stream - in this case we are going to use a random number generator
-    for i in range(nrepeat):
+    for i in range(48*2):   #48 words of 16 - bit words; 2 frames; 
         scanInRandom = random.getrandbits(16)
         if debug==False:
             scanIndata = format(scanInRandom, '04x')
@@ -129,65 +129,83 @@ def settingsScanSampleFW(
     settingList1 = []
     settingList2 = []
     settingPass = []
+   
     for cfg_test_delay in hex_list_6b:
         for cfg_test_sample in hex_list_6b:
 
-            hex_lists = [
-                [
-                    "4'h2",  # firmware id
-                    "4'hF",  # op code for execute
-                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                    f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                    f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                    "4'h1",   # Test 1 we run scanchain like a shift register  
-                    f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-                ]
-            ]       
-            sw_write32_0(hex_lists)
+            testRepeat = []
 
-            sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
-            PASS = True
-
-            wordList =   list(range(nWord,nWord*2)) #[23]
-            words = []
-
-            # Step 5
-            # Readback the data from DATA_ARRAY_0
-
-            for iW in wordList: #range(nwords):
-
-                # send read
-                address = "8'h" + hex(iW)[2:]
+            for i in range(nrepeat):
                 hex_lists = [
-                    ["4'h2", "4'hC", address, "16'h0"] 
-                ]
+                    [
+                        "4'h2",  # firmware id
+                        "4'hF",  # op code for execute
+                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                        #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                        f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                        f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                        "4'h1",   # Test 1 we run scanchain like a shift register  
+                        f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                        f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    ]
+                ]       
                 sw_write32_0(hex_lists)
-                
-                # read back data
-                sw_read32_0, sw_read32_1, _, _ = sw_read32()
-                
-                # update
-                PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
 
-                # store data
-                words.append(int_to_32bit(sw_read32_0)[::-1])
-            # print(words)
-            s = [int(i) for i in "".join(words)]     
+                sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
+                PASS = True
 
+                # IMPORTANT
+                # If loop delay is more than clock period, we need to shift the second frame by 1 bit !
+                # the wordlist will probably need to change for 40Mhz
 
-            s = np.array(s)
-            s = np.reshape(s, (nWord, 32))
+                wordList =   list(range(nWord,nWord*2)) # We read the second Frame Only 
 
-            # Step 6
-            # Compare the data read back from DATA_ARRAY_0 with the data written to CFG_ARRAY_0
+                words = []
 
-            # are_equal = np.array_equal(s, words_A0) # PUT BACK WHEN READY
+                # Step 5
+                # Readback the data from DATA_ARRAY_0
 
+                for iW in wordList: #range(nwords):
+
+                    # send read
+                    address = "8'h" + hex(iW)[2:]
+                    hex_lists = [
+                        ["4'h2", "4'hC", address, "16'h0"] 
+                    ]
+                    sw_write32_0(hex_lists)
+                    
+                    # read back data
+                    sw_read32_0, sw_read32_1, _, _ = sw_read32()
+                    
+                    # update
+                    PASS = PASS and sw_read32_0_pass and sw_read32_1_pass
+
+                    # store data
+                    words.append(int_to_32bit(sw_read32_0)[::-1])
+                # print(words)
+                s = [int(i) for i in "".join(words)]     
+                s = np.array(s)
+                s = np.reshape(s, (nWord, 32))
+
+                # compare cfg_array_0 with data_array_0 - returns 0 is fail - returns 1 if pass
+                testRepeat.append(int(np.all(words_A0 == s)))
+            
+            
+            # Step 6      
+            # Compare the data read back from DATA_ARRAY_0 with the data written to CFG_ARRAY_0 
+            # are_equal = np.array_equal(s, words_A0) # PUT BACK WHEN READY    
+            # print(testRepeat)
+            testRepeat = np.array(testRepeat)
+
+            # search through all the repeated run if any of them is failed - the setting is considered failed
+            PassCondition = int(np.all(testRepeat == 1))
+            
+            # print(PassSetting)
             settingList1.append(cfg_test_delay)
             settingList2.append(cfg_test_sample)
-            settingPass.append(int(np.all(words_A0 == s)))  # To test
+            settingPass.append(PassCondition)
+
+            #settingPass.append(int(np.all(words_A0 == s)))  # To test
             if debug:
                 print(s)
                 print(words_A0)
