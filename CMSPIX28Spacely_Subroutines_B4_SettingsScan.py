@@ -11,6 +11,7 @@ try:
     import csv
     import time
     from datetime import datetime
+    import itertools
 except ImportError as e:
     loud_message(header_import_error, f"{__file__}: {str(e)}")
     sys.exit(1)  # Exit script immediately
@@ -23,6 +24,121 @@ except ImportError as e:
 # Once the setting range has be found for a single BxCKL frequency and BxCLK_DELAY, select the middle value for the Scurve test 
 # If BxCLK_DELAY shifts, the Sample Delay will need to shift by the same amount
 # If BxCLK frequency shifts, the Sample Delay will need to be retuned 
+
+
+def crosscheck_settingsScanSampleFW(nrepeat = 1):
+    
+    # inputs
+    testType = "firmWareCalibration"
+    dataDir = FNAL_SETTINGS["storageDirectory"]
+    bxclkFreq = "28" # FPGA_CLK_FREQ / bxclkFreq = scanning frequency of firmware clock
+    FPGA_CLK_FREQ = 400 # MHz is the FPGA clock frequency
+    scanFreq_inMhz = FPGA_CLK_FREQ/int(bxclkFreq, 16) # 400MHz is the FPGA clock
+    # bxclkDelay = "0B"
+    scanFreq_inMhz = 400/int(bxclkFreq, 16) # 400MHz is the FPGA clock
+    scanInjDly = "1D"
+    scanload_delay = "13"
+    start_bxclk_state = "0"
+    debug = False
+    loopbackBit = "0"
+
+    # output directory
+    chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
+    testInfo = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_{testType}_BXCLK{scanFreq_inMhz:.2f}_scanInjDly{scanInjDly}_scanload_delay{scanload_delay}_debugMode{int(debug)}_nrepeat{nrepeat}" # _bxclkFreq{scanFreq_inMhz} _bxclkDelay{bxclkDelay}
+    outDir = os.path.join(dataDir, chipInfo, testInfo)
+    print(f"Saving results to {outDir}")
+    os.makedirs(outDir, exist_ok=True)
+    os.chmod(outDir, mode=0o777)
+
+    # perform scan
+    hex_list_6b = [f'{i:X}' for i in range(1, int(bxclkFreq,16)+1)]
+
+    # scan over bxclk delay, test delay, test sample
+    scan_bxclk_delay = hex_list_6b # [bxclkDelay]
+    scan_test_delay = hex_list_6b
+    scan_test_sample = ["4"] # hex_list_6b
+    settingList = list(itertools.product(scan_bxclk_delay, scan_test_delay, scan_test_sample))
+    print(len(settingList))
+    settingPass = []
+
+    for cfg_bxclkDelay, cfg_test_delay, cfg_test_sample in tqdm.tqdm(settingList):
+
+        testRepeat = []
+        for i in range(nrepeat):
+
+            # program static array 0 for IP2, BxCLK frequency and delay
+            hex_list = [["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanload_delay}", "1'h0", f"1'h{start_bxclk_state}", f"5'h{cfg_bxclkDelay}", f"6'h{bxclkFreq}"]] #BSDG7102A and CARBOARD
+            sw_write32_0(hex_list)
+
+            # program CFG_ARRAY_0 with a data stream of 256 words of 16 bit data = 4096 bits. Data stream sent to asic through scanIn
+            # first clean CFG_ARRAY_0
+            hex_list = [["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h0000"] for i in range(256)]
+            sw_write32_0(hex_list)
+            # then fill with a random number generator stream
+            hex_list = []
+            for i in range(2*48): # 2 frame, 48 words of 16 bits
+                scanInRandom = random.getrandbits(16)
+                scanInRandom = format(scanInRandom, "04x")
+                hex_list.append(["4'h2", "4'h6", "8'h" + hex(i)[2:], f"16'h{scanInRandom}"])
+            sw_write32_0(hex_list)
+
+            # read back CFG_ARRAY_0 from firmware
+            nWord = 24
+            words = ["0"*32] * nWord
+            for i in range(nWord):
+                address = hex(i*2)[2:] # question: why *2? is that because of the 2 frames
+                hex_list = [["4'h2", "4'h7", f"8'h{address}", "16'h0"]] # send readback command from READ_CFG_ARRAY_0
+                sw_write32_0(hex_list)
+                sw_read32_0, sw_read32_1, _, _ = sw_read32() # now readback
+                words[i] = int_to_32bit(sw_read32_0)[::-1] # question: should this really be reversed?
+            words_A0 = np.array([int(i) for i in "".join(words)])
+            words_A0 = words_A0.reshape(nWord, 32)
+
+            # perform execute        
+            hex_list = [
+                [
+                    "4'h2",  # firmware id
+                    "4'hF",  # op code for execute
+                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                    #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                    "4'h1",   # Test 1 we run scanchain like a shift register  
+                    f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                ]
+            ]       
+            sw_write32_0(hex_list)
+
+            
+            # read the second frame from DATA_ARRAY_0 after scan chain executes
+            wordList = list(range(nWord, nWord*2))
+            words = []
+            for iW in wordList:
+                address = hex(iW)[2:] # question: why no *2 now?
+                hex_list = [["4'h2", "4'hC", f"8'h{address}", "16'h0"]] # send readback command from READ_CFG_ARRAY_)
+                sw_write32_0(hex_list)
+                sw_read32_0, sw_read32_1, _, _ = sw_read32() # now readback
+                words.append(int_to_32bit(sw_read32_0)[::-1]) # question: should this really be reversed?
+            temp = np.array([int(i) for i in "".join(words)])
+            temp = temp.reshape(nWord, 32)
+
+            # compare CFG_ARRAY_0 and DATA_ARRAY_0
+            testResult = np.all(words_A0 == temp)
+            testRepeat.append(testResult)
+
+        # store results
+        testRepeat = np.array(testRepeat)
+        settingPass.append(int(np.all(testRepeat)))
+
+    settingList = np.array(settingList)
+    settingPass = np.array(settingPass)
+    print(settingList.shape, settingPass.shape, settingPass.sum())
+
+    # save to file
+    np.save(os.path.join(outDir, "settingList.npy"), settingList.T)
+    np.save(os.path.join(outDir, "settingPass.npy"), settingPass)
+    print("Results saved into: ", outDir)
 
 def settingsScanSampleFW(
         bxclkFreq='28', 
