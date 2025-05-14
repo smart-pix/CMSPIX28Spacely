@@ -14,6 +14,7 @@ except ImportError as e:
 
 
 def PreProgSCurve(
+        scanLoadPhase = '26',
         scanloadDly = '13', 
         startBxclkState = '0', 
         bxclkDelay = '11', #'0B', 
@@ -34,14 +35,13 @@ def PreProgSCurve(
 ):
     
     # Note we do not yet have a smoke test. verify this on scope as desired.
-    
+    x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
+    scanLoadPhase1= hex(int(x[:2], 2))[2:]
+    scanLoadPhase0= hex(int(x[2:], 2))[2:]
     # hex lists                                                                                                                    
     hex_lists = [
-        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h05", "1'h1", "1'h0", "5'h09", "6'h28"],  #BK4600HLEV
-        #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h09", "6'h28"],  #BSDG7102A
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"]
-        # ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h14", "1'h1", "1'h0", "5'h0B", "6'h28"],#BSDG7102A and CARBOARD new setup
-          
+        # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -50,11 +50,15 @@ def PreProgSCurve(
          # scan_load delay is disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
          # w_cfg_static_0_reg_pack_data_array_0_IP2
          # SPARE bits:  "3'h0"
-         # Register Static 0 is programmed : "4'h2"
+         # Register Static 0 is programmed : "4'h3"
          # IP 2 is selected: "4'h2"
 
-  
-
+        ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", f"19'h0"],           
+         # 8 - bits to identify pixel number
+         # 11 - bit to program number of samples
+         # SPARE bits:  "4'h0"
+         # Register Static 1 is programmed : "4'h4"
+         # IP 2 is selected: "4'h2"
     ]
 
     sw_write32_0(hex_lists,doPrint=False)
@@ -197,8 +201,11 @@ def PreProgSCurve(
 
         # save just the correct npix
         save_data = np.stack(save_data, 0)
-        save_data = save_data.reshape(-1, 256, 3)
+        save_data = save_data[:, 1:-2]
+        save_data = save_data.reshape(-1, 255, 3)
+        # save_data = save_data.reshape(-1, 256, 3)
         save_data = save_data[:,nPix]
+       
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
         np.save(outFileName, save_data)
     
@@ -207,17 +214,18 @@ def PreProgSCurve(
 def PreProgSCurveGinguMaster(
         scanloadDly = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '0B', #'11', 
+        bxclkDelay = '12', #'11', 
         scanFreq = '28',
         scanInjDly = '1D', #'17', 
         scanLoopBackBit = '0', 
         scanSampleDly = '08', 
+        scanLoadPhase = '26',
         scanDly = '08', 
         tsleep = 100e-3,
         v_min = 0.001, 
-        v_max = 0.2, 
+        v_max = 0.4, 
         v_step = 0.01, 
-        nsample = 1000,
+        nsample = 1365,
         nIter = 1,  
         SuperPix = False, 
         nPix = 0, 
@@ -234,11 +242,13 @@ def PreProgSCurveGinguMaster(
     if nsample>1365:
         print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
         return
-    
+    x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
+    scanLoadPhase1= hex(int(x[:2], 2))[2:]
+    scanLoadPhase0= hex(int(x[2:], 2))[2:]
     # hex lists                                                                                                                    
     hex_lists = [
         # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -250,7 +260,7 @@ def PreProgSCurveGinguMaster(
          # Register Static 0 is programmed : "4'h3"
          # IP 2 is selected: "4'h2"
 
-        ["4'h2", "4'h4", "5'h3", f"11'h{nsampleHex}", f"8'h{nPixHex}"],          
+        ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", f"11'h{nsampleHex}", f"8'h{nPixHex}"],           
          # 8 - bits to identify pixel number
          # 11 - bit to program number of samples
          # SPARE bits:  "4'h0"
@@ -415,7 +425,7 @@ def PreProgSCurveGinguMaster(
                 #STREAM
                 # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
                 #no stream
-                sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
+                sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False) 
                 # print(f"stream read data {sw_read32_0_stream}")
                 # print(f"reg read data v1 {sw_read32_0_get}")
                 # print(f"reg read data v2 {sw_read32_0}")
@@ -455,27 +465,49 @@ def IterMatrixSCurve():
     # create an output directory
     dataDir = FNAL_SETTINGS["storageDirectory"]
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-    for i in range(nPix):
+    for i in [82,127]:
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         
-        PreProgSCurveGinguMaster(
+        # PreProgSCurveGinguMaster(
+        #     scanloadDly = '13', 
+        #     startBxclkState = '0', 
+        #     bxclkDelay = '12', #'0B', 
+        #     scanFreq = '28', 
+        #     scanInjDly = '1E', #'1D', 
+        #     scanLoopBackBit = '0', 
+        #     scanSampleDly = '0F', 
+        #     scanLoadPhase ='26',
+        #     scanDly = '14', 
+        #     v_min = 0.001, 
+        #     v_max = 0.4, 
+        #     v_step = 0.001, 
+        #     nsample = 1365, 
+        #     SuperPix = True, 
+        #     nPix = i,
+        #     nIter=1,
+        #     dataDir = dataDir,
+        #     dateTime = now,
+        #     testType = "MatrixNPix"
+        # )
+
+        PreProgSCurve(
+            scanLoadPhase = '26',
             scanloadDly = '13', 
             startBxclkState = '0', 
-            bxclkDelay = '11', #'0B', 
-            scanFreq = '28', 
-            scanInjDly = '18', #'1D', 
+            bxclkDelay = '12',  
+            scanFreq = '28',
+            scanInjDly = '1E',  
             scanLoopBackBit = '0', 
-            scanSampleDly = '07', #'08' 
-            scanDly = '08', 
+            scanSampleDly = '0F', 
+            scanDly = '14', 
             v_min = 0.001, 
-            v_max = 0.3, 
-            v_step = 0.001, 
+            v_max = 0.4, 
+            v_step = 0.01, 
             nsample = 1365, 
-            SuperPix = True, 
-            nPix = i,
-            nIter=1,
-            dataDir = dataDir,
-            dateTime = now,
+            SuperPix = False, 
+            nPix = i, 
+            dataDir = FNAL_SETTINGS["storageDirectory"],
+            dateTime = None,
             testType = "MatrixNPix"
         )
     
@@ -494,29 +526,30 @@ def IterSCurveSweep(nPix=0):
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     # Sweep range
-    vthList = np.arange(0.5,2.0,0.05)
-    # vthList = [0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4,1.45,1.5,1.55,1.6,1.65,1.7,1.75,1.8,1.85,1.9,1.95,2.0]
-    # vthList = [1.5,1.55,1.6]
+    #vthList = np.arange(0.6,1.4,0.1)
+    vthList = [0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4]
+    # vthList = [1.5,1.6]
     for i in vthList:
-
         V_PORT["VTH"].set_voltage(i)
         V_LEVEL["VTH"] = i
+
         PreProgSCurveGinguMaster(
             scanloadDly = '13', 
             startBxclkState = '0', 
-            bxclkDelay = '0B', 
+            bxclkDelay = '12', #'0B', 
             scanFreq = '28', 
-            scanInjDly = '1D', 
+            scanInjDly = '1E', #'1D', 
             scanLoopBackBit = '0', 
-            scanSampleDly = '08', 
-            scanDly = '08', 
+            scanSampleDly = '0F', 
+            scanLoadPhase ='26',
+            scanDly = '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.001, 
-            nsample = 1365,
-            nIter = 1,  
+            nsample = 1365, 
             SuperPix = True, 
             nPix = nPix,
+            nIter=1,
             dataDir = dataDir,
             dateTime = now,
             testType = "MatrixVTH"
