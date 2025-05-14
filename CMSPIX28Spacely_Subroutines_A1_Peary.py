@@ -55,7 +55,7 @@ def sw_read32(
     # read value of register
  #   start =time.time()
     sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
-    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else None
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else 0   # default is True so we need to be careful?
 
  #   read_time = time.time() - start
  #   print(f"readtime={read_time}")
@@ -78,7 +78,11 @@ def sw_read32(
         print("Read sw_read32_0 (int, hex, binary): ", sw_read32_0, int_to_32bit_hex(sw_read32_0), int_to_32bit(sw_read32_0))
         print("Read sw_read32_1 (int, hex, binary): ", sw_read32_1, int_to_32bit_hex(sw_read32_1), int_to_32bit(sw_read32_1))
 
-    return sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass
+    # Suggestion - but this could break a lot of things
+    # check for firmware error
+    if any(x=='1' for x in int_to_32bit(sw_read32_1)[0:5]):
+        fw_error = 1
+    return sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass #, fw_error
 
 def sw_readStream(
         sw_read32_0_expected = None, 
