@@ -10,11 +10,27 @@ except ImportError as e:
     sys.exit(1)  # Exit script immediately
 
 def DNN(
-    progDebug=False,loopbackBit=0, patternIndexes = [0], verbose=False, 
-    vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
-    progDly='5', progSample='20', progResetMask='0', progFreq='64', 
-    testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0', 
-    dnn_csv=None, pixel_compout_csv=None, outDir = "./", readYproj=True):
+    progDebug=False,
+    loopbackBit=0, 
+    patternIndexes = [0], 
+    verbose=False, 
+    vinTest='1E', 
+    scanFreq='28', 
+    startBxclkState='0',
+    scanloadDly='13', 
+    progDly='5', 
+    progSample='20', 
+    progResetMask='0', 
+    progFreq='64', 
+    testDelay='14', 
+    testSample='0F', 
+    bxclkDelay='12',
+    configClkGate='0',
+    scanLoadPhase ='26', 
+    dnn_csv=None, 
+    pixel_compout_csv=None, 
+    outDir = "./", 
+    readYproj=True):
     # hex_lists = [
     #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
     # ]
@@ -30,6 +46,9 @@ def DNN(
     sw_write32_0(hex_list)
     # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
+    # FIRST SET THE PULSE GENERATOR
+    SDG7102A_SWEEP(HLEV=0.4)
+    
     #PROGRAM SHIFT REGISTER
     hex_lists = [
         # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
@@ -191,30 +210,40 @@ def DNN(
                 writer.writerows(words_DA1)
 
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
-
-        # # hex lists                                                                                                                    
+        x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
+        scanLoadPhase1= hex(int(x[:2], 2))[2:]
+        scanLoadPhase0= hex(int(x[2:], 2))[2:]
+        # # hex lists                                     
         hex_lists = [
-            ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{freq}"], #BSDG7102A and CARBOARD 
-            #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
-            
-            # BxCLK is set to 10MHz : "6'h28"
-            # BxCLK starts with a delay: "5'hB"
-            # BxCLK starts LOW: "1'h0"
-            # Superpixel 1 is selected: "1'h1"
-            # scan load delay is set : "6'h0A"                 
-            # scan_load delay  disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+        # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+         # BxCLK is set to 10MHz : "6'h28"
+         # BxCLK starts with a delay: "5'h4"
+         # BxCLK starts LOW: "1'h0"
+         # Superpixel 0 is selected: "1'h0"
+         # scan load delay is set : "6'h0A"                 
+         # scan_load delay is disabled is set to 0 -> so it is enabled (we are not using the carboard): "1'h0"
+         # w_cfg_static_0_reg_pack_data_array_0_IP2
+         # SPARE bits:  "3'h0"
+         # Register Static 0 is programmed : "4'h3"
+         # IP 2 is selected: "4'h2"
 
-            # SPARE bits:  "4'h0"
-            # Register Static 0 is programmed : "4'h2"
-            # IP 2 is selected: "4'h2"
-
+        ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", "19'h0"],           
+         # 8 - bits to identify pixel number
+         # 11 - bit to program number of samples
+         # SPARE bits:  "4'h0"
+         # Register Static 1 is programmed : "4'h4"
+         # IP 2 is selected: "4'h2"
         ]
+            
 
         sw_write32_0(hex_lists)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
         
         # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
         
+        # input("Press Enter to continue...") # wait for user input to continue
+
         # # DODO SETTINGS
         hex_lists = [
             [
@@ -226,10 +255,11 @@ def DNN(
                 f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                 #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                f"6'h{sampleDelaySC}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                f"6'h{testDelaySC}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                f"6'h{testSample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                f"6'h{testDelay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
             ]
         ]       
+
 
         sw_write32_0(hex_lists)
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
@@ -248,8 +278,10 @@ def DNN(
                 hex_lists = [
                     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                 ]
-                sw_write32_0(hex_lists)
-                
+                # sw_write32_0(hex_lists)
+
+                sw_write32_0(hex_lists,doPrint=False)
+
                 sw_read32_0, sw_read32_1, _, _ = sw_read32() 
 
                 # store data
@@ -285,7 +317,7 @@ def DNN(
             hex_lists = [
                 ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
             ]
-            sw_write32_0(hex_lists)
+            sw_write32_0(hex_lists,doPrint=False)
             sw_read32_0, sw_read32_1, _, _ = sw_read32() 
 
             # store data
@@ -336,9 +368,10 @@ def DNN(
 
     return None
 
-def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='3F', readout_CSV="readout.csv"):
+def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='28', readout_CSV="readout.csv", debug_tv=0):
     #divider used in the test for bxclk frequency
     fdivider= int(bxclkFreq, 16) # Convert the frequency divider for BxCLK into decimal to recover latency #63       
+    print(fdivider)
     dnn_words = []
     dnn_0 =[]
     dnn_1 =[]
@@ -366,7 +399,7 @@ def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='3F', readout_CSV="readou
     bxclk= [item[-(192+fdivider):-192]  for item in dnn_s]
 
     if debug==True:
-        debug_tv = 1  #print test vector #1
+        debug_tv = debug_tv  #print test vector #1
         print("signal before latency correction")
         print(dnn_0[debug_tv])
         print(dnn_1[debug_tv])
@@ -390,41 +423,55 @@ def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='3F', readout_CSV="readou
         cnt_dnn1_zeros = 0       
         cnt_dnn1_ones = 0    
         cnt_bxclkana = 0
-        for index, element in enumerate(bxclk_ana[tv]):
+        for index, element in enumerate(str(bxclk_ana[tv])):
+            # if element == '1':
+            #     cnt_bxclkana += 1
+            #     if dnn_0[tv][index] =='0':
+            #         cnt_dnn0_zeros += 1
+            #     else:
+            #         cnt_dnn0_ones += 1
+            #     if dnn_1[tv][index] =='0':
+            #         cnt_dnn1_zeros += 1
+            #     else:
+            #         cnt_dnn1_ones +=1
 
-            if element == '1':
-                cnt_bxclkana += 1
-                if dnn_0[tv][index] =='0':
-                    cnt_dnn0_zeros += 1
-                else:
-                    cnt_dnn0_ones += 1
-                if dnn_1[tv][index] =='0':
-                    cnt_dnn1_zeros += 1
-                else:
-                    cnt_dnn1_ones +=1
-            if element =='0':
-                break
-
+            if dnn_0[tv][index] =='0':
+                cnt_dnn0_zeros += 1
+            else:
+                cnt_dnn0_ones += 1
+            if dnn_1[tv][index] =='0':
+                cnt_dnn1_zeros += 1
+            else:
+                cnt_dnn1_ones +=1
+        if debug==True and tv==debug_tv:
+            print("voting")
+            print(cnt_dnn0_zeros)
+            print(cnt_dnn0_ones)
+            print(cnt_dnn1_zeros)
+            print(cnt_dnn1_ones)    
+            print(cnt_bxclkana)   
         # Voting system
-        if cnt_dnn0_zeros>cnt_dnn0_ones:
-            dnn_0[tv] = '0'
-        else:
+        # if cnt_dnn0_zeros>cnt_dnn0_ones and cnt_dnn0_ones>0:
+        if cnt_dnn0_ones > 4: 
             dnn_0[tv] = '1'
-        if cnt_dnn1_zeros<cnt_dnn1_ones:
-            dnn_1[tv] = '1'
         else:
-            dnn_1[tv] = '0'         
+            dnn_0[tv] = '0'
+        # if cnt_dnn1_zeros>cnt_dnn1_ones and cnt_dnn0_ones>0:
+        if cnt_dnn1_zeros > 4:
+            dnn_1[tv] = '0'
+        else:
+            dnn_1[tv] = '1'         
         dnn_out.append(int(dnn_1[tv]+(dnn_0[tv]),2))
 
     #Reshaping the list into 13000 rows of column 1
     for tv in range(len(dnn_words)):
         reshaped_dnn_out.append(dnn_out[tv:tv+1])
-    reshaped_dnn_out = np.array(reshaped_dnn_out).flatten()
+    # reshaped_dnn_out = np.array(reshaped_dnn_out).flatten()
     
-    # dnnAsicOutFile = 'dnn_ASIC_out.csv'
-    # with open(dnnAsicOutFile, 'w', newline="") as file:
-    #     writer = csv.writer(file)
-    #     writer.writerows(reshaped_dnn_out)
+    dnnAsicOutFile = 'dnn_ASIC_out.csv'
+    with open(dnnAsicOutFile, 'w', newline="") as file:
+        writer = csv.writer(file)
+        writer.writerows(reshaped_dnn_out)
 
     # interpret data from chip to just give NN prediction
-    return reshaped_dnn_out
+    # return reshaped_dnn_out
