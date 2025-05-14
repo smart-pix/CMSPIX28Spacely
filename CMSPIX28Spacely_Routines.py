@@ -64,7 +64,7 @@ def ROUTINE_ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',p
     return ProgShiftRegManualOnly(progFreq, progDly, progSample,progConfigClkGate)
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[1]):
+def ROUTINE_ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[3]):
     return ProgPixelsOnly(progFreq, progDly, progSample,progConfigClkGate,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
@@ -72,8 +72,8 @@ def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly
     return ProgShiftRegs(progDebug, verbose, progFreq, progDly, progSample,progConfigClkGate, iP, timeSleep)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08'):
-    return ScanChainOneShot(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly)
+def ROUTINE_ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='12', scanFreq='28', scanInjDly='1E', scanLoopBackBit='0', scanSampleDly='F', scanDly='14', scanLoadPhase ='26'):
+    return ScanChainOneShot(scanloadDly, startBxclkState, bxclkDelay, scanFreq, scanInjDly, scanLoopBackBit, scanSampleDly, scanDly, scanLoadPhase )
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_PreProgSCurve(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28', scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='08', vmin = 0.001, vmax=0.2, vstep=0.001, nSample=1000, SuperPix=False, nPix=0):
@@ -86,12 +86,12 @@ def ROUTINE_IterMatrixSCurve():
 #<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
-        vinTest='1D', freq='28', startBxclkState='0',scanloadDly='13', 
+        vinTest='1E', scanFreq='28', startBxclkState='0',scanloadDly='13', 
         progDly='5', progSample='20', progResetMask='0', progFreq='64', 
-        testDelaySC='08', sampleDelaySC='08', bxclkDelay='0B',configClkGate='0',
+        testDelay='14', testSample='0F', bxclkDelay='12',configClkGate='0',scanLoadPhase ='26',
         readYproj=True,
 ):
-        return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, freq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelaySC, sampleDelaySC, bxclkDelay,configClkGate, readYproj=readYproj)
+        return DNN(progDebug,loopbackBit, patternIndexes, verbose, vinTest, scanFreq, startBxclkState, scanloadDly, progDly, progSample, progResetMask, progFreq, testDelay, testSample, bxclkDelay,configClkGate, scanLoadPhase, readYproj=readYproj)
 
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_SettingsScan(
