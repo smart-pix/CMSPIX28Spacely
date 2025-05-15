@@ -13,15 +13,21 @@ except ImportError as e:
     sys.exit(1)  # Exit script immediately
 
 
-# This subroutine programs the shift register
+#-----------------------------------------------------------------------
+# ProgShiftRegRaw function
+#-----------------------------------------------------------------------
+# This subroutine programs the shift register in a raw fashion
 # The pixel address and value need to be manual inserted
-def ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate='1'):
+# it programs pixel 0 by default
+#-----------------------------------------------------------------------
+
+def ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):
 
     #FW reset followed with Status reset
     fw_status_clear()
 
     hex_list = [
-        ["4'h1", "4'h1", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_RST_FW
+        ["4'h1", "4'h1", "16'h0", "1'h1", f"7'h{configclk_period}"], # OP_CODE_W_RST_FW
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
     ]
     sw_write32_0(hex_list)
@@ -80,11 +86,11 @@ def ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',progConfi
             "4'hf",  # op code d for execute
             "1'h0",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
             "3'h0", # 3 bits for spare_index_max
-            f"1'h{progConfigClkGate}", # 1 bit for gating configClk
+            f"1'h{cfg_test_gate_config_clk}", # 1 bit for gating configClk
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h1",  # 4 bits for test number
-            f"7'h{progSample}", # 6 bits test sample
-            f"7'h{progDly}"  # 6 bits for test delay
+            f"7'h{cfg_test_sample}", # 6 bits test sample
+            f"7'h{cfg_test_delay}"  # 6 bits for test delay
         ]
     
     ]
@@ -92,11 +98,18 @@ def ProgShiftRegManualOnly(progFreq='64', progDly='5', progSample='20',progConfi
     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
     time.sleep(0.5)
 
+
+#-----------------------------------------------------------------------
+# ProgPixelsOnly function
+#-----------------------------------------------------------------------
 # This subroutine programs the pixel section of the shift register
 # It takes in a list of a list of pixel number to be progammed and their corresponding values (0,1,2,3)
 # pixel number are taken from the LUT in the Figure 6: Superpixel Map in the cms28_smartpixe_test_manual document
 # pixel values are the 2-bit decimal possibilities
-def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [0], pixelValue=[3]):
+# there is a debug interface that needs to be reworked to check that what is
+#-----------------------------------------------------------------------
+
+def ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [0], pixelValue=[3]):
     fw_status_clear()
 
     hex_list = [
@@ -108,8 +121,8 @@ def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
-        # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
-        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"],
+        # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{configclk_period}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
+        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{configclk_period}"],
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
 
@@ -119,7 +132,7 @@ def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate
 
     pixelConfig = genPixelProgramList(pixelList, pixelValue)
     hex_lists = dnnConfig(pixelConfig = pixelConfig)
-    sw_write32_0(hex_lists, doPrint=False)
+    sw_write32_0(hex_lists)
 
     hex_lists = [
         [
@@ -127,11 +140,11 @@ def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate
             "4'hf",  # op code d for execute
             "1'h0",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
             "3'h0", # 3 bits for spare_index_max
-            f"1'h{progConfigClkGate}", # 1 bit for gating configClk
+            f"1'h{cfg_test_gate_config_clk}", # 1 bit for gating configClk
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h1",  # 4 bits for test number
-            f"7'h{progSample}", # 6 bits test sample
-            f"7'h{progDly}"  # 6 bits for test delay
+            f"7'h{cfg_test_sample}", # 6 bits test sample
+            f"7'h{cfg_test_delay}"  # 6 bits for test delay
         ]
     
     ]
@@ -139,8 +152,15 @@ def ProgPixelsOnly(progFreq='64', progDly='5', progSample='20',progConfigClkGate
     time.sleep(0.5)
     pass
 
+#-----------------------------------------------------------------------
+# ProgPixelsOnly function
+#-----------------------------------------------------------------------
+# This subroutine configure the entire shift register for the DNN
+# it takes in a csv list that contains the DNN weight and and biases 
+# and a separate list that contains the pixel address and value for each test vectors
+#-----------------------------------------------------------------------
 
-def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', progSample='20',progConfigClkGate='1', iP=0, timeSleep=0.015):
+def ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1', iP=0, timeSleep=0.015):
     fw_status_clear()
 
     hex_list = [
@@ -152,7 +172,7 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
 
     #PROGRAM SHIFT REGISTER
     hex_lists = [
-        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"],
+        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{configclk_period}"],
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
 
@@ -174,7 +194,7 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
         hex_lists = dnnConfig(os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin_debug2.csv"), pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
     else:
         hex_lists = dnnConfig(os.path.join(os.getcwd(),"spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin.csv"), pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
-    sw_write32_0(hex_lists, doPrint=False)
+    sw_write32_0(hex_lists)
     # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
 
     hex_lists = [
@@ -183,11 +203,11 @@ def ProgShiftRegs(progDebug=False, verbose=False, progFreq='64', progDly='5', pr
             "4'hf",  # op code d for execute
             "1'h0",  # 1 bit for w_execute_ch0fg_test_mask_reset_not_index
             "3'h0", # 3 bits for spare_index_max
-            f"1'h{progConfigClkGate}", # 1 bit for gating configClk
+            f"1'h{cfg_test_gate_config_clk}", # 1 bit for gating configClk
             "1'h0",  # 1 bit for w_execute_cfg_test_loopback
             "4'h1",  # 4 bits for test number
-            f"7'h{progSample}", # 6 bits test sample
-            f"7'h{progDly}"  # 6 bits for test delay
+            f"7'h{cfg_test_sample}", # 6 bits test sample
+            f"7'h{cfg_test_delay}"  # 6 bits for test delay
         ]
     
     ]
