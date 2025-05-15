@@ -10,14 +10,14 @@ except ImportError as e:
     sys.exit(1)  # Exit script immediately
     
 def ScanChainOneShot(
-        scanloadDly='13', 
+        scan_load_delay='13', 
         startBxclkState='0', 
-        bxclkDelay='0B', 
-        scanFreq='28',
-        scanInjDly='1D', 
+        bxclk_delay='0B', 
+        bxclk_period='28',
+        injection_delay='1D', 
         scanLoopBackBit='0', 
-        scanSampleDly='08', 
-        scanDly='03', 
+        test_sample='08', 
+        test_delay='03', 
         scanLoadPhase='20'
 ):
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
@@ -27,7 +27,7 @@ def ScanChainOneShot(
     nPixHex = int_to_32bit_hex(0)
     # hex lists                                                                                                                    
     hex_lists = [
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -60,12 +60,12 @@ def ScanChainOneShot(
             "4'hF",  # op code for execute
             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
             #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-            f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+            f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
             f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
             # "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
             "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-            f"6'h{scanSampleDly}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-            f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+            f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
         ]
     ] 
     sw_write32_0(hex_lists)
@@ -99,4 +99,5 @@ def ScanChainOneShot(
         words.append(int_to_32bit(sw_read32_0)[::-1])
     
     s = ''.join(words)
+    print(len(words), s)
     return None
