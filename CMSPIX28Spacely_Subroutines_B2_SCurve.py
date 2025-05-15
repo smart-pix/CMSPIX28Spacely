@@ -26,8 +26,7 @@ def PreProgSCurve(
         v_min = 0.001, 
         v_max = 0.3, 
         v_step = 0.01, 
-        nsample = 1000, 
-        SuperPix = False, 
+        nsample = 1000,
         nPix = 0, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
@@ -60,48 +59,26 @@ def PreProgSCurve(
          # Register Static 1 is programmed : "4'h4"
          # IP 2 is selected: "4'h2"
     ]
-
-    sw_write32_0(hex_lists,doPrint=False)
-    sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
-    
-    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 24 # updated from 48
-
-    # hex lists to write - FORCE ALL NONE USED BIT TO 1
-    VHLEV = 0.1
-
-    #voltage step increment in the ASIC
-    #The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
-    #each voltage step is then set with 2.vstep
-    #1mV equals 25e- (TBD!!!!!)
-    #vstep_asic = 0.001
-    #vstep_asic = 0.01
-
-    S = 40e-6           #Charge Sensitivity in V/e-
-    #npulse_step = 450    #number of charge settings 
-    #npulse_step = 20
+    sw_write32_0(hex_lists, doPrint=False)
+    # sw_read32_0, _, _, _ = sw_read32()
 
     # define range of asic voltages
-    # v_min = vmin
-    # v_max = vmax
-    # v_step = vstep
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
-    # number of samples to run for each charge setting
-    # nsample = nSample
-    nWord = 24  #number of 32bit word to read the scanChain
-    nStream = nsample*n_step*nWord
-
-    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+    # number of 32bit word to read the scanChain
+    nWord = 24
+    
+    # 400MHz is the FPGA clock
+    scanFreq_inMhz = 400/int(scanFreq, 16) 
     scanInjDly_in_ns = int(scanInjDly,16)*2.5
     bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
+
     # create output directory
     print(V_LEVEL['VTH'])
     # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
-    # testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
     # configure based on test type
     if testType == "MatrixNPix":
@@ -114,30 +91,29 @@ def PreProgSCurve(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
         pixelInfo = ""
 
-    # configure per pixel info
-    # pixelInfo = f"nPix{nPix}"
+    # output directory
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
 
-    # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
+    # loop over the voltage steps
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
         v_asic = round(i, 3)
         if v_asic>0.9:
             v_asic = 0 
             return 
-        #BK4600HLEV_SWEEP(v_asic*2)
-        SDG7102A_SWEEP(v_asic*2)
-
-        #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
+        
+        # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+        # each voltage step is then set with 2.vstep
+        # 1mV equals 25e- (TBD!!!!!)
+        SDG7102A_SWEEP(v_asic*2) # we used 50 ohm output load settings in the pulse generator
+        # BK4600HLEV_SWEEP(v_asic*2)
 
         save_data = []
-        
         for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
 
-
-            # SDG7102A SETTINGS
+            # write configuration
             hex_lists = [
                 [
                     "4'h2",  # firmware id
@@ -152,20 +128,19 @@ def PreProgSCurve(
                     f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
             ] 
-            
             sw_write32_0(hex_lists, doPrint=False)
 
+            # prepare the word list to read
             if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
                 wordList = [int(((nPix-1)*3+1)/32)]
             else:
                 wordList = [int(((nPix-1)*3+1)/32),int(((nPix-1)*3+3)/32)]
 
-             # list(range(24))
+            # allocate array for the words
             words = ["0"*32] * nWord
-            #words = []
 
-            #start_readback = time.process_time()
-            for iW in wordList: #range(nwords):
+            # loop over the words to read
+            for iW in wordList:
 
                 # send read
                 address = "8'h" + hex(iW)[2:]
@@ -173,31 +148,19 @@ def PreProgSCurve(
                     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                 ]
                 sw_write32_0(hex_lists,doPrint=False)
-                # read back data
                
-                #STREAN
+                # # stream read back
                 # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
-                #no stream
+                # no stream read back
                 sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
 
-                # print(f"stream read data {sw_read32_0_stream}")
-                # print(f"reg read data v1 {sw_read32_0_get}")
-                # print(f"reg read data v2 {sw_read32_0}")
                 # store data
                 # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
                 words[iW] = int_to_32bit(sw_read32_0)[::-1]
             
-            #read_time=time.process_time()-start_readback
-
-            #print(f"readback_time={read_time}")
-            
+            # save words
             s = [int(i) for i in "".join(words)]
             save_data.append(s)
-
-        # save the data to a file
-        # save_data = np.stack(save_data, 0)
-        # outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
-        # np.savez(outFileName, **{"data": save_data})
 
         # save just the correct npix
         save_data = np.stack(save_data, 0)
@@ -205,7 +168,7 @@ def PreProgSCurve(
         save_data = save_data.reshape(-1, 255, 3)
         # save_data = save_data.reshape(-1, 256, 3)
         save_data = save_data[:,nPix]
-       
+        # save the output file
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
         np.save(outFileName, save_data)
     
@@ -226,8 +189,7 @@ def PreProgSCurveGinguMaster(
         v_max = 0.4, 
         v_step = 0.01, 
         nsample = 1365,
-        nIter = 1,  
-        SuperPix = False, 
+        nIter = 1,
         nPix = 0, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
@@ -271,40 +233,15 @@ def PreProgSCurveGinguMaster(
     sw_write32_0(hex_lists)
     sw_read32_0= sw_read32()
 
-
-    # hex_lists = [
-    #     ["4'h2", "4'h5", "24'h0"],
-    # ]
-    # sw_write32_0(hex_lists)
-    # sw_read32_0 = sw_read32(print_code = "ihb")
-    # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-    nwrites = 24 # updated from 48
-
-    # hex lists to write - FORCE ALL NONE USED BIT TO 1
-    VHLEV = 0.1
-
-    #voltage step increment in the ASIC
-    #The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
-    #each voltage step is then set with 2.vstep
-    #1mV equals 25e- (TBD!!!!!)
-    #vstep_asic = 0.001
-    #vstep_asic = 0.01
-
-    S = 40e-6           #Charge Sensitivity in V/e-
-    #npulse_step = 450    #number of charge settings 
-    #npulse_step = 20
-
     # define range of asic voltages
-    # v_min = vmin
-    # v_max = vmax
-    # v_step = vstep
     n_step = int((v_max - v_min)/v_step)+1
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
-
-    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+    # 400MHz is the FPGA clock
+    scanFreq_inMhz = 400/int(scanFreq, 16)
     scanInjDly_in_ns = int(scanInjDly,16)*2.5
     bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
+
     # create output directory
     print(V_LEVEL['VTH'])
     # configure chip info
@@ -323,35 +260,33 @@ def PreProgSCurveGinguMaster(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}_nPix{nPix}"
         pixelInfo = ""
 
-    # configure per pixel info
-    # pixelInfo = f"nPix{nPix}"
+    # output directory
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
 
-    # for i in tqdm.tqdm(range(1,npulse_step+1), desc="Voltage Step"):
+    # loop over the voltage steps
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+        
+        # vasic step
         v_asic = round(i, 3)
         if v_asic>0.9:
             v_asic = 0 
             return 
-        #BK4600HLEV_SWEEP(v_asic*2)
-        # if 0.160 < i < 0.200:
-        #     time.sleep(0.2) #added time for pulse generator to settle
-        #     if i ==0.185:
-        #         time.sleep(0.5) # extra step for 0.185V
+        
+        # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+        # each voltage step is then set with 2.vstep
+        # 1mV equals 25e- (TBD!!!!!)
         SDG7102A_SWEEP(v_asic*2)
+        # BK4600HLEV_SWEEP(v_asic*2)
         time.sleep(tsleep) #added time for pulse generator to settle
 
-        #SDG7102A_SWEEP(v_asic)  # we used 50 ohm output load settings in the pulse generator
-
+        # save data
         save_data = []
-        
         for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
 
-
-            # SDG7102A SETTINGS
+            # write configuration
             hex_lists = [
                 [
                     "4'h2",  # firmware id
@@ -367,45 +302,17 @@ def PreProgSCurveGinguMaster(
                     f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
             ] 
-
             sw_write32_0(hex_lists, doPrint=False)
-            # sw_read32_0 = sw_read32(print_code = "ihb")
-            # if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
-            #     wordList = [int(((nPix-1)*3+1)/32)]
-            # else:
-            #     wordList = [int(((nPix-1)*3+1)/32),int(((nPix-1)*3+3)/32)]
+
+            # prepare the word list to read 
             maxWordFWArray = 128
             nword = math.ceil(nsample*3/32)
             wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
             words = ["0"*32] * nword
-            time.sleep(100e-6*nsample) #added time for burst to complete
-            # time.sleep(0.2) #added time for pulse generator to settle
-
-            #read back DATA_ARRAY_0
-            #data should be stored in the MSBs of row 0
-            # address = "8'h" + hex(0)[2:]
-            # hex_lists = [
-            #     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
-            # ]
-
-            # sw_write32_0(hex_lists,doPrint=False)
-            # sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
-            # print("DATA_ARRAY_0")
-            # print(int_to_32bit(sw_read32_0)[::-1])
-            # #start_readback = time.process_time()
-
-            # #read back DATA_ARRAY_1
-            # #data should be stored in the MSBs of row 0
-            # address = "8'h" + hex(127)[2:]
-            # hex_lists = [
-            #     ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
-            # ]
-            # print("DATA_ARRAY_1")
-            # sw_write32_0(hex_lists,doPrint=False)
-            # sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
-            # print(int_to_32bit(sw_read32_0))
-
-            #start_readback = time.process_time()
+            # added time for burst to complete
+            time.sleep(100e-6*nsample) 
+            
+            # loop over the words to read
             for iW in wordList:
 
                 # DATA ARRAY 0 only contain LAST READ 
@@ -421,38 +328,21 @@ def PreProgSCurveGinguMaster(
                 sw_write32_0(hex_lists,doPrint=False)
 
                 # read back data
-               
-                #STREAM
-                # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
-                #no stream
                 sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False) 
-                # print(f"stream read data {sw_read32_0_stream}")
-                # print(f"reg read data v1 {sw_read32_0_get}")
-                # print(f"reg read data v2 {sw_read32_0}")
-                # store data
-                # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
-
-                words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
+                words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0)
             
-            # read_time=time.process_time()-start_readback
-
-            # print(f"readback_time={read_time}")
-            
+            # save words
             s = [int(i) for i in "".join(words)]
             # Cutting last bit because 3x1365 = 4095
             s = s[:nsample*3]
             save_data.append(s)
-
-        # save the data to a file
-        # save_data = np.stack(save_data, 0)
-        # outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npz")
-        # np.savez(outFileName, **{"data": save_data})
 
         # save just the correct npix
         save_data = np.stack(save_data, 0)
         # Bit order might have to be reversed in the next line since b2-b1-b0
         save_data = save_data.reshape(nsample*nIter, 3)
         save_data = save_data[:,::-1]
+        # save data
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
         np.save(outFileName, save_data)
     
