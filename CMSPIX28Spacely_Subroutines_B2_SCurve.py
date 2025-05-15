@@ -31,12 +31,12 @@ def PreProgSCurve(
         startBxclkState = '0', 
         bxclk_delay = '12', #'0B', 
         bxclk_period = '28',
-        injection_delay = '17', # vin_test_trig_out in the FW
+        injection_delay = '1E', # vin_test_trig_out in the FW
         scanLoopBackBit = '0', 
         test_sample = '0F', 
         test_delay = '14', 
-        v_min = 0.1, 
-        v_max = 0.3, 
+        v_min = 0.01, 
+        v_max = 0.4, 
         v_step = 0.01, 
         nsample = 1000, 
         nPix = 0, 
@@ -44,6 +44,8 @@ def PreProgSCurve(
         dateTime = None,
         testType = "Single"
 ):
+    
+
     
     # Note we do not yet have a smoke test. verify this on scope as desired.
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)

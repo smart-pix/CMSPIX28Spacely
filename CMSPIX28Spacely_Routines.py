@@ -76,7 +76,7 @@ def ROUTINE_ScanChainOneShot(scan_load_delay='13', startBxclkState='0', bxclk_de
     return ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='12', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1D', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.001, v_max=0.2, v_step=0.001, nsample=1000, nPix=0):
+def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1D', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.001, v_max=0.4, v_step=0.001, nsample=1000, nPix=0):
     return PreProgSCurve(scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, v_min, v_max, v_step, nsample, nPix)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
