@@ -31,12 +31,8 @@ def DNN(
     pixel_compout_csv=None, 
     outDir = "./", 
     readYproj=True):
-    # hex_lists = [
-    #     ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"] # write op code E (status clear)
-    # ]
 
-    # sw_write32_0(hex_lists)
-    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
+    # Set the firmware to the default state
     fw_status_clear()
 
     hex_list = [
@@ -44,41 +40,17 @@ def DNN(
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
    ]
     sw_write32_0(hex_list)
-    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
 
-    # FIRST SET THE PULSE GENERATOR
+    # First set up the pulse generator
     SDG7102A_SWEEP(HLEV=0.4)
     
-    #PROGRAM SHIFT REGISTER
+    # Program shift register
     hex_lists = [
         # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
         ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"],
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
-
-    # call sw_write32_0
     sw_write32_0(hex_lists)
-    # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
-
-#     hex_lists = [
-#         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
-#    ]
-#     sw_write32_0(hex_lists)
-#     sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
-
-
-    #Manual programming for debugging
-    # pixels = [
-    #     [list(range(0,256)), [3]*256],
-    #     #[[74, 75, 72, 73, 77, 76, 81, 138, 139, 142, 143, 146, 137, 136, 141], [3, 2] + [3] * 12 + [1]],
-    #     [[16, 12, 21, 17, 13, 9, 5, 83, 79, 75, 71, 67,82, 78, 74], [3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2]],
-    #     [[82, 78, 74,80, 76,72], [3,3,2,3,3,2]],                                                                                        # RTL should see low momentum 1
-    #     [[206, 202, 211, 207, 203, 199, 195, 145, 141, 137, 133, 129, 144, 140, 136], [3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2]],  # RTL should see low momentum 2
-    #     [[86,82,78,74,70, 83,67, 80,76,72], [3,3,3,3,3,  3,2, 3,3,3]],                                                                     # RTL should see low momentum 1
-    #     [[148,144,140,136,132, 149,145, 150,146,142], [3,3,3,3,3,  3,2, 3,3,3]],    # RTL should see low momentum 0
-    # ]  
-    #pixelLists = [i[0] for i in pixels]
-    #pixelValues = [i[1] for i in pixels]
 
     # load all of the configs
     filename = pixel_compout_csv if pixel_compout_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
@@ -92,7 +64,9 @@ def DNN(
     readouts = []
     iN = 0
 
+    # loop over all patterns
     for iP in tqdm.tqdm(patternIndexes):
+        
         # increment counter of number of patterns
         iN += 1
         hiddenBit="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
@@ -107,10 +81,9 @@ def DNN(
             filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
-
         sw_write32_0(hex_lists, doPrint=False)
-        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
-
+        
+        # write execute command
         hex_lists = [
             [
                 "4'h1",  # firmware id
@@ -123,13 +96,15 @@ def DNN(
                 f"7'h{progSample}", # 6 bits test sample
                 f"7'h{progDly}"  # 6 bits for test delay
             ]
-        
         ]
         sw_write32_0(hex_lists)
 
-        time.sleep(0.02)  # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1. We went 10% above breaking point 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
+        # # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1
+        # We went 10% above breaking point
+        time.sleep(0.02)
 
+        # verbose and debug mode
         if(verbose==True and progDebug==True):
             #ReadBack from READ_ARRAY 1
             words_A0 = []      
