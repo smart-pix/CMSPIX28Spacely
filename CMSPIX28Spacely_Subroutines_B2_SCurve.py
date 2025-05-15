@@ -350,36 +350,12 @@ def PreProgSCurveGinguMaster(
 
 def IterMatrixSCurve():
 
-    # global settings
-    nPix = 256
-    # create an output directory
-    dataDir = FNAL_SETTINGS["storageDirectory"]
-    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
-    for i in [82,127]:
+    # loop over the pixels
+    nPix = [82, 127]
+    for i in nPix:
+        # program single pixel
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
-        
-        # PreProgSCurveGinguMaster(
-        #     scanloadDly = '13', 
-        #     startBxclkState = '0', 
-        #     bxclkDelay = '12', #'0B', 
-        #     scanFreq = '28', 
-        #     scanInjDly = '1E', #'1D', 
-        #     scanLoopBackBit = '0', 
-        #     scanSampleDly = '0F', 
-        #     scanLoadPhase ='26',
-        #     scanDly = '14', 
-        #     v_min = 0.001, 
-        #     v_max = 0.4, 
-        #     v_step = 0.001, 
-        #     nsample = 1365, 
-        #     SuperPix = True, 
-        #     nPix = i,
-        #     nIter=1,
-        #     dataDir = dataDir,
-        #     dateTime = now,
-        #     testType = "MatrixNPix"
-        # )
-
+        # run s-curve
         PreProgSCurve(
             scanLoadPhase = '26',
             scanloadDly = '13', 
