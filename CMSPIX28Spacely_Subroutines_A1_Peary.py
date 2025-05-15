@@ -1,40 +1,24 @@
 # spacely
 from Master_Config import *
 
+# python modules
+import sys
+try:
+    pass 
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
+
 def sw_write32_0(
         hex_lists = [ ["4'h2", "4'h2", "11'h0", "1'h0", "1'h0", "5'h4", "6'ha"] ], 
-        cleanup = False,
-        doPrint = False
 ):
-
-    # check register initial value and store it
-    # sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    # if doPrint: 
-    #     print(f"Starting register value sw_write32_0 = {sw_write32_0}")
-    # sw_write32_0_init = sw_write32_0
-
     # loop over the write values
     for hex_list in hex_lists:
-        
         # convert hex list to input to set memory
         temp = gen_sw_write32_0(hex_list)
-
         # do write
         sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", temp)
-
-        # read back
-        # sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-
-        # verify
-        # successful = (sw_write32_0 == temp)
-        # if doPrint:
-        #     print(f"Write to sw_write32_0: {successful}. Wrote {temp} and register reads {sw_write32_0}. hex_list = {hex_list}")
-    
-    # if cleanup:
-    #     print(f"Returning register to how it started sw_write32_0 = {sw_write32_0_init}")
-    #     sw_write32_0 = sg.INSTR["car"].set_memory("sw_write32_0", sw_write32_0_init)
-    #     sw_write32_0 = sg.INSTR["car"].get_memory("sw_write32_0")
-    #     print(f"Register returned to initial value: {sw_write32_0_init == sw_write32_0}")
 
 def sw_read32(
         sw_read32_0_expected = None, 
@@ -45,12 +29,9 @@ def sw_read32(
 ):
     
     # read value of register
- #   start =time.time()
     sw_read32_0 = sg.INSTR["car"].get_memory("sw_read32_0")
-    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else None
+    sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else 0   # default is True so we need to be careful?
 
- #   read_time = time.time() - start
- #   print(f"readtime={read_time}")
     # store pass/fail
     sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0)
     sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)
@@ -70,7 +51,11 @@ def sw_read32(
         print("Read sw_read32_0 (int, hex, binary): ", sw_read32_0, int_to_32bit_hex(sw_read32_0), int_to_32bit(sw_read32_0))
         print("Read sw_read32_1 (int, hex, binary): ", sw_read32_1, int_to_32bit_hex(sw_read32_1), int_to_32bit(sw_read32_1))
 
-    return sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass
+    # Suggestion - but this could break a lot of things
+    # check for firmware error
+    if any(x=='1' for x in int_to_32bit(sw_read32_1)[0:5]):
+        fw_error = 1
+    return sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass #, fw_error
 
 def sw_readStream(
         sw_read32_0_expected = None, 
@@ -82,13 +67,10 @@ def sw_readStream(
 ):
     
     # read value of register
- #   start =time.time()
     sw_read32_0_stream = sg.INSTR["car"].stream_memory("sw_read32_0", N)
     # sw_read32_0_get = sg.INSTR["car"].get_memory("sw_read32_0")
     sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else None
 
- #   read_time = time.time() - start
- #   print(f"readtime={read_time}")
     # store pass/fail
     sw_read32_0_pass = (sw_read32_0_expected == sw_read32_0_stream)
     sw_read32_1_pass = (sw_read32_1_expected == sw_read32_1)

@@ -29,11 +29,11 @@ V_CHAN = {"vdda": "PWR_OUT_4",
 
 V_LEVEL = {"vdda": 0.9,
            "vddd": 0.9,
-           "VTH": 0.8,
+           "VTH": 1,
             "vleak": 0,
             "VTH0": 0.04,
            "VMC": 0.4,
-           "SUPERPIX":0.9,
+           "SUPERPIX":0,
            "INJ_1": 2
            }
 

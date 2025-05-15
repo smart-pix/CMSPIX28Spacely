@@ -4,43 +4,52 @@ try:
 except:
     print("Cannot import Master_Config likely you are not running spacely.")
 
-# os settings
-import os
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# python modules
+import sys
+try:
+    # os settings
+    import os
+    os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# Standard library imports
-import math
-import h5py
-from fxpmath import Fxp
-import pandas as pd
-import csv
+    # Standard library imports
+    import math
+    import h5py
+    from fxpmath import Fxp
+    import pandas as pd
+    import csv
 
-# Third-party imports
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import tensorflow as tf
-from pandas import read_csv
-from sklearn.metrics import classification_report, confusion_matrix, mean_squared_error
-from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.preprocessing import StandardScaler
-import hls4ml
+    # Third-party imports
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import tensorflow as tf
+    from pandas import read_csv
+    from sklearn.metrics import classification_report, confusion_matrix, mean_squared_error
+    from sklearn.model_selection import StratifiedKFold, train_test_split
+    from sklearn.preprocessing import StandardScaler
+    import hls4ml
 
-# TensorFlow imports
-from tensorflow.keras import datasets, layers, models
-from tensorflow.keras.callbacks import CSVLogger, EarlyStopping
-from tensorflow.keras.layers import Activation, Conv2D, Dense, Dropout, Flatten, Input, Lambda, MaxPooling2D
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import SparseCategoricalCrossentropy
-from tensorflow.keras.metrics import SparseCategoricalAccuracy
-from tensorflow.keras.utils import Progbar
-from tensorflow.keras.models import clone_model
+    # TensorFlow imports
+    from tensorflow.keras import datasets, layers, models
+    from tensorflow.keras.callbacks import CSVLogger, EarlyStopping
+    from tensorflow.keras.layers import Activation, Conv2D, Dense, Dropout, Flatten, Input, Lambda, MaxPooling2D
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.optimizers import Adam
+    from tensorflow.keras.losses import SparseCategoricalCrossentropy
+    from tensorflow.keras.metrics import SparseCategoricalAccuracy
+    from tensorflow.keras.utils import Progbar
+    from tensorflow.keras.models import clone_model
 
-# QKeras imports
-from qkeras import *
+    # QKeras imports
+    from qkeras import *
+
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
+
 
 # number with dense
 def CreateModel(shape, nb_classes, first_dense):

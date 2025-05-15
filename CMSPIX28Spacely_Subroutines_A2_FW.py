@@ -1,10 +1,18 @@
 # spacely
 from Master_Config import *
 
+# python modules
+import sys
+try:
+    pass
+except ImportError as e:
+    loud_message(header_import_error, f"{__file__}: {str(e)}")
+    sys.exit(1)  # Exit script immediately
+
 def fw_status_clear():
     hex_lists = [
-        ["4'h2", "4'hE", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code E (status clear)
-        ["4'h2", "4'h1", "11'h7ff", "1'h1", "1'h1", "5'h1f", "6'h3f"], # write op code 1 (firmware reset)
+        ["4'h2", "4'hE", "24'h000000"], # write op code E (status clear)
+        # ["4'h2", "4'h1", "24'h000000"], # write op code 1 (firmware reset)
     ]
     sw_write32_0(hex_lists)
 
