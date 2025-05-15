@@ -9,7 +9,17 @@ except ImportError as e:
     loud_message(header_import_error, f"{__file__}: {str(e)}")
     sys.exit(1)  # Exit script immediately
     
-def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', scanFreq='28',scanInjDly='1D', scanLoopBackBit='0', scanSampleDly='08', scanDly='03', scanLoadPhase='20'):
+def ScanChainOneShot(
+        scanloadDly='13', 
+        startBxclkState='0', 
+        bxclkDelay='0B', 
+        scanFreq='28',
+        scanInjDly='1D', 
+        scanLoopBackBit='0', 
+        scanSampleDly='08', 
+        scanDly='03', 
+        scanLoadPhase='20'
+):
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
     scanLoadPhase1= hex(int(x[:2], 2))[2:]
     scanLoadPhase0= hex(int(x[2:], 2))[2:]
@@ -28,7 +38,6 @@ def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', sca
          # Register Static 0 is programmed : "4'h2"
          # IP 2 is selected: "4'h2"
         ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", f"11'h{nsampleHex}", f"8'h{nPixHex}"],       
-
     ]
 
     sw_write32_0(hex_lists)
@@ -81,9 +90,6 @@ def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', sca
         sw_write32_0(hex_lists)
         
         # read back data
-        #sw_read32_0_expected = int(sw_read32_0_expected_list[iW], 16)
-        #sw_read32_1_expected = int("10100000100010",2) # from running op codes. see here for the mapping https://github.com/SpacelyProject/spacely-caribou-common-blocks/blob/cg_cms_pix28_fw/cms_pix_28_test_firmware/src/fw_ip2.sv#L179-L196
-        #sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(sw_read32_0_expected = sw_read32_0_expected, sw_read32_1_expected = sw_read32_1_expected, sw_read32_1_nbitsToCheck = 14, print_code = "ihb")
         sw_read32_0, sw_read32_1, _, _ = sw_read32(print_code = "ihb")
         
         # update
@@ -93,28 +99,4 @@ def ScanChainOneShot(scanloadDly='13', startBxclkState='0', bxclkDelay='0B', sca
         words.append(int_to_32bit(sw_read32_0)[::-1])
     
     s = ''.join(words)
-    #s = split_bits_to_numpy(s[22:-10],3)
-    
-    print(len(words), s)
-    # start = 0
-    # npix = []
-    # deadpix = []
-    # deadbit = []
-    # while True:
-    #     index = s.find("111", start)
-    #     if index == -1:
-    #         break
-    #     npix.append(index/3)
-    #     start = index +1
-
-    # start = 0
-    # while True:
-    #     index_deadbit = s.find("1", start)
-    #     if index_deadbit == -1:
-    #         break
-    #     deadpix.append(int((index_deadbit+1)/3))
-    #     deadbit.append(round(((((index_deadbit+1)/3)-int((index_deadbit+1)/3))*3)))
-    #     start = index_deadbit +1
-    # print(f"pixel number {npix} is programmed")
-    # {print(f"pixel number {deadpix[ind]}, bit {deadbit[ind]} is dead") for ind in range(len(deadbit))}
     return None
