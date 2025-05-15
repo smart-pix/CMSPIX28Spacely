@@ -13,20 +13,32 @@ except ImportError as e:
     sys.exit(1)  # Exit script immediately
 
 
+#-----------------------------------------------------------------------
+# PreProgSCurve function
+#-----------------------------------------------------------------------
+# This function assumes the ASIC pixels are already configured 
+# It can work with 1 or all pixels programmed 
+# Lower noise can only be achieved by programming a single pixel with minimum gain setting 
+# 1. Set static array 0 and static array 1 to configure the correct frequency and scanLoad arrival time and phases 
+# 2. loop over the input pulse amplitude (ie: Qin) over the range v_min, v_max, v_step
+# 3. Execute IP2 test 2
+# 4. read the scan chain and store the data into a numpy array
+#-----------------------------------------------------------------------
+    
 def PreProgSCurve(
         scanLoadPhase = '26',
-        scanloadDly = '13', 
+        scan_load_delay = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '11', #'0B', 
-        scanFreq = '28',
-        scanInjDly = '17', #'1D', 
+        bxclk_delay = '11', #'0B', 
+        bxclk_period = '28',
+        injection_delay = '17', # vin_test_trig_out in the FW
         scanLoopBackBit = '0', 
-        scanSampleDly = '08', 
-        scanDly = '08', 
+        test_sample = '08', 
+        test_delay = '08', 
         v_min = 0.001, 
         v_max = 0.3, 
         v_step = 0.01, 
-        nsample = 1000,
+        nsample = 1000, 
         nPix = 0, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
@@ -40,7 +52,7 @@ def PreProgSCurve(
     # hex lists                                                                                                                    
     hex_lists = [
         # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -59,7 +71,7 @@ def PreProgSCurve(
          # Register Static 1 is programmed : "4'h4"
          # IP 2 is selected: "4'h2"
     ]
-    sw_write32_0(hex_lists, doPrint=False)
+    sw_write32_0(hex_lists)
     # sw_read32_0, _, _, _ = sw_read32()
 
     # define range of asic voltages
@@ -70,9 +82,9 @@ def PreProgSCurve(
     nWord = 24
     
     # 400MHz is the FPGA clock
-    scanFreq_inMhz = 400/int(scanFreq, 16) 
-    scanInjDly_in_ns = int(scanInjDly,16)*2.5
-    bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
+    bxclk_period_inMhz = 400/int(bxclk_period, 16) 
+    injection_delay_in_ns = int(injection_delay,16)*2.5
+    bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
 
     # create output directory
     print(V_LEVEL['VTH'])
@@ -82,13 +94,13 @@ def PreProgSCurve(
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
     # configure based on test type
     if testType == "MatrixNPix":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}"
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixVTH":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLK{bxclk_period_inMhz:.2f}_nPix{nPix}"
         pixelInfo = f"VTH{V_LEVEL['VTH']:.3f}"
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{bxclk_period_inMhz:.2f}_nPix{nPix}"
         pixelInfo = ""
 
     # output directory
@@ -119,16 +131,16 @@ def PreProgSCurve(
                     "4'h2",  # firmware id
                     "4'hF",  # op code for execute
                     "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                    f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                    f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
                     f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
                     "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                     #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                    f"6'h{scanSampleDly}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
             ] 
-            sw_write32_0(hex_lists, doPrint=False)
+            sw_write32_0(hex_lists)
 
             # prepare the word list to read
             if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
@@ -147,7 +159,7 @@ def PreProgSCurve(
                 hex_lists = [
                     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                 ]
-                sw_write32_0(hex_lists,doPrint=False)
+                sw_write32_0(hex_lists)
                
                 # # stream read back
                 # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
@@ -174,16 +186,31 @@ def PreProgSCurve(
     
     return None
 
-def PreProgSCurveGinguMaster(
-        scanloadDly = '13', 
+#-----------------------------------------------------------------------
+# PreProgSCurveBurst function
+#-----------------------------------------------------------------------
+# This test allow to extract the S-curve of a single pixel with max statitics and optimized run time
+# This function assumes a single ASIC pixel have already been configured 
+# It can only work with a single programmed as it selects the 3-bit of that pixels from the 768-bit scan chain
+# it then stacks these 3-bit from bottom to top into DATA_ARRAY_1 until the ARRAY is filled
+# DATA_ARRAY_1 is 4096-bit long so 1365 samples can be stored at a maximum
+# 1. Set static array 0 and static array 1 to configure the correct frequency and scanLoad arrival time and phases. 
+# 2. Static array 1 needs to be configured also with the number of samples (nSample) and the pixel number to stack (nPix)
+# 3. loop over the input pulse amplitude (ie: Qin) over the range v_min, v_max, v_step
+# 4. Execute IP2 test 5
+# 6. read the scan chain and store the data into a numpy array
+#-----------------------------------------------------------------------
+
+def PreProgSCurveBurst(
+        scan_load_delay = '13', 
         startBxclkState = '0', 
-        bxclkDelay = '12', #'11', 
-        scanFreq = '28',
-        scanInjDly = '1D', #'17', 
+        bxclk_delay = '12', #'11', 
+        bxclk_period = '28',
+        injection_delay = '1D', #'17', 
         scanLoopBackBit = '0', 
-        scanSampleDly = '08', 
+        test_sample = '08', 
         scanLoadPhase = '26',
-        scanDly = '08', 
+        test_delay = '08', 
         tsleep = 100e-3,
         v_min = 0.001, 
         v_max = 0.4, 
@@ -210,7 +237,7 @@ def PreProgSCurveGinguMaster(
     # hex lists                                                                                                                    
     hex_lists = [
         # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -238,26 +265,26 @@ def PreProgSCurveGinguMaster(
     vasic_steps = np.linspace(v_min, v_max, n_step)
 
     # 400MHz is the FPGA clock
-    scanFreq_inMhz = 400/int(scanFreq, 16)
-    scanInjDly_in_ns = int(scanInjDly,16)*2.5
-    bxclkDelay_in_ns = int(bxclkDelay,16)*2.5
+    bxclk_period_inMhz = 400/int(bxclk_period, 16)
+    injection_delay_in_ns = int(injection_delay,16)*2.5
+    bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
 
     # create output directory
     print(V_LEVEL['VTH'])
     # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
-    # testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}"
+    # testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{bxclk_period_inMhz:.2f}"
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
     # configure based on test type
     if testType == "MatrixNPix":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}"
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixVTH":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_nPix{nPix}"
         pixelInfo = f"VTH{V_LEVEL['VTH']:.3f}"
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{scanFreq_inMhz:.2f}_BxCLKDly{bxclkDelay_in_ns:.2f}_injDly{scanInjDly_in_ns:.2f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_nPix{nPix}"
         pixelInfo = ""
 
     # output directory
@@ -292,17 +319,17 @@ def PreProgSCurveGinguMaster(
                     "4'h2",  # firmware id
                     "4'hF",  # op code for execute
                     "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                    f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                    #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                    f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
                     f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
                     "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
                     #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                     #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                    f"6'h{scanSampleDly}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{scanDly}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                    f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
             ] 
-            sw_write32_0(hex_lists, doPrint=False)
+            sw_write32_0(hex_lists)
 
             # prepare the word list to read 
             maxWordFWArray = 128
@@ -325,7 +352,7 @@ def PreProgSCurveGinguMaster(
                 hex_lists = [
                     ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
                 ]
-                sw_write32_0(hex_lists,doPrint=False)
+                sw_write32_0(hex_lists)
 
                 # read back data
                 sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False) 
@@ -348,24 +375,31 @@ def PreProgSCurveGinguMaster(
     
     return None
 
-def IterMatrixSCurve():
+
+#-----------------------------------------------------------------------
+# SCurveMatrix function
+#-----------------------------------------------------------------------
+# This function runs PreProgSCurveBurst function over the entire matrix
+#-----------------------------------------------------------------------
+
+def SCurveMatrix():
 
     # loop over the pixels
-    nPix = [82, 127]
+    nPix = list(range(255))
     for i in nPix:
         # program single pixel
         ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
         # run s-curve
-        PreProgSCurve(
+        PreProgSCurveBurst(
             scanLoadPhase = '26',
-            scanloadDly = '13', 
+            scan_load_delay = '13', 
             startBxclkState = '0', 
-            bxclkDelay = '12',  
-            scanFreq = '28',
-            scanInjDly = '1E',  
+            bxclk_delay = '12',  
+            bxclk_period = '28',
+            injection_delay = '1E',  
             scanLoopBackBit = '0', 
-            scanSampleDly = '0F', 
-            scanDly = '14', 
+            test_sample = '0F', 
+            test_delay = '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.01, 
@@ -376,7 +410,15 @@ def IterMatrixSCurve():
             testType = "MatrixNPix"
         )
     
-def IterSCurveSweep(nPix=0):
+#-----------------------------------------------------------------------
+# SCurveSweep function
+#-----------------------------------------------------------------------
+# This function runs PreProgSCurveBurst function over a single pixel for different biases/power voltage
+# the voltage being sweep is currently set to VTH but could be changed to VDDA or VDDD
+# This is useful to extract linearity
+#-----------------------------------------------------------------------
+        
+def SCurveSweep(nPix=0):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -398,16 +440,16 @@ def IterSCurveSweep(nPix=0):
         V_PORT["VTH"].set_voltage(i)
         V_LEVEL["VTH"] = i
 
-        PreProgSCurveGinguMaster(
-            scanloadDly = '13', 
+        PreProgSCurveBurst(
+            scan_load_delay = '13', 
             startBxclkState = '0', 
-            bxclkDelay = '12', #'0B', 
-            scanFreq = '28', 
-            scanInjDly = '1E', #'1D', 
+            bxclk_delay = '12', #'0B', 
+            bxclk_period = '28', 
+            injection_delay = '1E', #'1D', 
             scanLoopBackBit = '0', 
-            scanSampleDly = '0F', 
+            test_sample = '0F', 
             scanLoadPhase ='26',
-            scanDly = '14', 
+            test_delay = '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.001, 
