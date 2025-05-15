@@ -28,14 +28,14 @@ except ImportError as e:
 # **********************************************************************************
     
 def settingsScanSampleFW(
-        bxclkFreq='28', 
+        bxclk_period='28', 
         start_bxclk_state='0', 
         cfg_test_sample='08', 
-        bxclkDelay= '0B', #'11', 
-        scanInjDly='1D', #'04', 
+        bxclk_delay= '0B', #'11', 
+        injection_delay='1D', #'04', 
         loopbackBit='0', 
         cfg_test_delay='03', 
-        scanload_delay='13', 
+        scan_load_delay='13', 
         scanIndata='0001', 
         nrepeat=1, 
         debug=False,
@@ -49,11 +49,11 @@ def settingsScanSampleFW(
     print(chipInfo)
     # configure test info
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
-    scanFreq_inMhz = 400/int(bxclkFreq, 16) # 400MHz is the FPGA clock
+    bxclk_period_inMhz = 400/int(bxclk_period, 16) # 400MHz is the FPGA clock
     print(testInfo)
     # configure based on test type
     if testType == "firmWareCalibration":
-        testInfo += f"_BXCLK{scanFreq_inMhz:.2f}_bxclkFreq{scanFreq_inMhz}_bxclkDelay{bxclkDelay}_scanInjDly{scanInjDly}_scanload_delay{scanload_delay}_debugMode{debug}_nrepeat{nrepeat}"
+        testInfo += f"_BXCLK{bxclk_period_inMhz:.2f}_bxclk_period{bxclk_period_inMhz}_bxclk_delay{bxclk_delay}_injection_delay{injection_delay}_scan_load_delay{scan_load_delay}_debugMode{debug}_nrepeat{nrepeat}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -64,7 +64,7 @@ def settingsScanSampleFW(
     # the other settings like scanLoad are not important for this test because we are not injecting charges
 
     hex_lists = [
-        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scanload_delay}", "1'h0", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{bxclkFreq}"], #BSDG7102A and CARBOARD
+        ["4'h2", "4'h2", "3'h0", "1'h0", "1'h0",f"6'h{scan_load_delay}", "1'h0", f"1'h{start_bxclk_state}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"], #BSDG7102A and CARBOARD
         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
         
         # BxCLK is set to 10MHz : "6'h28"
@@ -126,7 +126,7 @@ def settingsScanSampleFW(
     if debug:
         hex_list_6b = [cfg_test_delay] # [f'{i:X}' for i in range(1, int(cfg_test_delay,16)+1)]                    # smaller list set for debug
     else:
-        hex_list_6b = [f'{i:X}' for i in range(1, int(bxclkFreq,16)+1)]  # create the list of setting space to range from 0 to 63
+        hex_list_6b = [f'{i:X}' for i in range(1, int(bxclk_period,16)+1)]  # create the list of setting space to range from 0 to 63
         # hex_list_6b = [f'{i:X}' for i in range(1, int('4',16)+1)]  # create the list of setting space to range from 0 to 63
     
     # Step 4
@@ -150,7 +150,7 @@ def settingsScanSampleFW(
                         "4'hF",  # op code for execute
                         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
                         #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                        f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                        f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                         f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                         "4'h1",   # Test 1 we run scanchain like a shift register  
                         f"6'h{cfg_test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
@@ -284,16 +284,14 @@ def calibrationMatrixHighStat(
         tsleep = 200e-6,
         tsleep2 = 0.5,
         loopbackBit=0, 
-        pixMin=0,
-        pixMax=255,
-        scanFreq='28', 
+        bxclk_period='28', 
         nsample=32,
         v_min = 0.001, 
         v_max = 0.4, 
         v_step = 0.034, 
-        bxclkDelay = '13', # DEFAULT VALUE '11',
-        scanInjDly = '1F', # DEFAULT VALUE '1D',
-        scanloadDly = '13',
+        bxclk_delay = '13', # DEFAULT VALUE '11',
+        injection_delay = '1F', # DEFAULT VALUE '1D',
+        scan_load_delay = '13',
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
         testType = "MatrixCalibration",
@@ -309,11 +307,11 @@ def calibrationMatrixHighStat(
     print(chipInfo)
     # configure test info
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
-    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+    bxclk_period_inMhz = 400/int(bxclk_period, 16) # 400MHz is the FPGA clock
     print(testInfo)
     # configure based on test type
     if testType == "MatrixCalibration":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_BxCLK_DELAY_0x{bxclkDelay}_SCAN_INJ_DLY_0x{scanInjDly}_SCAN_LOAD_DLY_0x{scanloadDly}_scanLoadPhase_0x{scanLoadPhase}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{bxclk_period_inMhz:.2f}_BxCLK_DELAY_0x{bxclk_delay}_SCAN_INJ_DLY_0x{injection_delay}_SCAN_LOAD_DLY_0x{scan_load_delay}_scanLoadPhase_0x{scanLoadPhase}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -357,20 +355,20 @@ def calibrationMatrixHighStat(
     # settings for the scan
     # start_bxclk_state = '0'
     # start_bxclk_stateList = ['0'] #['0', '1']
-    # scanloadDlyList = ['13'] # ['12', '13', '14']
-    # bxclkDelayList =  ['0B']
-    # scanInjDlyList =  ['1D']
+    # scan_load_delayList = ['13'] # ['12', '13', '14']
+    # bxclk_delayList =  ['0B']
+    # injection_delayList =  ['1D']
     # cfg_test_sampleList = ['08']
     # cfg_test_delayList = ['08']
 
     start_bxclk_stateList = ['0']                                                   #['0', '1']
-    scanloadDlyList = [scanloadDly]                                                        #['12', '13', '14']
-    bxclkDelayList =  [bxclkDelay]                                                        #['13','12','10','0B']
-    scanInjDlyList =  [scanInjDly]                                                        #[f'{i:X}' for i in range(1, int(scanFreq,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
-    # cfg_test_sampleList = [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]          #['1B', '1B', '10', '18']
-    # cfg_test_delayList = [f'{i:X}' for i in range(3, int(scanFreq,16)+1)]           #['4', 'C', '1A', '26']
+    scan_load_delayList = [scan_load_delay]                                                        #['12', '13', '14']
+    bxclk_delayList =  [bxclk_delay]                                                        #['13','12','10','0B']
+    injection_delayList =  [injection_delay]                                                        #[f'{i:X}' for i in range(1, int(bxclk_period,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
+    # cfg_test_sampleList = [f'{i:X}' for i in range(1, int(bxclk_period,16)+1)]          #['1B', '1B', '10', '18']
+    # cfg_test_delayList = [f'{i:X}' for i in range(3, int(bxclk_period,16)+1)]           #['4', 'C', '1A', '26']
     # cfg_test_sampleList = [f'{i:X}' for i in range(6, 30)]          #['1B', '1B', '10', '18']
-    cfg_test_delayList = [f'{i:X}' for i in range(6, 30)]           #['4', 'C', '1A', '26']
+    cfg_test_delayList = [f'{i:X}' for i in range(6, 33)]           #['4', 'C', '1A', '26']
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
     scanLoadPhase1= hex(int(x[:2], 2))[2:]
     scanLoadPhase0= hex(int(x[2:], 2))[2:]
@@ -395,7 +393,7 @@ def calibrationMatrixHighStat(
         for iN, nPix in enumerate(pixList):
                     
             # program shift register
-            ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
+            ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
 
             # pix value in hex
             nPixHex = int_to_32bit_hex(nPix)
@@ -406,9 +404,9 @@ def calibrationMatrixHighStat(
             # If delay is larger that half clock cycle.
             # The delay is still functionally but duty cycle of BxCLK IS affected and get smaller than 50%
             # (since period and delay have to be maintained).
-            # Must scan from 0 to scanFreq/2
+            # Must scan from 0 to bxclk_period/2
 
-            # BxclkDelay for bxCLK_DELAY_SIGN = 1
+            # bxclk_delay for bxCLK_DELAY_SIGN = 1
             # THE DELAY IS defined between the rising edge of BxCLK_ANA and the falling edge of BxCLK
             # if delay is larger tha half clock cycle, the duty cycle is also impacted and get larger than 50%
 
@@ -418,10 +416,10 @@ def calibrationMatrixHighStat(
             cnt = 0
             # loop over the settings
             for start_bxclk_state in start_bxclk_stateList:
-                for scanloadDly in scanloadDlyList: #  in increment BxCLK periods - value is defined in respect to the pulse generator delay and should NOT be changed 
-                    for bxclkDelay in  bxclkDelayList:   # ['13','12','11','10'] Constrain it to the following list ---> [scanFreq/2-1, scanFreq/2-2, scanFreq/2-3, scanFreq/2-4] 
-                        for scanInjDly in scanInjDlyList: # [Min Value = 0x01 ; Max Value = scanFreq, INCR = 1] increment delay of 400MHz period: ie - 2.5ns : align injection time
-                            for cfg_test_delay in cfg_test_delayList: #cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = scanFreq, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
+                for scan_load_delay in scan_load_delayList: #  in increment BxCLK periods - value is defined in respect to the pulse generator delay and should NOT be changed 
+                    for bxclk_delay in  bxclk_delayList:   # ['13','12','11','10'] Constrain it to the following list ---> [bxclk_period/2-1, bxclk_period/2-2, bxclk_period/2-3, bxclk_period/2-4] 
+                        for injection_delay in injection_delayList: # [Min Value = 0x01 ; Max Value = bxclk_period, INCR = 1] increment delay of 400MHz period: ie - 2.5ns : align injection time
+                            for cfg_test_delay in cfg_test_delayList: #cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = bxclk_period, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
                                 cfg_test_sampleList = [f'{i:X}' for i in range(6, 7+int(cfg_test_delay, 16))]  #define a modular list
                                 for cfg_test_sample in cfg_test_sampleList:
 
@@ -432,7 +430,7 @@ def calibrationMatrixHighStat(
                                     # # DODO SETTINGS
                                     # # hex lists                                                                                                                    
                                     hex_lists = [
-                                        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"], #BSDG7102A and CARBOARD
+                                        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"], #BSDG7102A and CARBOARD
                                         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
                                         
                                         # BxCLK is set to 10MHz : "6'h28"
@@ -462,7 +460,7 @@ def calibrationMatrixHighStat(
                                             "4'hF",  # op code for execute
                                             "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
                                             #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                                            f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                                            f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                                             f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                                             "4'h3",   # Test 5 is the only test none thermometrically encoded because of lack of code space  
                                             #  "4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
@@ -486,7 +484,7 @@ def calibrationMatrixHighStat(
                                         hex_lists = [
                                             ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                                         ]
-                                        sw_write32_0(hex_lists,doPrint=False)
+                                        sw_write32_0(hex_lists)
                                         sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False) #test
                                         # store data
                                         words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0) #[::-1]
@@ -498,7 +496,7 @@ def calibrationMatrixHighStat(
 
                                     # save the settings
                                     if iN == 0 and iV == 0:
-                                        settingList.append([start_bxclk_state, scanloadDly, bxclkDelay, scanInjDly, cfg_test_sample, cfg_test_delay])
+                                        settingList.append([start_bxclk_state, scan_load_delay, bxclk_delay, injection_delay, cfg_test_sample, cfg_test_delay])
 
             # for the first loop save all settings
             if iN == 0 and iV == 0:
@@ -508,7 +506,7 @@ def calibrationMatrixHighStat(
         # after full loop of vasic step save                      
         save_data = np.stack(save_data, 0)
         # reshape to reasonable format
-        # save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
+        # save_data = save_data.reshape(len(vasic_steps), len(scan_load_delayList)*len(bxclk_delayList)*len(injection_delayList)*len(cfg_test_sampleList), nsample, 3)
         save_data = save_data.reshape(len(pixList), cnt, nsample, 3)
         save_data = save_data[:,:,:,::-1]
         # save to file
@@ -533,14 +531,14 @@ def calibrationMatrixLowStat(
         tsleep2 = 0.5,
         loopbackBit=0, 
         nPix=0,
-        scanFreq='28', 
+        bxclk_period='28', 
         nsample=32,
         v_min = 0.001, 
         v_max = 0.4, 
         v_step = 0.034,
-        bxclkDelay = '13', #DEFAULT VALUE: '12',
-        scanInjDly = '1F', # DEFAULT VALUE: '1D',
-        scanloadDly = '13',
+        bxclk_delay = '13', #DEFAULT VALUE: '12',
+        injection_delay = '1F', # DEFAULT VALUE: '1D',
+        scan_load_delay = '13',
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
         testType = "MatrixCalibration",
@@ -556,11 +554,11 @@ def calibrationMatrixLowStat(
     print(chipInfo)
     # configure test info
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
-    scanFreq_inMhz = 400/int(scanFreq, 16) # 400MHz is the FPGA clock
+    bxclk_period_inMhz = 400/int(bxclk_period, 16) # 400MHz is the FPGA clock
     print(testInfo)
     # configure based on test type
     if testType == "MatrixCalibration":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{scanFreq_inMhz:.2f}_BxCLK_DELAY_0x{bxclkDelay}_SCAN_INJ_DLY_0x{scanInjDly}_SCAN_LOAD_DLY_0x{scanloadDly}_scanLoadPhase_0x{scanLoadPhase}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_VTH{V_LEVEL['VTH']:.3f}_BXCLK{bxclk_period_inMhz:.2f}_BxCLK_DELAY_0x{bxclk_delay}_SCAN_INJ_DLY_0x{injection_delay}_SCAN_LOAD_DLY_0x{scan_load_delay}_scanLoadPhase_0x{scanLoadPhase}_nPix{nPix}"
     outDir = os.path.join(dataDir, chipInfo, testInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
@@ -593,7 +591,7 @@ def calibrationMatrixLowStat(
     hex_lists = [
         ["4'h1", "4'he", "16'h0", "1'h1", "7'h64"] # OP_CODE_W_STATUS_FW_CLEAR
    ]
-    sw_/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/spacely-asic-config/CMSPIX28Spacely/oldwrite32_0(hex_lists)
+    sw_write32_0(hex_lists)
     # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ihb")
     
 
@@ -602,11 +600,11 @@ def calibrationMatrixLowStat(
     nsampleHex = int_to_32bit_hex(nsample)
     print(nsampleHex, nsample)
     start_bxclk_stateList = ['0']                                                   #['0', '1']
-    scanloadDlyList = [scanloadDly]                                                        #['12', '13', '14']
-    bxclkDelayList =  [bxclkDelay]                                                        #['13','12','10','0B']
-    scanInjDlyList =  [scanInjDly]                                                        #[f'{i:X}' for i in range(1, int(scanFreq,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
-    cfg_test_sampleList = [f'{i:X}' for i in range(1, int(scanFreq,16)+1)]          #['1B', '1B', '10', '18']
-    cfg_test_delayList = [f'{i:X}' for i in range(3, int(scanFreq,16)+1)]           #['4', 'C', '1A', '26']
+    scan_load_delayList = [scan_load_delay]                                                        #['12', '13', '14']
+    bxclk_delayList =  [bxclk_delay]                                                        #['13','12','10','0B']
+    injection_delayList =  [injection_delay]                                                        #[f'{i:X}' for i in range(1, int(bxclk_period,16)+1)]  #['14', '15', '16','17', '18', '19', '1A', '1B']
+    cfg_test_sampleList = [f'{i:X}' for i in range(1, int(bxclk_period,16)+1)]          #['1B', '1B', '10', '18']
+    cfg_test_delayList = [f'{i:X}' for i in range(3, int(bxclk_period,16)+1)]           #['4', 'C', '1A', '26']
     
 
     
@@ -635,7 +633,7 @@ def calibrationMatrixLowStat(
         for iN, nPix in enumerate(pixList):
                     
             # program shift register
-            ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
+            ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
 
             # pix value in hex
             nPixHex = int_to_32bit_hex(nPix)
@@ -646,9 +644,9 @@ def calibrationMatrixLowStat(
             # If delay is larger that half clock cycle.
             # The delay is still functionally but duty cycle of BxCLK IS affected and get smaller than 50%
             # (since period and delay have to be maintained).
-            # Must scan from 0 to scanFreq/2
+            # Must scan from 0 to bxclk_period/2
 
-            # BxclkDelay for bxCLK_DELAY_SIGN = 1
+            # bxclk_delay for bxCLK_DELAY_SIGN = 1
             # THE DELAY IS defined between the rising edge of BxCLK_ANA and the falling edge of BxCLK
             # if delay is larger tha half clock cycle, the duty cycle is also impacted and get larger than 50%
 
@@ -657,16 +655,16 @@ def calibrationMatrixLowStat(
             cnt = 0
             # loop over the settings
             for start_bxclk_state in start_bxclk_stateList:
-                for scanloadDly in scanloadDlyList: #  in increment BxCLK periods - value is defined in respect to the pulse generator delay and should NOT be changed 
-                    for bxclkDelay in  bxclkDelayList:   # ['13','12','11','10'] Constrain it to the following list ---> [scanFreq/2-1, scanFreq/2-2, scanFreq/2-3, scanFreq/2-4] 
-                        for scanInjDly in scanInjDlyList: # [Min Value = 0x01 ; Max Value = scanFreq, INCR = 1] increment delay of 400MHz period: ie - 2.5ns : align injection time
-                            for cfg_test_delay in cfg_test_delayList: #cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = scanFreq, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
+                for scan_load_delay in scan_load_delayList: #  in increment BxCLK periods - value is defined in respect to the pulse generator delay and should NOT be changed 
+                    for bxclk_delay in  bxclk_delayList:   # ['13','12','11','10'] Constrain it to the following list ---> [bxclk_period/2-1, bxclk_period/2-2, bxclk_period/2-3, bxclk_period/2-4] 
+                        for injection_delay in injection_delayList: # [Min Value = 0x01 ; Max Value = bxclk_period, INCR = 1] increment delay of 400MHz period: ie - 2.5ns : align injection time
+                            for cfg_test_delay in cfg_test_delayList: #cfg_test_delay, cfg_test_sample in zip(cfg_test_delayList,cfg_test_sampleList): # [Min Value = 0x03 ; Max Value = bxclk_period, INCR = 2 ] increment delay of 400MHz period, can be used to fine tune scanLoad, reset_not, scanIn. Counter starts at 1, so 0 is not allowed. Then we need 2 more counts to have BxCLK_ANA defined.
                                 for cfg_test_sample in cfg_test_sampleList:
                                     
                                     # # DODO SETTINGS
                                     # # hex lists                                                                                                                    
                                     hex_lists = [
-                                        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"], #BSDG7102A and CARBOARD
+                                        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{start_bxclk_state}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"], #BSDG7102A and CARBOARD
                                         #["4'h2", "4'h2", "3'h0", "1'h0", "1'h0","6'h13", "1'h1", "1'h0", "5'h0B", "6'h28"], #BSDG7102A and CARBOARD
                                         
                                         # BxCLK is set to 10MHz : "6'h28"
@@ -697,7 +695,7 @@ def calibrationMatrixLowStat(
                                                 "4'hF",  # op code for execute
                                                 "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
                                                 #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                                                f"6'h{scanInjDly}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                                                f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                                                 f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                                                 # "4'h3",   # Test 5 is the only test none thermometrically encoded because of lack of code space  
                                                 "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
@@ -705,7 +703,7 @@ def calibrationMatrixLowStat(
                                                 f"6'h{cfg_test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                                             ]
                                         ]       
-                                        sw_write32_0(hex_lists, doPrint=False)
+                                        sw_write32_0(hex_lists)
                                         
                                         iBitDn = nPix*3         # LSB position for programmed pixel
                                         iBitUp = (nPix+1)*3     # MSB position for programmed pixel
@@ -727,7 +725,7 @@ def calibrationMatrixLowStat(
                                             hex_lists = [
                                                 ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
                                             ]
-                                            sw_write32_0(hex_lists,doPrint=False)
+                                            sw_write32_0(hex_lists)
                                             sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False)
                                             # store data
                                             words[iW] = int_to_32bit(sw_read32_0)[::-1]
@@ -738,7 +736,7 @@ def calibrationMatrixLowStat(
 
                                     # save the settings
                                     if iN == 0 and iV == 0:
-                                        settingList.append([start_bxclk_state, scanloadDly, bxclkDelay, scanInjDly, cfg_test_sample, cfg_test_delay])
+                                        settingList.append([start_bxclk_state, scan_load_delay, bxclk_delay, injection_delay, cfg_test_sample, cfg_test_delay])
             
             # for the first loop save all settings
             
@@ -751,7 +749,7 @@ def calibrationMatrixLowStat(
         save_data = np.stack(save_data, 0)
   
         # reshape to reasonable format
-        # save_data = save_data.reshape(len(vasic_steps), len(scanloadDlyList)*len(bxclkDelayList)*len(scanInjDlyList)*len(cfg_test_sampleList), nsample, 3)
+        # save_data = save_data.reshape(len(vasic_steps), len(scan_load_delayList)*len(bxclk_delayList)*len(injection_delayList)*len(cfg_test_sampleList), nsample, 3)
         save_data = save_data.reshape(len(pixList), cnt, nsample, 3)
         # save_data = save_data[:,:,:,::-1]  # ON MAY 1ST 2025 LOOKING AT DATA WE REALIZED WE DONT NEED A FLIP FOR IP2 TEST 2
         save_data = save_data[:,:,:,:]
@@ -764,15 +762,15 @@ def calibrationMatrixLowStat(
 
 # **********************************************************************************
 # This function CALLS the function defined above  calibrationMatrixLowStat() 
-# Can be used with different scanInjDly settings and BxCLK_DELAY settings
+# Can be used with different injection_delay settings and BxCLK_DELAY settings
 # **********************************************************************************
 
 
 def calibrationMatrixLowStatExtraction():
     
-    scanInjDlyList = ['1A','1B','1C','1D','1E','1F','20','21','22','23','24']
+    injection_delayList = ['1A','1B','1C','1D','1E','1F','20','21','22','23','24']
 
-    # for  iSetting, scanInjDly  in enumerate(scanInjDlyList) :  
+    # for  iSetting, injection_delay  in enumerate(injection_delayList) :  
     for nPix in [9]:
 
         calibrationMatrixLowStat(
@@ -780,14 +778,14 @@ def calibrationMatrixLowStatExtraction():
             tsleep2 = 0.5,
             loopbackBit=0, 
             nPix=nPix,
-            scanFreq='28', 
+            bxclk_period='28', 
             nsample=20,
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.034,
-            bxclkDelay = '12',
-            scanInjDly = '1D',
-            scanloadDly = '13',
+            bxclk_delay = '12',
+            injection_delay = '1D',
+            scan_load_delay = '13',
             dateTime = None,
             dataDir = FNAL_SETTINGS["storageDirectory"],
             testType = "MatrixCalibration",
@@ -795,36 +793,32 @@ def calibrationMatrixLowStatExtraction():
 
 # **********************************************************************************
 # This function CALLS the function defined above calibrationMatrixHighStat() 
-# Can be used with different scanInjDly settings and BxCLK_DELAY settings
+# Can be used with different injection_delay settings and BxCLK_DELAY settings
 # **********************************************************************************
 
 def calibrationMatrixHighStatExtraction():
     
-    scanInjDlyList = ['1E']
-    bxclkDlyList = ['10','11','12']
-    scanLoadPhaseList = ['24', '25', '26']
-    # bxclkDlyList = ['10','11','12']
-    # scanLoadPhaseList = ['24','25','26']
+    injection_delayList = ['1E']
+    bxclkDlyList = ['10']
+    scanLoadPhaseList = ['24']
 
-    # for  iSetting, scanInjDly  in enumerate(scanInjDlyList) :  
-    for scanInjDly in scanInjDlyList:
-        for (bxclkDelay, scanLoadPhase) in zip(bxclkDlyList,scanLoadPhaseList):
-            print(f"scanInjDly = {scanInjDly}, bxclkDelay = {bxclkDelay}, scanLoadPhase = {scanLoadPhase}")
+    # for  iSetting, injection_delay  in enumerate(injection_delayList) :  
+    for injection_delay in injection_delayList:
+        for (bxclk_delay, scanLoadPhase) in zip(bxclkDlyList,scanLoadPhaseList):
+            print(f"injection_delay = {injection_delay}, bxclk_delay = {bxclk_delay}, scanLoadPhase = {scanLoadPhase}")
             calibrationMatrixHighStat(
                 scanLoadPhase = scanLoadPhase,
                 tsleep = 200e-6,
                 tsleep2 = 0.5,
                 loopbackBit=0, 
-                pixMin=0,
-                pixMax=255,
-                scanFreq='28', 
+                bxclk_period='28', 
                 nsample=32,
                 v_min = 0.001, 
                 v_max = 0.4, 
                 v_step = 0.034, 
-                bxclkDelay = bxclkDelay,
-                scanInjDly = scanInjDly,
-                scanloadDly = '13',
+                bxclk_delay = bxclk_delay,
+                injection_delay = injection_delay,
+                scan_load_delay = '13',
                 dateTime = None,
                 dataDir = FNAL_SETTINGS["storageDirectory"],
                 testType = "MatrixCalibration",

@@ -14,17 +14,17 @@ def DNN(
     loopbackBit=0, 
     patternIndexes = [0], 
     verbose=False, 
-    vinTest='1E', 
-    scanFreq='28', 
+    injection_delay='1E', 
+    bxclk_period='28', 
     startBxclkState='0',
-    scanloadDly='13', 
-    progDly='5', 
-    progSample='20', 
+    scan_load_delay='13', 
+    cfg_test_delay='5', 
+    cfg_test_sample='20', 
     progResetMask='0', 
-    progFreq='64', 
-    testDelay='14', 
-    testSample='0F', 
-    bxclkDelay='12',
+    configclk_period='64', 
+    test_delay='14', 
+    test_sample='0F', 
+    bxclk_delay='12',
     configClkGate='0',
     scanLoadPhase ='26', 
     dnn_csv=None, 
@@ -46,8 +46,8 @@ def DNN(
     
     # Program shift register
     hex_lists = [
-        # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
-        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{progFreq}"],
+        # ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{configclk_period}"], # OP_CODE_W_CFG_STATIC_0 : we set the config clock frequency to 1M
+        ["4'h1", "4'h2", "16'h0", "1'h1", f"7'h{configclk_period}"],
         ["4'h1", "4'h3", "16'h0", "1'h1", "7'h64"] # OP_CODE_R_CFG_STATIC_0 : we read back
     ]
     sw_write32_0(hex_lists)
@@ -81,7 +81,7 @@ def DNN(
             filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
-        sw_write32_0(hex_lists, doPrint=False)
+        sw_write32_0(hex_lists)
         
         # write execute command
         hex_lists = [
@@ -93,8 +93,8 @@ def DNN(
                 f"1'h{configClkGate}", # 1 bit for gating configClk
                 "1'h0",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h1",  # 4 bits for test number
-                f"7'h{progSample}", # 6 bits test sample
-                f"7'h{progDly}"  # 6 bits for test delay
+                f"7'h{cfg_test_sample}", # 6 bits test sample
+                f"7'h{cfg_test_delay}"  # 6 bits for test delay
             ]
         ]
         sw_write32_0(hex_lists)
@@ -191,7 +191,7 @@ def DNN(
         # # hex lists                                     
         hex_lists = [
         # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scanloadDly}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclkDelay}", f"6'h{scanFreq}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
@@ -226,12 +226,12 @@ def DNN(
                 "4'hF",  # op code for execute
                 "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
                 #"6'h1D", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
-                f"6'h{vinTest}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
+                f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_vin_test_trig_out_index_max
                 f"1'h{loopbackBit}",  # 1 bit for w_execute_cfg_test_loopback
                 "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
                 #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                f"6'h{testSample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                f"6'h{testDelay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
             ]
         ]       
 
@@ -255,7 +255,7 @@ def DNN(
                 ]
                 # sw_write32_0(hex_lists)
 
-                sw_write32_0(hex_lists,doPrint=False)
+                sw_write32_0(hex_lists)
 
                 sw_read32_0, sw_read32_1, _, _ = sw_read32() 
 
@@ -292,7 +292,7 @@ def DNN(
             hex_lists = [
                 ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
             ]
-            sw_write32_0(hex_lists,doPrint=False)
+            sw_write32_0(hex_lists)
             sw_read32_0, sw_read32_1, _, _ = sw_read32() 
 
             # store data

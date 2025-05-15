@@ -29,13 +29,13 @@ def PreProgSCurve(
         scanLoadPhase = '26',
         scan_load_delay = '13', 
         startBxclkState = '0', 
-        bxclk_delay = '11', #'0B', 
+        bxclk_delay = '12', #'0B', 
         bxclk_period = '28',
         injection_delay = '17', # vin_test_trig_out in the FW
         scanLoopBackBit = '0', 
-        test_sample = '08', 
-        test_delay = '08', 
-        v_min = 0.001, 
+        test_sample = '0F', 
+        test_delay = '14', 
+        v_min = 0.1, 
         v_max = 0.3, 
         v_step = 0.01, 
         nsample = 1000, 
@@ -206,11 +206,11 @@ def PreProgSCurveBurst(
         startBxclkState = '0', 
         bxclk_delay = '12', #'11', 
         bxclk_period = '28',
-        injection_delay = '1D', #'17', 
+        injection_delay = '1E', #'17', 
         scanLoopBackBit = '0', 
-        test_sample = '08', 
+        test_sample = '0F', 
         scanLoadPhase = '26',
-        test_delay = '08', 
+        test_delay = '14', 
         tsleep = 100e-3,
         v_min = 0.001, 
         v_max = 0.4, 
@@ -388,7 +388,8 @@ def SCurveMatrix():
     nPix = list(range(255))
     for i in nPix:
         # program single pixel
-        ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [i], pixelValue=[1])
+        ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [i], pixelValue=[1])
+        
         # run s-curve
         PreProgSCurveBurst(
             scanLoadPhase = '26',
@@ -426,7 +427,8 @@ def SCurveSweep(nPix=0):
 
     print(nPix)
     #program single pixel
-    ProgPixelsOnly( progFreq='64', progDly='5', progSample='20',progConfigClkGate='1',pixelList = [nPix], pixelValue=[1])
+    ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    
 
     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
     dataDir = FNAL_SETTINGS["storageDirectory"]
