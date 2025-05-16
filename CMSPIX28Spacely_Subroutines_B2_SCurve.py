@@ -386,32 +386,36 @@ def PreProgSCurveBurst(
 
 def SCurveMatrix():
 
-    # loop over the pixels
-    nPix = list(range(255))
-    for i in nPix:
-        # program single pixel
+    # global settings
+    nPix = 256
+    # create an output directory
+    dataDir = FNAL_SETTINGS["storageDirectory"]
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    for i in range(nPix):
         ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [i], pixelValue=[1])
         
-        # run s-curve
         PreProgSCurveBurst(
-            scanLoadPhase = '26',
             scan_load_delay = '13', 
             startBxclkState = '0', 
-            bxclk_delay = '12',  
-            bxclk_period = '28',
-            injection_delay = '1E',  
+            bxclk_delay = '11',         #superpix1 '11', superpix2 '12',
+            bxclk_period = '28', 
+            injection_delay = '1C',     #superpix1 '1C', superpix2 '1E',
             scanLoopBackBit = '0', 
             test_sample = '0F', 
+            scanLoadPhase ='25',        #superpix1 '25', superpix2 '26',
             test_delay = '14', 
             v_min = 0.001, 
             v_max = 0.4, 
-            v_step = 0.01, 
-            nsample = 1365,
-            nPix = i, 
-            dataDir = FNAL_SETTINGS["storageDirectory"],
-            dateTime = None,
+            v_step = 0.001, 
+            nsample = 1365, 
+            nPix = i,
+            nIter=1,
+            dataDir = dataDir,
+            dateTime = now,
             testType = "MatrixNPix"
         )
+
     
 #-----------------------------------------------------------------------
 # SCurveSweep function
