@@ -1,8 +1,11 @@
 
 #Import Spacely functions
-from Master_Config import *
-import Spacely_Globals as sg
-from Spacely_Utils import *
+try:
+    from Master_Config import *
+    import Spacely_Globals as sg
+    from Spacely_Utils import *
+except:
+    print("Likely importing functions from outside of Spacely. Be careful.")
 
 # python modules
 import sys
@@ -14,6 +17,7 @@ try:
     from numpy import genfromtxt
     import sys
     import importlib 
+    import csv
 except ImportError as e:
     print("\033[93;1m" + f"Import error in {__file__}: {str(e)}".upper() + "\033[0m")
     sys.exit(1)  # Exit script immediately
