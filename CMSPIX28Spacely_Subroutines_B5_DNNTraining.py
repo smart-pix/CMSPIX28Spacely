@@ -453,7 +453,6 @@ def DNNTraining(asic_training=False):
         # create compout
         print("Making compout")
         pixelout = input_to_pixelout(x_test) #.numpy())
-        print(pixelout[:5])
         pixel_compout_csv = './tmp/compouts_dataset14.csv'
         with open(pixel_compout_csv, mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -520,9 +519,21 @@ def loadParquetData(
     for inFiles in inFilePaths:
         trainlabels.append(pd.read_parquet(inFiles))
         trainrecons.append(pd.read_parquet(inFiles.replace("labels", "recon2D")))
+
+    # convert to csv
     trainlabels_csv = pd.concat(trainlabels, ignore_index=True)
     trainrecons_csv = pd.concat(trainrecons, ignore_index=True)
     print(len(trainlabels_csv), len(trainrecons_csv))
+
+    # quantize
+    try:
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'pretrain-data-prep'))
+        from dataset_utils import quantize_manual
+        trainrecons_csv = quantize_manual(trainrecons_csv, charge_levels=[400, 1600, 2400], quant_values=[0,1,2,3])
+    except ImportError as e:
+        loud_message(header_import_error, f"{__file__}: {str(e)}")
+        print("Probably you need to clone: https://github.com/smart-pix/pretrain-data-prep/tree/main")
+        sys.exit(1)  # Exit script immediately
 
     # function to sum over the x rows to create the y-profile
     def sumRow(X):
@@ -562,10 +573,6 @@ def loadParquetData(
     yprofiles = np.pad(yprofiles, ((0, 0), (0, 3)), mode='constant', constant_values=0)
 
     return yprofiles, ylocals, clslabels
-
-# take as input the yprofile and create the compout file that can be passed to the ASIC
-def createInputToASIC():
-    return 
 
 if __name__ == "__main__":
     DNNTraining(asic_training=False)
