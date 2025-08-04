@@ -443,10 +443,9 @@ def DNNTraining(asic_training=False):
     if dataset == "test":
         x_test, y_test = loadExampleTestVectors()
     elif dataset == "dataset14":
-        yprofiles, ylocals, clslabels = loadParquetData(inFilePath="data/")
+        inFilePath = "/asic/projects/C/CMS_PIX_28/pixelAV_datasets/unshuffled_DO_NOT_DELETE/initial_studies/unflipped/dataset14"
+        yprofiles, ylocals, clslabels = loadParquetData(inFilePath=inFilePath)
         print(yprofiles.shape, ylocals.shape, clslabels.shape)
-        print(ylocals[:5])
-        print(yprofiles[:5])
         x_test = yprofiles
         y_test = clslabels
 
@@ -492,8 +491,10 @@ def DNNTraining(asic_training=False):
     print(f"Test loss: {loss}")
     print(f"Test accuracy: {accuracy}")
 
-    # # make predictions
-    # predictions = model.predict(x_test)
+    # make predictions
+    predictions = model.predict(x_test)
+    print(predictions.shape, predictions[:5], np.argmax(predictions[:5], axis=1))
+    np.save("./tmp/{mtype}_predictions.npy", predictions)
     # predictions = np.argmax(predictions, axis=1)
     # # print some to screen
     # for x, y, p in zip(x_test, y_test, predictions):
