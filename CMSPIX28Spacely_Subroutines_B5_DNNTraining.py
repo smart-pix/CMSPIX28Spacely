@@ -18,6 +18,7 @@ try:
     from fxpmath import Fxp
     import pandas as pd
     import csv
+    import glob
 
     # Third-party imports
     import matplotlib.pyplot as plt
@@ -422,8 +423,8 @@ def DNNTraining(asic_training=False):
         model = CreateQModel(shape, nb_classes)
         model.summary()
         # load the model
-        # model_file = "/fasic_home/gdg/research/projects/CMS_PIX_28/directional-pixel-detectors/multiclassifier/models/ds8l6_padded_noscaling_qkeras_foldbatchnorm_d58w4a8model.h5"
-        model_file = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/model.h5"
+        model_file = "/fasic_home/gdg/research/projects/CMS_PIX_28/directional-pixel-detectors/multiclassifier/models/ds8l6_padded_noscaling_qkeras_foldbatchnorm_d58w4a8model.h5"
+        # model_file = "/asic/projects/C/CMS_PIX_28/benjamin/testing/workarea_112024/CMSPIX28_DAQ/spacely/PySpacely/model.h5"
         co = {}
         utils._add_supported_quantized_objects(co)
         model = tf.keras.models.load_model(model_file, custom_objects=co)
@@ -437,12 +438,31 @@ def DNNTraining(asic_training=False):
         prepareWeights(os.path.join(output_dir, "firmware/weights/"))
 
     # load example inputs and outputs
-    x_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/input_1.csv", header=None)
-    x_test = np.array(x_test.values.tolist())
-    y_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/layer7_out_ref_int.csv", header=None)
-    y_test = np.array(y_test.values.tolist()).flatten()
+    dataset = "dataset14"
+
+    if dataset == "test":
+        x_test, y_test = loadExampleTestVectors()
+    elif dataset == "dataset14":
+        yprofiles, ylocals, clslabels = loadParquetData(inFilePath="data/")
+        print(yprofiles.shape, ylocals.shape, clslabels.shape)
+        print(ylocals[:5])
+        print(yprofiles[:5])
+        x_test = yprofiles
+        y_test = clslabels
+
+        # create compout
+        print("Making compout")
+        pixelout = input_to_pixelout(x_test) #.numpy())
+        print(pixelout[:5])
+        pixel_compout_csv = './tmp/compouts_dataset14.csv'
+        with open(pixel_compout_csv, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(pixelout)
+        print("   done!")
+
+    # check shapes
     print(x_test.shape, y_test.shape)
-    
+
     # decide if train
     train_and_save = False # <<< PAY ATTENTION <<<
     model_file = 'model.h5' if train_and_save == True else model_file # use default value
@@ -480,5 +500,74 @@ def DNNTraining(asic_training=False):
     # for x, y, p in zip(x_test, y_test, predictions):
     #    print("x, y, prediction: ", x, y, p)
 
+def loadExampleTestVectors():
+    # load example inputs and outputs
+    x_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/input_1.csv", header=None)
+    x_test = np.array(x_test.values.tolist())
+    y_test = pd.read_csv("/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/layer7_out_ref_int.csv", header=None)
+    y_test = np.array(y_test.values.tolist()).flatten()
+    return x_test, y_test
+
+def loadParquetData(
+    inFilePath="data/", # in path where the labels, recon2D files sit
+    noise_threshold = 0, # thresholds on the number of electrons
+    threshold = 0.2, # pt threshold in GeV for high pT particle
+):
+        
+    # load the labels and data
+    inFilePaths = list(sorted(glob.glob(os.path.join(inFilePath, "labels*")))) 
+    trainlabels, trainrecons = [], []
+    for inFiles in inFilePaths:
+        trainlabels.append(pd.read_parquet(inFiles))
+        trainrecons.append(pd.read_parquet(inFiles.replace("labels", "recon2D")))
+    trainlabels_csv = pd.concat(trainlabels, ignore_index=True)
+    trainrecons_csv = pd.concat(trainrecons, ignore_index=True)
+    print(len(trainlabels_csv), len(trainrecons_csv))
+
+    # function to sum over the x rows to create the y-profile
+    def sumRow(X):
+        X = np.where(X < noise_threshold, 0, X)
+        sum1 = 0
+        sumList = []
+        for i in X:
+            sum1 = np.sum(i,axis=0)
+            sumList.append(sum1)
+            b = np.array(sumList)
+        return b
+    
+    # create the trainlist1 = yprofiles, trainlist2 = y-local, cls, pt
+    yprofiles, ylocals, clslabels = [], [], []
+    for (index1, row1), (index2, row2) in zip(trainrecons_csv.iterrows(), trainlabels_csv.iterrows()):
+        rowSum = 0.0
+        X = row1.values
+        X = np.reshape(X,(13,21))
+        rowSum = sumRow(X)
+        yprofiles.append(rowSum) 
+        cls = -1
+        if(abs(row2['pt'])>threshold):
+            cls=0
+        elif(-1*threshold<=row2['pt']<0):
+            cls=1
+        elif(0<=row2['pt']<=threshold):
+            cls=2
+        ylocals.append(row2["y-local"])
+        clslabels.append(cls)
+
+    # create numpys
+    yprofiles = np.array(yprofiles)
+    ylocals = np.array(ylocals)
+    clslabels = np.array(clslabels)
+
+    # pad the yprofiles to get to 16 dimension
+    yprofiles = np.pad(yprofiles, ((0, 0), (0, 3)), mode='constant', constant_values=0)
+
+    return yprofiles, ylocals, clslabels
+
+# take as input the yprofile and create the compout file that can be passed to the ASIC
+def createInputToASIC():
+    return 
+
 if __name__ == "__main__":
-    DNNTraining()
+    DNNTraining(asic_training=False)
+
+    
