@@ -626,3 +626,18 @@ def loud_message(header, body):
     print("="*80)
     print("\033[93;1m" + body.upper() + "\033[0m")  # Yellow, bold text
     print("\033[91;1m" + "="*80 + "\033[0m")  # Reset color
+
+def input_bin_to_y_profile(input_bin="/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/input_bin.csv"):
+    
+    def convert_96bit_row_to_ints(bit_row):
+    # Convert list of strings ('0'/'1') to 16 ints made of 6-bit words
+        return [int("".join(bit_row[i:i+6]), 2) for i in range(0, 96, 6)]
+
+    with open(input_bin, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        yprofile = np.array([convert_96bit_row_to_ints(row) for row in reader])
+
+    # flip order of each row
+    yprofile = np.flip(yprofile, axis=1)
+
+    return yprofile
