@@ -1,0 +1,49 @@
+[1mdiff --git a/CMSPIX28Spacely_Subroutines_B2_SCurve.py b/CMSPIX28Spacely_Subroutines_B2_SCurve.py[m
+[1mindex 7a9d739..8bb1f45 100644[m
+[1m--- a/CMSPIX28Spacely_Subroutines_B2_SCurve.py[m
+[1m+++ b/CMSPIX28Spacely_Subroutines_B2_SCurve.py[m
+[36m@@ -487,7 +487,7 @@[m [mdef SCurveSweepIbias(nPix=0):[m
+     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")[m
+ [m
+     # Sweep range[m
+[31m-    biasList = np.arange(0.5,0.8,0.01)[m
+[32m+[m[32m    biasList = np.arange(0.4,0.55,0.05)[m
+     # biasList = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8][m
+     # vthList = [1.5,1.6][m
+     for i in biasList:[m
+[36m@@ -527,14 +527,14 @@[m [mdef SCurveSweepVTH(nPix=0):[m
+     #program single pixel[m
+     ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])[m
+     [m
+[31m-[m
+     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8[m
+     dataDir = FNAL_SETTINGS["storageDirectory"][m
+     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")[m
+ [m
+     # Sweep range[m
+[31m-    biasList = np.arange(0,0.3,0.01)[m
+[31m-    # biasList = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8][m
+[32m+[m[32m    # biasList = np.arange(0,0.3,0.01)[m
+[32m+[m[32m    # biasList = np.arange(0.1,0.8,0.05)[m
+[32m+[m[32m    biasList = [0.09, 0.1, 1.01, 1.02][m
+     # vthList = [1.5,1.6][m
+     for i in biasList:[m
+         V_PORT["vth0"].set_voltage(i)[m
+[36m@@ -567,10 +567,15 @@[m [mdef SCurveSweepVTH(nPix=0):[m
+ [m
+ def SCurveSweepVTHPix():[m
+     nPix = 256[m
+[31m-    nPixList =  [192][m
+[31m-    for i in nPixList: #range(nPix):[m
+[32m+[m[32m    # nPixList =  [0][m
+[32m+[m[32m    for i in range(nPix):[m
+         SCurveSweepVTH(nPix=i)[m
+ [m
+[32m+[m[32mdef SCurveSweepIbiasPix():[m
+[32m+[m[32m    nPix = 256[m
+[32m+[m[32m    for i in range(nPix):[m
+[32m+[m[32m        SCurveSweepIbias(nPix=i)[m
+[32m+[m
+ [m
+ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): [m
+ [m
