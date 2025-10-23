@@ -667,3 +667,72 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
             #     parameter = i
             # )
         SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1)
+
+
+
+def analogPower(
+    dataDir=FNAL_SETTINGS["storageDirectory"],
+    dateTime=None,
+):
+    print(dataDir)
+    testType = "AnalogPower"
+    chipInfo = (
+        f"ChipVersion{FNAL_SETTINGS['chipVersion']}_"
+        f"ChipID{FNAL_SETTINGS['chipID']}_"
+        f"SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
+    )
+    print(chipInfo)
+
+    testInfo = (dateTime if dateTime
+                else datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_{testType}")
+    print(testInfo)
+
+    outDir = os.path.join(dataDir, chipInfo, testInfo)
+    print(outDir)
+    os.makedirs(outDir, exist_ok=True)
+    try:
+        os.chmod(outDir, 0o777)
+    except PermissionError:
+        pass
+
+    print(f"Saving results to {outDir}")
+
+    # === Measurement setup ===
+    biasList = np.round(np.arange(0.0, 0.901, 0.01), 3)
+    nIter = 10
+
+    # Initialize results: first column = bias, next 10 columns = ivdda
+    results = np.zeros((len(biasList), nIter + 1))
+    results[:, 0] = biasList  # first column is Ibias
+
+    # === Iterate measurements ===
+    for it in range(nIter):
+        ivdda_meas = []
+        print(f"\nIteration {it+1}/{nIter}")
+
+        for v in biasList:
+            V_PORT["Ibias"].set_voltage(float(v))
+            V_LEVEL["Ibias"] = float(v)
+            time.sleep(0.2)
+            ivdda_meas.append(float(V_PORT["vdda"].get_current()))
+
+        results[:, it + 1] = ivdda_meas  # store in column it+1
+
+    # === Save ===
+    outFileName = os.path.join(outDir, "analogPower.npz")
+    np.savez(
+        outFileName,
+        Ibias_V=biasList,
+        Ivdda_matrix_A=results[:, 1:],  # only the ivdda columns
+        results_matrix=results,          # bias + all ivdda
+    )
+
+    # ✅ define header here, before saving CSV
+    header = "Ibias(V)," + ",".join([f"Ivdda_iter{i+1}(A)" for i in range(nIter)])
+
+    outCsv = os.path.join(outDir, "analogPower.csv")
+    np.savetxt(outCsv, results, delimiter=",", header=header, comments="")
+
+    print(f"Saved NPZ: {outFileName}")
+    print(f"Saved CSV: {outCsv}")
+    return outFileName
