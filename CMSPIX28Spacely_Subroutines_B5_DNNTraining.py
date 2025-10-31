@@ -279,9 +279,16 @@ class ModelPipeline:
         freq = '3F'
         DNN(
             progDebug=False, loopbackBit=0, patternIndexes = None, verbose=False, # update range when finished
-            vinTest='20', freq=freq, startBxclkState='0',scanloadDly='B', 
-            progDly='40', progSample='4', progResetMask='0', progFreq='64', 
-            testDelaySC='08', sampleDelaySC='08', bxclkDelay='14', configClkGate='1',  
+            vinTest='20', freq=freq, 
+            startBxclkState= ROUTINE_SETTINGS["startBxclkState"],scan_load_delay= ROUTINE_SETTINGS["scan_load_delay"],
+            # startBxclkState='0',scanloadDly='B',  #original setting, which is not quite the default
+            progDly='40', progSample='4', #I don't think the function actually takes in these parameters ???
+            # progDly='40', progSample='4',  #original setting, which is not quite the default
+            progResetMask= ROUTINE_SETTINGS["progResetMask"], progFreq='64', #I don't think the function takes in progFreq
+            # progResetMask='0', progFreq='64',  #original setting, which is not quite the default
+            testDelaySC='08', sampleDelaySC='08',
+            bxclkDelay= ROUTINE_SETTINGS["bxclkDelay"], configClkGate= ROUTINE_SETTINGS["configClkGate"], 
+            # bxclkDelay='14', configClkGate='1',   #original setting, which is not quite the default
             dnn_csv = dnn_csv,
             pixel_compout_csv = pixel_compout_csv,
             outDir = "./tmp",

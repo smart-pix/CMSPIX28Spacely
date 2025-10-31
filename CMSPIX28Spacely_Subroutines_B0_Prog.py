@@ -21,7 +21,10 @@ except ImportError as e:
 # it programs pixel 0 by default
 #-----------------------------------------------------------------------
 
-def ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):
+# def ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):
+def ProgShiftRegRaw(
+        configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+        cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"]):
 
     #FW reset followed with Status reset
     fw_status_clear()
@@ -109,7 +112,10 @@ def ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='
 # there is a debug interface that needs to be reworked to check that what is
 #-----------------------------------------------------------------------
 
-def ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [0], pixelValue=[1]):
+def ProgPixelsOnly(
+        configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+        cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"],
+        pixelList = [0], pixelValue=[1]):
     fw_status_clear()
 
     hex_list = [
@@ -160,7 +166,10 @@ def ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='2
 # and a separate list that contains the pixel address and value for each test vectors
 #-----------------------------------------------------------------------
 
-def ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1', iP=0, timeSleep=0.015):
+def ProgShiftRegs(progDebug=False, verbose=False, 
+                  configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+                  cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+                  iP=0, timeSleep=0.015):
     fw_status_clear()
 
     hex_list = [

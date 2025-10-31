@@ -10,15 +10,15 @@ except ImportError as e:
     sys.exit(1)  # Exit script immediately
     
 def ScanChainOneShot(
-        scan_load_delay='13', 
-        startBxclkState='0', 
-        bxclk_delay='0B', 
-        bxclk_period='28',
-        injection_delay='1D', 
-        scanLoopBackBit='0', 
-        test_sample='08', 
-        test_delay='03', 
-        scanLoadPhase='20'
+        scan_load_delay= ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+        startBxclkState= ROUTINE_SETTINGS["startBxclkState"], #'0', 
+        bxclk_delay= ROUTINE_SETTINGS["bxclk_delay"], #'0B', 
+        bxclk_period= ROUTINE_SETTINGS["bxclk_period"], #'28',
+        injection_delay= ROUTINE_SETTINGS["injection_delay"], #'1D', 
+        scanLoopBackBit= ROUTINE_SETTINGS["scanLoopBackBit"], #'0', 
+        test_sample= ROUTINE_SETTINGS["test_sample"], #'08', 
+        test_delay= ROUTINE_SETTINGS["test_delay"], #'03', 
+        scanLoadPhase= ROUTINE_SETTINGS["scanLoadPhase"], #'20'
 ):
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
     scanLoadPhase1= hex(int(x[:2], 2))[2:]

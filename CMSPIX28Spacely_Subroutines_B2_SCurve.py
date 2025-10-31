@@ -26,15 +26,15 @@ except ImportError as e:
 #-----------------------------------------------------------------------
     
 def PreProgSCurve(
-        scanLoadPhase = '26',
-        scan_load_delay = '13', 
-        startBxclkState = '0', 
-        bxclk_delay = '12', #'0B', 
-        bxclk_period = '28',
-        injection_delay = '1E', # vin_test_trig_out in the FW
-        scanLoopBackBit = '0', 
-        test_sample = '0F', 
-        test_delay = '14', 
+        scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26',
+        scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+        startBxclkState = ROUTINE_SETTINGS["startBxclkState"], #'0', 
+        bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], #'12', #'0B', 
+        bxclk_period = ROUTINE_SETTINGS["bxclk_period"], #'28',
+        injection_delay = ROUTINE_SETTINGS["injection_delay"], #'1E', # vin_test_trig_out in the FW
+        scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], #'0', 
+        test_sample = ROUTINE_SETTINGS["test_sample"], #'0F', 
+        test_delay = ROUTINE_SETTINGS["test_delay"], #'14', 
         v_min = 0.01, 
         v_max = 0.4, 
         v_step = 0.01, 
@@ -226,15 +226,15 @@ def PreProgSCurve(
 #-----------------------------------------------------------------------
 
 def PreProgSCurveBurst(
-        scan_load_delay = '13', 
-        startBxclkState = '0', 
-        bxclk_delay = '12', #'11', 
-        bxclk_period = '28',
-        injection_delay = '1E', #'17', 
-        scanLoopBackBit = '0', 
-        test_sample = '0F', 
-        scanLoadPhase = '26',
-        test_delay = '14', 
+        scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+        startBxclkState = ROUTINE_SETTINGS["startBxclkState"], #'0', 
+        bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], #'12', #'11', 
+        bxclk_period = ROUTINE_SETTINGS["bxclk_period"], #'28',
+        injection_delay = ROUTINE_SETTINGS["injection_delay"], #'1E', #'17', 
+        scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], #'0', 
+        test_sample = ROUTINE_SETTINGS["test_sample"], #'0F', 
+        scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26',
+        test_delay = ROUTINE_SETTINGS["test_delay"], #'14', 
         tsleep = 100e-3,
         v_min = 0.001, 
         v_max = 0.4, 
@@ -439,18 +439,21 @@ def SCurveMatrix():
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     for i in range(nPix):
-        ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [i], pixelValue=[1])
+        # ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [i], pixelValue=[1])
+        ProgPixelsOnly(configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+                       cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+                       pixelList = [i], pixelValue=[1])
         
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '11',         #superpix1 '11', superpix2 '12',
-            bxclk_period = '28', 
-            injection_delay = '1C',     #superpix1 '1C', superpix2 '1E',
-            scanLoopBackBit = '0', 
-            test_sample = '0F', 
-            scanLoadPhase ='25',        #superpix1 '25', superpix2 '26',
-            test_delay = '14', 
+            scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], # '13', 
+            startBxclkState = ROUTINE_SETTINGS["startBxclkState"], # '0', 
+            bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], # '11',         #superpix1 '11', superpix2 '12',
+            bxclk_period = ROUTINE_SETTINGS["bxclk_period"], # '28', 
+            injection_delay = ROUTINE_SETTINGS["injection_delay"], # '1C',     #superpix1 '1C', superpix2 '1E',
+            scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], # '0', 
+            test_sample = ROUTINE_SETTINGS["test_sample"], # '0F', 
+            scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'25',        #superpix1 '25', superpix2 '26',
+            test_delay = ROUTINE_SETTINGS["test_delay"], # '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.001, 
@@ -479,7 +482,11 @@ def SCurveSweepIbias(nPix=0):
 
     print(nPix)
     #program single pixel
-    ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    # ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1', pixelList = [nPix], pixelValue=[1])
+    ProgPixelsOnly(
+        configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+        cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+        pixelList = [nPix], pixelValue=[1])
     
 
     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
@@ -495,15 +502,15 @@ def SCurveSweepIbias(nPix=0):
         V_LEVEL["Ibias"] = i
         V_PORT["vdda"].get_current()
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '12', #'0B', 
-            bxclk_period = '28', 
-            injection_delay = '1E', #'1D', 
-            scanLoopBackBit = '0', 
-            test_sample = '0F', 
-            scanLoadPhase ='26',
-            test_delay = '14', 
+            scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"] , # '13', 
+            startBxclkState = ROUTINE_SETTINGS["startBxclkState"] , # '0', 
+            bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"] , # '12', #'0B', 
+            bxclk_period = ROUTINE_SETTINGS["bxclk_period"] , # '28', 
+            injection_delay = ROUTINE_SETTINGS["injection_delay"] , # '1E', #'1D', 
+            scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"] , # '0', 
+            test_sample = ROUTINE_SETTINGS["test_sample"] , # '0F', 
+            scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"] , #'26',
+            test_delay = ROUTINE_SETTINGS["test_delay"] , # '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.001, 
@@ -525,7 +532,10 @@ def SCurveSweepVTH(nPix=0):
 
     print(nPix)
     #program single pixel
-    ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    # ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    ProgPixelsOnly(configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+                   cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+                   pixelList = [nPix], pixelValue=[1])
     
 
     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
@@ -545,15 +555,15 @@ def SCurveSweepVTH(nPix=0):
         V_LEVEL["vth2"] = i
         V_PORT["vdda"].get_current()
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '12', #'0B', 
-            bxclk_period = '28', 
-            injection_delay = '1E', #'1D', 
-            scanLoopBackBit = '0', 
-            test_sample = '0F', 
-            scanLoadPhase ='26',
-            test_delay = '14', 
+            scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], # '13', 
+            startBxclkState = ROUTINE_SETTINGS["startBxclkState"], # '0', 
+            bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], # '12', #'0B', 
+            bxclk_period = ROUTINE_SETTINGS["bxclk_period"], # '28', 
+            injection_delay = ROUTINE_SETTINGS["injection_delay"], # '1E', #'1D', 
+            scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], # '0', 
+            test_sample = ROUTINE_SETTINGS["test_sample"], # '0F', 
+            scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26',
+            test_delay = ROUTINE_SETTINGS["test_delay"], # '14', 
             v_min = 0.001, 
             v_max = 0.4, 
             v_step = 0.001, 
@@ -581,7 +591,10 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
 # parameter is expected to match FW name and be a string
 
     #program single pixel
-    ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    # ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+    ProgPixelsOnly(configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+                   cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+                   pixelList = [nPix], pixelValue=[1])
 
     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
     dataDir = FNAL_SETTINGS["storageDirectory"]
@@ -595,15 +608,15 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
 
             V_PORT["vdda"].get_current()
             PreProgSCurveBurst(
-                scan_load_delay = '13', 
-                startBxclkState = '0', 
-                bxclk_delay = '12', #'12', 
-                bxclk_period = '28', 
-                injection_delay = i, 
-                scanLoopBackBit = '0', 
-                test_sample = '0F', 
-                scanLoadPhase ='26',
-                test_delay = '14', 
+                scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], # '13', 
+                startBxclkState = ROUTINE_SETTINGS["startBxclkState"], # '0', 
+                bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], # '12', #'12', 
+                bxclk_period = ROUTINE_SETTINGS["bxclk_period"], # '28', 
+                injection_delay= i, 
+                scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], # '0', 
+                test_sample = ROUTINE_SETTINGS["test_sample"], # '0F', 
+                scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26',
+                test_delay = ROUTINE_SETTINGS["test_delay"], # '14', 
                 v_min = 0.001, 
                 v_max = 0.4, 
                 v_step = 0.001, 
@@ -626,15 +639,15 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
             time.sleep(0.1) # added time for pulse generator to settle
             V_PORT["vdda"].get_current()
             PreProgSCurveBurst(
-                scan_load_delay = '13', 
-                startBxclkState = '0', 
-                bxclk_delay = '12', #'0B', 
-                bxclk_period = '28', 
-                injection_delay = '1E', 
-                scanLoopBackBit = '0', 
-                test_sample = '0F', 
-                scanLoadPhase ='26',
-                test_delay = '14', 
+                scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], # '13', 
+                startBxclkState = ROUTINE_SETTINGS["startBxclkState"], # '0', 
+                bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], # '12', #'0B', 
+                bxclk_period = ROUTINE_SETTINGS["bxclk_period"], # '28', 
+                injection_delay = ROUTINE_SETTINGS["injection_delay"], # '1E', 
+                scanLoopBackBit = ROUTINE_SETTINGS["scanLoopBackBit"], # '0', 
+                test_sample = ROUTINE_SETTINGS["test_sample"], # '0F', 
+                scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26',
+                test_delay = ROUTINE_SETTINGS["test_delay"], # '14', 
                 v_min = 0.001, 
                 v_max = 0.4, 
                 v_step = 0.001, 
