@@ -545,6 +545,7 @@ def SCurveSweepVTH(nPix=0):
     # Sweep range
     biasList = np.arange(0,0.3,0.01)
     # biasList = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]
+    biasList = [0.05, 0.06, 0.07, 0.08]
     # vthList = [1.5,1.6]
     for i in biasList:
         V_PORT["vth0"].set_voltage(i)
@@ -575,9 +576,9 @@ def SCurveSweepVTH(nPix=0):
             testType = "MatrixVTH"
         )
 
-def SCurveSweepVTHPix():
+def SCurveSweepVTHPix(nPixList=[192]):
     nPix = 256
-    nPixList =  [192]
+    #nPixList =  [192]
     for i in nPixList: #range(nPix):
         SCurveSweepVTH(nPix=i)
 

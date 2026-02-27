@@ -623,3 +623,14 @@ def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='28', readout_CSV="readou
 
     # interpret data from chip to just give NN prediction
     # return reshaped_dnn_out
+
+
+
+#quick function to set discriminator voltages
+def setDisc(volt0, volt1):
+    V_PORT["disc0"].set_voltage(volt0)
+    V_LEVEL["disc0"] = volt0
+    #measure bias 7
+    V_PORT["disc1"].set_voltage(volt1)
+    V_LEVEL["disc1"] = volt1
+    #measure bias 9
