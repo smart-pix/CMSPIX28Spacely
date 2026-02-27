@@ -28,14 +28,14 @@ except ImportError as e:
 # **********************************************************************************
     
 def settingsScanSampleFW(
-        bxclk_period='28', 
-        start_bxclk_state='0', 
-        cfg_test_sample='08', 
-        bxclk_delay= '0B', #'11', 
-        injection_delay='1D', #'04', 
-        loopbackBit='0', 
-        cfg_test_delay='03', 
-        scan_load_delay='13', 
+        bxclk_period= ROUTINE_SETTINGS["bxclk_period"], #'28', 
+        start_bxclk_state= ROUTINE_SETTINGS["startBxclkState"], #'0', 
+        cfg_test_sample= ROUTINE_SETTINGS["cfg_test_sample"], #'08', #default is '20', original was '08'
+        bxclk_delay= ROUTINE_SETTINGS["bxclk_delay"], # '0B', #'11', #default is '12', original was '0B'
+        injection_delay= ROUTINE_SETTINGS["injection_delay"], #'1D', #'04',  #default is '1E', original was '1D'
+        loopbackBit= ROUTINE_SETTINGS["loopbackBit"], #'0', 
+        cfg_test_delay= ROUTINE_SETTINGS["cfg_test_delay"], #'03', #default is '5', original was '03'
+        scan_load_delay= ROUTINE_SETTINGS["scan_load_delay"], #'13', 
         scanIndata='0001', 
         nrepeat=1, 
         debug=False,
@@ -280,18 +280,18 @@ def settingsScanSampleFW(
 # If BxCLK frequency shifts, the Sample Delay will need to be retuned 
 # **********************************************************************************
 def calibrationMatrixHighStat(
-        scanLoadPhase = '27', # DEAULT VALUE '25',
+        scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'27', # DEAULT VALUE '25', #default is actually '26', original was '27'
         tsleep = 200e-6,
         tsleep2 = 0.5,
         loopbackBit=0, 
-        bxclk_period='28', 
+        bxclk_period=ROUTINE_SETTINGS["bxclk_period"], #'28', 
         nsample=32,
         v_min = 0.001, 
         v_max = 0.4, 
         v_step = 0.034, 
-        bxclk_delay = '13', # DEFAULT VALUE '11',
-        injection_delay = '1F', # DEFAULT VALUE '1D',
-        scan_load_delay = '13',
+        bxclk_delay = ROUTINE_SETTINGS["bxclk_delay"], #'13', # DEFAULT VALUE '11', #default is actually '12', original was '13'
+        injection_delay = ROUTINE_SETTINGS["injection_delay"], #'1F', # DEFAULT VALUE '1D', #default is actually '1E', original was '1F'
+        scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], #'13',
         dateTime = None,
         dataDir = FNAL_SETTINGS["storageDirectory"],
         testType = "MatrixCalibration",
@@ -394,7 +394,9 @@ def calibrationMatrixHighStat(
         for iN, nPix in enumerate(pixList):
                     
             # program shift register
-            ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+            ProgPixelsOnly(configclk_period=ROUTINE_SETTINGS["configclk_period"], cfg_test_delay=ROUTINE_SETTINGS["cfg_test_delay"], 
+                           cfg_test_sample=ROUTINE_SETTINGS["cfg_test_sample"],cfg_test_gate_config_clk=ROUTINE_SETTINGS["cfg_test_gate_config_clk"], 
+                           pixelList = [nPix], pixelValue=[1])
 
             # pix value in hex
             nPixHex = int_to_32bit_hex(nPix)
@@ -536,14 +538,14 @@ def calibrationMatrixHighStatExtraction():
                 tsleep = 200e-6,
                 tsleep2 = 0.5,
                 loopbackBit=0, 
-                bxclk_period='28', 
+                bxclk_period= ROUTINE_SETTINGS["bxclk_period"], #'28', 
                 nsample=32,
                 v_min = 0.001, 
                 v_max = 0.4, 
                 v_step = 0.034, 
                 bxclk_delay = bxclk_delay,
                 injection_delay = injection_delay,
-                scan_load_delay = '13',
+                scan_load_delay = ROUTINE_SETTINGS["scan_load_delay"], #'13',
                 dateTime = None,
                 dataDir = FNAL_SETTINGS["storageDirectory"],
                 testType = "MatrixCalibration",

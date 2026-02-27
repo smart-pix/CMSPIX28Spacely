@@ -13,24 +13,25 @@ except ImportError as e:
 
 def DNN(
     progDebug=False,
-    loopbackBit=0, 
+    loopbackBit=ROUTINE_SETTINGS["loopbackBit"], 
     patternIndexes = [0], 
     verbose=False, 
-    injection_delay='1E', 
-    bxclk_period='28', 
-    startBxclkState='0',
-    scan_load_delay='13', 
-    cfg_test_delay='5', 
-    cfg_test_sample='20', 
-    progResetMask='0', 
-    configclk_period='64', 
-    test_delay='14', 
-    test_sample='0F', 
-    bxclk_delay='12',
-    configClkGate='0',
-    scanLoadPhase ='26', 
+    injection_delay= ROUTINE_SETTINGS["injection_delay"], #'1E', 
+    bxclk_period= ROUTINE_SETTINGS["bxclk_period"], #'28', 
+    startBxclkState= ROUTINE_SETTINGS["startBxclkState"], #'0',
+    scan_load_delay= ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+    cfg_test_delay= ROUTINE_SETTINGS["cfg_test_delay"], #'5', 
+    cfg_test_sample= ROUTINE_SETTINGS["cfg_test_sample"], #'20', 
+    progResetMask= ROUTINE_SETTINGS["progResetMask"], #'0', 
+    configclk_period= ROUTINE_SETTINGS["configclk_period"], #'64', 
+    test_delay= ROUTINE_SETTINGS["test_delay"], #'14', 
+    test_sample= ROUTINE_SETTINGS["test_sample"], #'0F', 
+    bxclk_delay= ROUTINE_SETTINGS["bxclk_delay"], #'12',
+    configClkGate= ROUTINE_SETTINGS["configClkGate"], #'0',
+    scanLoadPhase= ROUTINE_SETTINGS["scanLoadPhase"], #'26', 
     dnn_csv=None, 
     pixel_compout_csv=None, 
+    hidden_csv=None,
     dataDir = FNAL_SETTINGS["storageDirectory"],
     dateTime = None,
     vth0=0.08,
@@ -86,7 +87,8 @@ def DNN(
 
 
     # load all of the configs
-    filename = pixel_compout_csv if pixel_compout_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
+    # filename = pixel_compout_csv if pixel_compout_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_D/tb/dnn/csv/l6/compouts.csv"
+    filename = pixel_compout_csv if pixel_compout_csv else "./spacely-asic-config/CMSPIX28Spacely/csv/compouts.csv"
     pixelLists, pixelValues = genPixelConfigFromInputCSV(filename)
 
     # loop over test cases
@@ -102,7 +104,8 @@ def DNN(
         
         # increment counter of number of patterns
         iN += 1
-        hiddenBit=hidden_csv if hidden_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
+        #hiddenBit=hidden_csv if hidden_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
+        hiddenBit=hidden_csv if hidden_csv else "./spacely-asic-config/CMSPIX28Spacely/csv/hidden_debug.csv"
 
         # pick up pixel config for the given pattern
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
@@ -110,10 +113,11 @@ def DNN(
         # Programming the NN weights and biases
         # THIS TAKES SIGNIFICANT AMOUNT OF TIME (~0.3sec) --> COULD IMPROVE --<
         if(progDebug==True):
-            hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+            #hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+            hex_lists = dnnConfig('./spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         else:
-            filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
-            
+            #filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
+            filename = dnn_csv if dnn_csv else './spacely-asic-config/CMSPIX28Spacely/csv/b5_w5_b2_w2_pixel_bin.csv'
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         sw_write32_0(hex_lists)
@@ -402,22 +406,22 @@ def DNN_power(n_tb=100, waitTime=1.4, dnnwaitTime=1, pNoiseBool=False, vth0=0.01
         #set pulse generator in normal condition
         DNN(
         progDebug=False,
-        loopbackBit=0, 
+        loopbackBit=ROUTINE_SETTINGS["loopbackBit"], 
         patternIndexes = [0], 
         verbose=False, 
-        injection_delay='1E', 
-        bxclk_period='28', 
-        startBxclkState='0',
-        scan_load_delay='13', 
-        cfg_test_delay='5', 
-        cfg_test_sample='20', 
-        progResetMask='0', 
-        configclk_period='64', 
-        test_delay='14', 
-        test_sample='0F', 
-        bxclk_delay='12',
-        configClkGate='0',
-        scanLoadPhase ='26', 
+        injection_delay=  ROUTINE_SETTINGS["injection_delay"], #'1E', 
+        bxclk_period=  ROUTINE_SETTINGS["bxclk_period"], #'28', 
+        startBxclkState=  ROUTINE_SETTINGS["startBxclkState"], #'0',
+        scan_load_delay=  ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+        cfg_test_delay=  ROUTINE_SETTINGS["cfg_test_delay"], #'5', 
+        cfg_test_sample=  ROUTINE_SETTINGS["cfg_test_sample"], #'20', 
+        progResetMask=  ROUTINE_SETTINGS["progResetMask"], #'0', 
+        configclk_period=  ROUTINE_SETTINGS["configclk_period"], #'64', 
+        test_delay=  ROUTINE_SETTINGS["test_delay"], #'14', 
+        test_sample=  ROUTINE_SETTINGS["test_sample"], #'0F', 
+        bxclk_delay=  ROUTINE_SETTINGS["bxclk_delay"], #'12',
+        configClkGate=  ROUTINE_SETTINGS["configClkGate"], #'0',
+        scanLoadPhase = ROUTINE_SETTINGS["scanLoadPhase"], #'26', 
         dnn_csv=None, 
         pixel_compout_csv=None, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
@@ -454,22 +458,22 @@ def DNN_power(n_tb=100, waitTime=1.4, dnnwaitTime=1, pNoiseBool=False, vth0=0.01
             #set pulse generator in normal condition
             DNN(
             progDebug=False,
-            loopbackBit=0, 
+            loopbackBit=ROUTINE_SETTINGS["loopbackBit"],#0, 
             patternIndexes = [i], 
             verbose=False, 
-            injection_delay='1E', 
-            bxclk_period='28', 
-            startBxclkState='0',
-            scan_load_delay='13', 
-            cfg_test_delay='5', 
-            cfg_test_sample='20', 
-            progResetMask='0', 
-            configclk_period='64', 
-            test_delay='14', 
-            test_sample='0F', 
-            bxclk_delay='12',
-            configClkGate='0',
-            scanLoadPhase ='26', 
+            injection_delay= ROUTINE_SETTINGS["injection_delay"], #'1E', 
+            bxclk_period= ROUTINE_SETTINGS["bxclk_period"], #'28', 
+            startBxclkState= ROUTINE_SETTINGS["startBxclkState"], #'0',
+            scan_load_delay= ROUTINE_SETTINGS["scan_load_delay"], #'13', 
+            cfg_test_delay= ROUTINE_SETTINGS["cfg_test_delay"], #'5', 
+            cfg_test_sample= ROUTINE_SETTINGS["cfg_test_sample"], #'20', 
+            progResetMask= ROUTINE_SETTINGS["progResetMask"], #'0', 
+            configclk_period= ROUTINE_SETTINGS["configclk_period"], #'64', 
+            test_delay= ROUTINE_SETTINGS["test_delay"], #'14', 
+            test_sample= ROUTINE_SETTINGS["test_sample"], #'0F', 
+            bxclk_delay= ROUTINE_SETTINGS["bxclk_delay"], #'12',
+            configClkGate= ROUTINE_SETTINGS["configClkGate"], #'0',
+            scanLoadPhase= ROUTINE_SETTINGS["scanLoadPhase"], #'26', 
             dnn_csv=None, 
             pixel_compout_csv=None, 
             dataDir = FNAL_SETTINGS["storageDirectory"],
@@ -619,3 +623,14 @@ def DNN_analyse(debug=False, latency_bit=37, bxclkFreq='28', readout_CSV="readou
 
     # interpret data from chip to just give NN prediction
     # return reshaped_dnn_out
+
+
+
+#quick function to set discriminator voltages
+def setDisc(volt0, volt1):
+    V_PORT["disc0"].set_voltage(volt0)
+    V_LEVEL["disc0"] = volt0
+    #measure bias 7
+    V_PORT["disc1"].set_voltage(volt1)
+    V_LEVEL["disc1"] = volt1
+    #measure bias 9

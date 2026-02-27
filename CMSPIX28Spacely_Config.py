@@ -1,7 +1,7 @@
 
 
 INSTR = {"car" : {"type": "Caribou",
-                  "host":"192.168.1.24",
+                  "host":"mud.uchicago.edu",
                   "port":12345,
                   "device":"SpacelyCaribouBasic"}}
 
@@ -15,7 +15,9 @@ V_SEQUENCE = ["vdda",
               "VMC", 
               "SUPERPIX", 
               "INJ_1",
-              "Ibias"
+              "Ibias",
+              "disc0",
+              "disc1",
 ]
 
 I_SEQUENCE = [
@@ -36,7 +38,9 @@ V_INSTR = {"vdda": "car",
            "VMC":"car",
            "SUPERPIX":"car",
            "INJ_1": "car",
-           "Ibias": "car"
+           "Ibias": "car",
+           "disc0": "car",
+           "disc1": "car",
 }
 
 I_INSTR = {
@@ -57,7 +61,9 @@ V_CHAN = {"vdda": "PWR_OUT_1",
            "VMC":"BIAS_1",
            "SUPERPIX":"BIAS_5",
            "INJ_1":"INJ_1",
-           "Ibias":"BIAS_26"
+           "Ibias":"BIAS_26",
+           "disc0":"BIAS_7",
+           "disc1":"BIAS_9",
 }
 
 I_CHAN = {
@@ -72,13 +78,15 @@ I_CHAN = {
 
 V_LEVEL = {"vdda": 0.9,
            "vddd": 0.9,
-           "vth0": 0.031, #0.05 is 1000e-
-           "vth1": 0.031, #0.08 is 1500e-
-           "vth2": 0.031, #0.11 is 2000e-
+           "vth0": 0.05,#0.031, #0.05 is 1000e-
+           "vth1": 0.08,#0.031, #0.08 is 1500e-
+           "vth2": 0.11,#0.031, #0.11 is 2000e-
            "VMC": 0.4,
-           "SUPERPIX":0,
+           "SUPERPIX":0,#0.9,#0,
+           "Ibias": 0.6,            #TUNE TO have 5uW/pixel
            "INJ_1": 2,
-           "Ibias": 0.6            #TUNE TO have 5uW/pixel
+           "disc0":0,
+           "disc1":0,
 }
 
 I_LEVEL = {
@@ -99,7 +107,9 @@ V_WARN_VOLTAGE = {"vdda": [0.82,0.99],
            "VMC": [0,0.4],
            "SUPERPIX":[0,0.99],
            "INJ_1": [1.8,2.2],
-           "Ibias": [0,0.9]
+           "Ibias": [0,0.9],
+           "disc0": [0,2],
+           "disc1": [0,2],
       }
 
 V_PORT  = {"vdda": None,
@@ -110,7 +120,9 @@ V_PORT  = {"vdda": None,
            "VMC":None,
            "SUPERPIX":None,
            "INJ_1": None,
-           "Ibias": None
+           "Ibias": None,
+           "disc0": None,
+           "disc1": None,
 }
 
 I_PORT = {
@@ -135,7 +147,74 @@ I_VOLT_LIMIT = {
 
 
 FNAL_SETTINGS = {
-    "storageDirectory" : "/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
+    "storageDirectory" : "/local/d1/smartpixLab/scurveData", # "/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
     "chipVersion" : 1,
-    "chipID" : 17
+    "chipID" : 22,#16,
+    "pixel_compout_csv" : "/local/d1/smartpixLab/filter/model_pipeline/tmp/923_1847_3695/compouts_ylocal_0.00_1.35.csv",
+    "dnn_csv" : "/local/d1/smartpixLab/filter/model_pipeline/tmp/firmware/weights/b5_w5_b2_w2_pixel_bin.csv",
+        
 }
+
+ROUTINE_SETTINGS_UC = {
+    "configclk_period" : '64',
+    "cfg_test_delay" : '5',
+    "cfg_test_sample" :'20',
+    "cfg_test_gate_config_clk" :'1',
+    "scan_load_delay" : '19',#'13', #in some parts of the code, this is #superpix1 '1C', superpix2 '1E',
+    "startBxclkState" : '0',
+    "bxclk_delay" : '12',   #in some parts of the code, this is '11' for superpix 1 and '12' for superpixel 2
+    "bxclk_period" : '28',
+    "injection_delay" : 'c',# '1E', #original was '1E' in ~r3 and ~r6 and ~r7, but for some reason '1D' in ~r4 #in some parts of the code, #superpix1 '1C', superpix2 '1E',
+    "scanLoopBackBit" : '0',
+    "test_sample" : 'F',
+    "test_delay" : '14',
+    "scanLoadPhase" : '26', #in some parts of the code, this is  #superpix1 '25', superpix2 '26',
+    "loopbackBit" : 0,
+    "progResetMask" : '0', #seems only for DNN function and ROUTINE_DNN
+    "configClkGate" : '0', #seems only for DNN function and ROUTINE_DNN
+
+}
+
+#TODO: Update for FNAL
+ROUTINE_SETTINGS_FNAL = {
+    "configclk_period" : '64',
+    "cfg_test_delay" : '5',
+    "cfg_test_sample" :'20',
+    "cfg_test_gate_config_clk" :'1',
+    "scan_load_delay" : '19',#'13', #in some parts of the code, this is #superpix1 '1C', superpix2 '1E',
+    "startBxclkState" : '0',
+    "bxclk_delay" : '12',   #in some parts of the code, this is '11' for superpix 1 and '12' for superpixel 2
+    "bxclk_period" : '28',
+    "injection_delay" : 'c',# '1E', #original was '1E' in ~r3 and ~r6 and ~r7, but for some reason '1D' in ~r4 #in some parts of the code, #superpix1 '1C', superpix2 '1E',
+    "scanLoopBackBit" : '0',
+    "test_sample" : 'F',
+    "test_delay" : '14',
+    "scanLoadPhase" : '26', #in some parts of the code, this is  #superpix1 '25', superpix2 '26',
+    "loopbackBit" : 0,
+    "progResetMask" : '0', #seems only for DNN function and ROUTINE_DNN
+    "configClkGate" : '0', #seems only for DNN function and ROUTINE_DNN
+}
+
+#TODO: Update for Cornell
+ROUTINE_SETTINGS_CORNELL = {
+    "configclk_period" : '64',
+    "cfg_test_delay" : '5',
+    "cfg_test_sample" :'20',
+    "cfg_test_gate_config_clk" :'1',
+    "scan_load_delay" : '19',#'13', #in some parts of the code, this is #superpix1 '1C', superpix2 '1E',
+    "startBxclkState" : '0',
+    "bxclk_delay" : '12',   #in some parts of the code, this is '11' for superpix 1 and '12' for superpixel 2
+    "bxclk_period" : '28',
+    "injection_delay" : 'c',# '1E', #original was '1E' in ~r3 and ~r6 and ~r7, but for some reason '1D' in ~r4 #in some parts of the code, #superpix1 '1C', superpix2 '1E',
+    "scanLoopBackBit" : '0',
+    "test_sample" : 'F',
+    "test_delay" : '14',
+    "scanLoadPhase" : '26', #in some parts of the code, this is  #superpix1 '25', superpix2 '26',
+    "loopbackBit" : 0,
+    "progResetMask" : '0', #seems only for DNN function and ROUTINE_DNN
+    "configClkGate" : '0', #seems only for DNN function and ROUTINE_DNN
+}
+
+
+#Set it to FNAL or Cornell when using those test stands
+ROUTINE_SETTINGS=ROUTINE_SETTINGS_UC
