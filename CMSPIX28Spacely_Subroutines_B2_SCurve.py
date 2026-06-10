@@ -102,7 +102,8 @@ def PreProgSCurve(
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixIbias":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
-        pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
+        # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
+        pixelInfo = f"Ibias{I_LEVEL['OUTsink']:.6f}"
     elif testType == "MatrixVTH":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = f"vth{V_LEVEL['vth0']:.3f}"
@@ -310,7 +311,8 @@ def PreProgSCurveBurst(
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixIbias":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
-        pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
+        # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
+        pixelInfo = f"Ibias{I_LEVEL['OUTsink']*1000000:.1f}uA"
     elif testType == "MatrixVTH":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = f"vth{V_LEVEL['vth0']:.3f}"
@@ -487,12 +489,17 @@ def SCurveSweepIbias(nPix=0):
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     # Sweep range
-    biasList = np.arange(0.5,0.8,0.01)
+    V_biasList = np.arange(0.5,0.8,0.01)
+
+    I_biasList = np.arange(0,0.00002,0.000001)
+    # I_biasList = [0.000001,0.0000011]
     # biasList = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]
     # vthList = [1.5,1.6]
-    for i in biasList:
-        V_PORT["Ibias"].set_voltage(i)
-        V_LEVEL["Ibias"] = i
+
+    for i in I_biasList:
+        # V_PORT["Ibias"].set_voltage(i)
+        I_PORT["OUTsink"].set_current(i)
+        I_LEVEL["OUTsink"] = i
         V_PORT["vdda"].get_current()
         PreProgSCurveBurst(
             scan_load_delay = '13', 
@@ -514,7 +521,7 @@ def SCurveSweepIbias(nPix=0):
             dateTime = now,
             testType = "MatrixIbias"
         )
-
+    SDG7102A_INIT()
 
   
 def SCurveSweepVTH(nPix=0):
@@ -673,22 +680,20 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
 def analogPower(
     dataDir=FNAL_SETTINGS["storageDirectory"],
     dateTime=None,
+    nIter=100,
+    settle_s=1.0,
 ):
-    print(dataDir)
     testType = "AnalogPower"
     chipInfo = (
         f"ChipVersion{FNAL_SETTINGS['chipVersion']}_"
         f"ChipID{FNAL_SETTINGS['chipID']}_"
         f"SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     )
-    print(chipInfo)
 
     testInfo = (dateTime if dateTime
                 else datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_{testType}")
-    print(testInfo)
 
     outDir = os.path.join(dataDir, chipInfo, testInfo)
-    print(outDir)
     os.makedirs(outDir, exist_ok=True)
     try:
         os.chmod(outDir, 0o777)
@@ -697,42 +702,60 @@ def analogPower(
 
     print(f"Saving results to {outDir}")
 
-    # === Measurement setup ===
-    biasList = np.round(np.arange(0.0, 0.901, 0.01), 3)
-    nIter = 10
+    # === sweep ===
+    ibiasList = np.arange(0.0, 0.00003, 0.000001, dtype=float)  # A
 
-    # Initialize results: first column = bias, next 10 columns = ivdda
-    results = np.zeros((len(biasList), nIter + 1))
-    results[:, 0] = biasList  # first column is Ibias
+    # === fixed VTH setup ===
+    for k in ("vth0", "vth1", "vth2"):
+        V_PORT[k].set_voltage(0.1)
+        V_LEVEL[k] = 0.1
 
-    # === Iterate measurements ===
-    for it in range(nIter):
-        ivdda_meas = []
-        print(f"\nIteration {it+1}/{nIter}")
+    # === allocate raw data: shape (n_ibias, nIter) ===
+    n_ibias = len(ibiasList)
+    ivdda_raw = np.empty((n_ibias, nIter), dtype=float)
 
-        for v in biasList:
-            V_PORT["Ibias"].set_voltage(float(v))
-            V_LEVEL["Ibias"] = float(v)
-            time.sleep(0.2)
-            ivdda_meas.append(float(V_PORT["vdda"].get_current()))
+    # === measure: for each ibias, repeat nIter times ===
+    for idx, ibias in enumerate(ibiasList):
+        I_PORT["OUTsink"].set_current(float(ibias))
+        I_LEVEL["OUTsink"] = float(ibias)
 
-        results[:, it + 1] = ivdda_meas  # store in column it+1
+        # optional settle after changing ibias
+        if settle_s and settle_s > 0:
+            time.sleep(settle_s)
 
-    # === Save ===
-    outFileName = os.path.join(outDir, "analogPower.npz")
+        for it in range(nIter):
+            # if you want settle between repeats too, keep this:
+            if settle_s and settle_s > 0:
+                time.sleep(settle_s)
+
+            ivdda_raw[idx, it] = float(V_PORT["vdda"].get_current())
+
+        print(f"Ibias={ibias:.6e} A  Ivdda mean={ivdda_raw[idx].mean():.6e} A")
+
+    # === reduce ===
+    ivdda_mean = ivdda_raw.mean(axis=1)
+    ivdda_std  = ivdda_raw.std(axis=1, ddof=1) if nIter > 1 else np.zeros_like(ivdda_mean)
+    ivdda_sem  = ivdda_std / np.sqrt(nIter) if nIter > 1 else np.zeros_like(ivdda_mean)
+
+    # === save NPZ with RAW ===
+    outNpZ = os.path.join(outDir, "analogPower.npz")
     np.savez(
-        outFileName,
-        Ibias_V=biasList,
-        Ivdda_matrix_A=results[:, 1:],  # only the ivdda columns
-        results_matrix=results,          # bias + all ivdda
+        outNpZ,
+        ibias_A=ibiasList,
+        ivdda_raw_A=ivdda_raw,          # (n_ibias, nIter)
+        ivdda_mean_A=ivdda_mean,        # (n_ibias,)
+        ivdda_std_A=ivdda_std,          # (n_ibias,)
+        ivdda_sem_A=ivdda_sem,          # (n_ibias,)
+        nIter=int(nIter),
+        settle_s=float(settle_s),
     )
 
-    # ✅ define header here, before saving CSV
-    header = "Ibias(V)," + ",".join([f"Ivdda_iter{i+1}(A)" for i in range(nIter)])
+    # === save CSV with AVERAGE (plus std/sem) ===
+    outCsv = os.path.join(outDir, "analogPower_avg.csv")
+    csv_mat = np.column_stack([ibiasList, ivdda_mean, ivdda_std, ivdda_sem])
+    header = "Ibias_A,Ivdda_mean_A,Ivdda_std_A,Ivdda_sem_A"
+    np.savetxt(outCsv, csv_mat, delimiter=",", header=header, comments="")
 
-    outCsv = os.path.join(outDir, "analogPower.csv")
-    np.savetxt(outCsv, results, delimiter=",", header=header, comments="")
-
-    print(f"Saved NPZ: {outFileName}")
-    print(f"Saved CSV: {outCsv}")
-    return outFileName
+    print(f"Saved NPZ (raw + summary): {outNpZ}")
+    print(f"Saved CSV (average):       {outCsv}")
+    return outNpZ

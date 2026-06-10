@@ -48,8 +48,19 @@ def onstartup():
     else:
         iDVDD = V_PORT["vddd"].get_current()
         iAVDD = V_PORT["vdda"].get_current()
+        I_PORT["OUTsink"].set_current(0.000003) # just to initialize the current readout for the chip
+        I_LEVEL["OUTsink"] = 0.000003
+
+        I_PORT["ThresholdOut"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdOut"] = 0.000001
+        I_PORT["ThresholdDown"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdDown"] = 0.000001
+        I_PORT["ThresholdUp"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdUp"] = 0.000001
+
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
+        print(f"Ibias current is {I_LEVEL['OUTsink']*1000000}uA")
         print("Programming of the ASIC shift register")
         # ROUTINE_IP1_test1() -> converted to ROUTINE_ProgPixelsOnly()
         print("shift register Programmed")
@@ -57,7 +68,7 @@ def onstartup():
         iAVDD = V_PORT["vdda"].get_current()
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
-
+    
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):

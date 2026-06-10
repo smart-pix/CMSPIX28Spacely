@@ -19,13 +19,13 @@ V_SEQUENCE = ["vdda",
 ]
 
 I_SEQUENCE = [
-        #       "Ileak", 
-            #   "OUTsink",
-            #   "ThresholdOut",
-            #   "ThresholdDown",
-            #   "ThresholdUp",
-            #   "Source1mA",
-            #   "VlogSink1mA"
+              "Ileak", 
+              "OUTsink",
+              "ThresholdOut",
+              "ThresholdDown",
+              "ThresholdUp",
+              "Source1mA",
+              "VlogSink1mA"
               ]
 
 V_INSTR = {"vdda": "car",
@@ -40,13 +40,13 @@ V_INSTR = {"vdda": "car",
 }
 
 I_INSTR = {
-        #    "Ileak": "car",
-        #    "OUTsink": "car",
-        #    "ThresholdOut": "car",
-        #    "ThresholdDown": "car",
-        #    "ThresholdUp": "car",
-        #    "Source1mA": "car",
-        #    "VlogSink1mA": "car"
+           "Ileak": "car",
+           "OUTsink": "car",
+           "ThresholdOut": "car",
+           "ThresholdDown": "car",
+           "ThresholdUp": "car",
+           "Source1mA": "car",
+           "VlogSink1mA": "car"
            }
 
 V_CHAN = {"vdda": "PWR_OUT_1",
@@ -61,13 +61,13 @@ V_CHAN = {"vdda": "PWR_OUT_1",
 }
 
 I_CHAN = {
-        #    "Ileak":"CUR_8",
-        #    "OUTsink":"CUR_1",
-        #    "ThresholdOut":"CUR_2",
-        #    "ThresholdDown":"CUR_3",
-        #    "ThresholdUp":"CUR_4",
-        #    "Source1mA":"CUR_5",
-        #    "VlogSink1mA":"CUR_6"
+           "Ileak":"CUR_8",
+           "OUTsink":"CUR_1",
+           "ThresholdOut":"CUR_2",
+           "ThresholdDown":"CUR_3",
+           "ThresholdUp":"CUR_4",
+           "Source1mA":"CUR_5",
+           "VlogSink1mA":"CUR_6"
            }
 
 V_LEVEL = {"vdda": 0.9,
@@ -82,13 +82,13 @@ V_LEVEL = {"vdda": 0.9,
 }
 
 I_LEVEL = {
-        #    "Ileak": 0.01,  # 10uA
-        #    "OUTsink": 0,
-        #    "ThresholdOut": 0,
-        #    "ThresholdDown": 0,
-        #    "ThresholdUp": 0,
-        #    "Source1mA": 0,
-        #    "VlogSink1mA": 0
+           "Ileak": -0.00001,  # SINK 10uA
+           "OUTsink": -0.00001, # SOURCE 10uA
+           "ThresholdOut": -0.00001,
+           "ThresholdDown": -0.00001,
+           "ThresholdUp": -0.00001,
+           "Source1mA": -0.00001,
+           "VlogSink1mA": -0.00001
            }
 
 V_WARN_VOLTAGE = {"vdda": [0.82,0.99],
@@ -114,24 +114,34 @@ V_PORT  = {"vdda": None,
 }
 
 I_PORT = {
-        #    "Ileak": None,
-        #    "OUTsink": None,
-        #    "ThresholdOut": None,
-        #    "ThresholdDown": None,
-        #    "ThresholdUp": None,
-        #    "Source1mA": None,
-        #    "VlogSink1mA": None
+           "Ileak": None,
+           "OUTsink": None,
+           "ThresholdOut": None,
+           "ThresholdDown": None,
+           "ThresholdUp": None,
+           "Source1mA": None,
+           "VlogSink1mA": None
            }
 
 I_VOLT_LIMIT = {
-            #   "Ileak": 0.01,
-            #   "OUTsink": 0.01,
-            #   "ThresholdOut": 0.01,
-            #   "ThresholdDown": 0.01,
-            #   "ThresholdUp": 0.01,
-            #   "Source1mA": 0.01,
-            #   "VlogSink1mA": 0.01
+              "Ileak": 0.01,
+              "OUTsink": 0.01,
+              "ThresholdOut": 0.01,
+              "ThresholdDown": 0.01,
+              "ThresholdUp": 0.01,
+              "Source1mA": 0.01,
+              "VlogSink1mA": 0.01
     }
+
+I_WARN_VOLTAGE = {
+                "Ileak": [0,0.9],
+              "OUTsink": [0,0.9],
+              "ThresholdOut": [0,0.9],
+              "ThresholdDown": [0,0.9],
+              "ThresholdUp": [0,0.9],
+              "Source1mA": [0,0.9],
+              "VlogSink1mA": [0,0.9]    
+      }
 
 
 FNAL_SETTINGS = {

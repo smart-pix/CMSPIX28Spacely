@@ -22,7 +22,7 @@ except ImportError as e:
     print("\033[93;1m" + f"Import error in {__file__}: {str(e)}".upper() + "\033[0m")
     sys.exit(1)  # Exit script immediately
 
-
+CHANNEL = "C2"  # Change this to the appropriate channel for your device (e.g., "C1", "C2", etc.)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
@@ -176,9 +176,12 @@ def SDG7102A_QUERY():
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",    
-    "C1:BSWV?",
-    "C1:BTWV?",
-    "C1:OUTP?"
+    f"{CHANNEL}:BSWV?",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTP?"
+    f"{CHANNEL}:BSWV?",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTP?"
         ]
     nlist=len(input)
     for i in range(nlist): 
@@ -196,40 +199,40 @@ def SDG7102A_INIT():
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,10e6HZ",
-    "C1:BSWV PERI,8e-6S",
-    "C1:BSWV HLEV,0.2V",
-    "C1:BSWV LLEV,0V",
-    "C1:BSWV DUTY,20",
-    "C1:BSWV RISE,5e-10S",
-    "C1:BSWV FALL,5e-10S",
-    "C1:BSWV DLY,-0S",
-    "C1:BSWV?",
+    f"{CHANNEL}:BSWV WVTP,PULSE",
+    f"{CHANNEL}:BSWV FRQ,10e6HZ",
+    f"{CHANNEL}:BSWV PERI,8e-6S",
+    f"{CHANNEL}:BSWV HLEV,0.2V",
+    f"{CHANNEL}:BSWV LLEV,0V",
+    f"{CHANNEL}:BSWV DUTY,20",
+    f"{CHANNEL}:BSWV RISE,5e-10S",
+    f"{CHANNEL}:BSWV FALL,5e-10S",
+    f"{CHANNEL}:BSWV DLY,-0S",
+    f"{CHANNEL}:BSWV?",
 
-    "C1:BTWV STATE,ON",
+    f"{CHANNEL}:BTWV STATE,ON",
     # "C1:BTWV PRD,0.00200099S",
-    "C1:BTWV PRD,80e-6S",
-    "C1:BTWV TRSR,EXT",
-    "C1:BTWV TIME,1",
-    "C1:BTWV COUNT,1",
-    "C1:BTWV DLAY,2.106e-06S",   
-    "C1:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
+    f"{CHANNEL}:BTWV PRD,80e-6S",
+    f"{CHANNEL}:BTWV TRSR,EXT",
+    f"{CHANNEL}:BTWV TIME,1",
+    f"{CHANNEL}:BTWV COUNT,1",
+    f"{CHANNEL}:BTWV DLAY,2.106e-06S",   
+    f"{CHANNEL}:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
     #"C1:BTWV EDGE,RISE",   
-    "C1:BTWV CARR,WVTP,PULSE",
-    "C1:BTWV FRQ,10e6HZ",
-    "C1:BTWV PERI,8e-6S",
-    "C1:BTWV HLEV,0.2V",
-    "C1:BTWV LLEV,0V",
-    "C1:BTWV DUTY,20",
-    "C1:BTWV RISE,5e-10S",
-    "C1:BTWV FALL,5e-10S",
-    "C1:BTWV DLY,-0S",
-    "C1:BTWV?",
-    "C1:OUTN ON",
+    f"{CHANNEL}:BTWV CARR,WVTP,PULSE",
+    f"{CHANNEL}:BTWV FRQ,10e6HZ",
+    f"{CHANNEL}:BTWV PERI,8e-6S",
+    f"{CHANNEL}:BTWV HLEV,0.2V",
+    f"{CHANNEL}:BTWV LLEV,0V",
+    f"{CHANNEL}:BTWV DUTY,20",
+    f"{CHANNEL}:BTWV RISE,5e-10S",
+    f"{CHANNEL}:BTWV FALL,5e-10S",
+    f"{CHANNEL}:BTWV DLY,-0S",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTN ON",
     #"C1:OUTP LOAD,50",
-    "C1:OUTP LOAD,HZ",
-    "C1:OUTP PLRT, INVT"
+    f"{CHANNEL}:OUTP LOAD,HZ",
+    f"{CHANNEL}:OUTP PLRT, INVT"
     ]
     nlist=len(input)
     for i in range(nlist): 
@@ -244,6 +247,29 @@ def SDG7102A_INIT():
 
 
 def SDG7102A_INJ_BURST():
+    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    input = [
+    "*IDN?",
+    f"{CHANNEL}:BSWV WVTP,PULSE",
+    f"{CHANNEL}:BSWV PERI,8e-6S",
+    f"{CHANNEL}:BSWV WIDTH, 1.6e-6S",
+    f"{CHANNEL}:BTWV STATE,ON",
+    f"{CHANNEL}:OUTN ON",
+    f"{CHANNEL}:OUTP LOAD,HZ",
+    f"{CHANNEL}:OUTP PLRT, INVT"
+    ]
+    nlist=len(input)
+    for i in range(nlist): 
+        os.write(d,input[i].encode())
+        out = b' '
+        # let's wait one second before reading output (let's give device time to answer)
+        print(input[i])
+        if(input[i][-1]=="?"):   #If the last character of the request is a question 
+            out=os.read(d,1024)  #Print out the response
+            print(out.decode())
+    os.close(d)
+
+def SDG7102A_INJ_CONT_BURST():
     d = os.open('/dev/usbtmc0', os.O_RDWR)
     input = [
     "*IDN?",
@@ -271,11 +297,14 @@ def SDG7102A_INJ_CONT():
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,666666HZ",
+    # "C1:BSWV FRQ,666666HZ",
+
+    "C1:BSWV PERI 1.5e-6S",
+    
     "C1:BSWV WIDTH, 0.75e-6S",
     # "C1:BSWV PERI,1.5e-6S",
 
-    "C1:BTWV STATE,OFF",
+    "C1:BTWV STATE,ON",
    
     "C1:OUTN ON",
     #"C1:OUTP LOAD,50",
@@ -328,7 +357,7 @@ def SDG7102A_INJ_CONT():
 def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
     start = time.time()
     input_commands = [
-        f"C1:BSWV RISE,{TFALL}S",# Set low-level voltage FALL TIME is set with RISE TIME because the PG is inverted !!!!
+        f"{CHANNEL}:BSWV RISE,{TFALL}S",# Set low-level voltage FALL TIME is set with RISE TIME because the PG is inverted !!!!
     ]
     
     retries = 0
@@ -369,7 +398,7 @@ def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
 def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     start = time.time()
     input_commands = [
-        f"C1:BSWV HLEV,{HLEV}V",  # Set high-level voltage
+        f"{CHANNEL}:BSWV HLEV,{HLEV}V",  # Set high-level voltage
         # "C1:BSWV LLEV,0V",  # Set low-level voltage
     ]
     

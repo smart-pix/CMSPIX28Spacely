@@ -483,14 +483,21 @@ def DNN_power(n_tb=100, waitTime=1.4, dnnwaitTime=1, pNoiseBool=False, vth0=0.01
             #set pulse generator in continuous injection
             time.sleep(dnnwaitTime)
             Ivddd_post.append(V_PORT["vddd"].get_current())
-            # print("Ivdd_post=",Ivddd_post)
+            print("Ivdd_post=",Ivddd_post)
+
+    print("post current measurement done")
+    time.sleep(60)
+
     SDG7102A_INJ_BURST()
     time.sleep(waitTime)
     if pNoiseBool:
         SDG7102A_SWEEP(HLEV=0)
         time.sleep(dnnwaitTime)
+
+    print("pre current measurement done")
     Ivddd_pre=V_PORT["vddd"].get_current()
     print("Ivdd_pre=", Ivddd_pre)
+    time.sleep(60)
     print("time elapsed = ", time.time()-startTime)
 
     testType = "DNN"
