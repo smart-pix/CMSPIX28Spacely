@@ -361,6 +361,7 @@ def PreProgSCurveBurst(
         t_write_total = 0
         t_read_total = 0
         t_postproc_total = 0
+        t_burst_sleep_total = 0
         for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
 
             # write configuration
@@ -388,8 +389,15 @@ def PreProgSCurveBurst(
             nword = math.ceil(nsample*3/32)
             base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
             words = ["0"*32] * nword
-            # added time for burst to complete
-            time.sleep(100e-6*nsample)
+            # Wait for the IP2 test5 burst (nsample repeats) to actually finish,
+            # by polling the real hardware status_done bit (sm_test5_o_repeat_status_done,
+            # bit 18 of sw_read32_1, aka status_index_test5_done) instead of a fixed
+            # sleep. Timeout kept at the previously-tuned empirical worst case.
+            t0 = time.time()
+            burstDone, burstDoneElapsedUs = sw_pollStatusDone(bit_index=18, timeout_us=int(100*nsample))
+            if not burstDone:
+                print(f"WARNING: SCurve burst status_done (test5) poll timed out after {burstDoneElapsedUs}us")
+            t_burst_sleep_total += time.time() - t0
 
             # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
             t0 = time.time()
@@ -419,9 +427,8 @@ def PreProgSCurveBurst(
         t_save = time.time() - t0
 
         t_step_total = time.time() - t_step_start
-        burst_sleep_total = 100e-6*nsample*nIter
         print(f"[TIMING] v={v_asic:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
-              f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
+              f"write={t_write_total:.3f}s burst_sleep={t_burst_sleep_total:.3f}s read={t_read_total:.3f}s "
               f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
 
     return None
