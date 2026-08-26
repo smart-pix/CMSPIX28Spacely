@@ -24,6 +24,49 @@ except ImportError as e:
 
 CHANNEL = "C2"  # Change this to the appropriate channel for your device (e.g., "C1", "C2", etc.)
 
+# Persistent USBTMC connections, keyed by device path. Opening a USBTMC
+# character device has real overhead (USB control transfers, driver init);
+# re-opening it on every voltage step was the dominant per-step cost for the
+# pulse generator sweep calls, so the file object is opened once and reused.
+_USBTMC_FILES = {}
+
+def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
+    """
+    Write a single SCPI command to a persistently-held USBTMC device file,
+    opening (and caching) it on first use instead of on every call. Re-opens
+    on failure (device unplugged, transient USB error, etc.).
+    """
+    retries = 0
+    while retries < max_retries:
+        d = _USBTMC_FILES.get(path)
+        try:
+            if d is None:
+                # buffering=0: USBTMC treats each write(2) syscall as one message
+                # boundary sent straight to the device. A buffered file object
+                # (the default) holds writes in userspace until the buffer fills
+                # or the file is closed, so with a persistent (long-lived) file
+                # object commands would never actually reach the instrument.
+                d = open(path, 'r+b', buffering=0)
+                _USBTMC_FILES[path] = d
+            d.write(cmd.encode())
+            if cmd.endswith("?"):
+                time.sleep(1)  # Give the device time to respond
+                out = d.read(1024)
+                print(out.decode())
+            return
+        except (OSError, FileNotFoundError) as e:
+            print(f"USBTMC write to {path} failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            _USBTMC_FILES.pop(path, None)
+            if d is not None:
+                try:
+                    d.close()
+                except OSError:
+                    pass
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)
+    print(f"Max retries reached. Could not write to {path}.")
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -92,7 +135,11 @@ def split_bits_to_numpy(bit_string, chunk_size=3):
     return np.array(bit_chunks)
 
 def BK4600_INIT():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    # One-time setup of everything that doesn't change across a voltage sweep
+    # (waveform shape, burst timing, trigger source, output state). Routed
+    # through _usbtmc_write so it shares the same persistent connection that
+    # BK4600HLEV_SWEEP() reuses on every step, instead of leaving its own
+    # separate fd open on the same device.
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
@@ -109,7 +156,7 @@ def BK4600_INIT():
     "C1:BTWV TRSR,EXT",
     "C1:BTWV TIME,1",
     #"C1:BTWV DLAY,6.69e-07S",
-    "C1:BTWV DLAY,6.68e-07S",   
+    "C1:BTWV DLAY,6.68e-07S",
     "C1:BTWV EDGE,FALL",
     "C1:BTWV CARR,WVTP,PULSE",
     "C1:BTWV FRQ,1000HZ",
@@ -124,56 +171,28 @@ def BK4600_INIT():
     "C1:OUTP ON",
     "C1:OUTP LOAD,HZ"
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
+    for cmd in input:
+        print(cmd)
+        _usbtmc_write('/dev/usbtmc0', cmd)
 
-def BK4600HLEV_SWEEP(HLEV=0.2):
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
-    input = [
-    #"*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,1000HZ",
-    "C1:BSWV PERI,0.001S",
-    f"C1:BSWV HLEV,{HLEV}V",
-    "C1:BSWV LLEV,0V",
-    "C1:BSWV DUTY,20",
-    "C1:BSWV RISE,6e-09S",
-    "C1:BSWV FALL,6e-09S",
-    "C1:BSWV DLY,0",
-    #"C1:BSWV?",
-    "C1:BTWV STATE,ON",
-    "C1:BTWV TRSR,EXT",
-    "C1:BTWV TIME,1",
-    #"C1:BTWV DLAY,6.69e-07S",
-    "C1:BTWV DLAY,6.68e-07S",
-    "C1:BTWV EDGE,FALL",
-   # "C1:BTWV CARR,WVTP,PULSE",
-    #"C1:BTWV FRQ,1000HZ",
-   # "C1:BTWV PERI,0.001S",
-    #f"C1:BTWV HLEV,{HLEV}V",
-    #"C1:BTWV?"
-    ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        #print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            time.sleep(1)
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+def BK4600HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # Only update the high-level voltage per step; everything else (waveform
+    # shape, burst timing, trigger source, output state) is configured once
+    # by BK4600_INIT() and does not need to be re-sent every voltage step.
+    # Reuses the persistent connection instead of opening/closing the device
+    # file on every call.
+    #
+    # Writing to the BSWV (basic wave) subsystem implicitly switches the
+    # channel out of burst mode back to continuous mode on this instrument,
+    # so BTWV STATE must be re-asserted after every HLEV write.
+    start = time.time()
+    _usbtmc_write('/dev/usbtmc0', f"C1:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
+    _usbtmc_write('/dev/usbtmc0', "C1:BTWV STATE,ON", max_retries=max_retries, retry_delay=retry_delay)
+    end = time.time()
+    print("Elapsed time =", round(end-start,8), "seconds")
 
 def SDG7102A_QUERY():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",    
     f"{CHANNEL}:BSWV?",
@@ -196,7 +215,7 @@ def SDG7102A_QUERY():
 
 
 def SDG7102A_INIT():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     f"{CHANNEL}:BSWV WVTP,PULSE",
@@ -247,7 +266,7 @@ def SDG7102A_INIT():
 
 
 def SDG7102A_INJ_BURST():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     f"{CHANNEL}:BSWV WVTP,PULSE",
@@ -270,7 +289,7 @@ def SDG7102A_INJ_BURST():
     os.close(d)
 
 def SDG7102A_INJ_CONT_BURST():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
@@ -396,47 +415,18 @@ def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
 
 
 def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # Only the high-level voltage changes per step; reuses the persistent
+    # connection instead of opening/closing the device file on every call.
+    #
+    # Writing to the BSWV (basic wave) subsystem implicitly switches the
+    # channel out of burst mode back to continuous mode on this instrument,
+    # so BTWV STATE must be re-asserted after every HLEV write.
     start = time.time()
-    input_commands = [
-        f"{CHANNEL}:BSWV HLEV,{HLEV}V",  # Set high-level voltage
-        # "C1:BSWV LLEV,0V",  # Set low-level voltage
-    ]
-    
-    retries = 0
-    while retries < max_retries:
-        try:
-            # Attempt to open the device file in read/write binary mode using 'with'
-            with open('/dev/usbtmc0', 'r+b') as d:
-                # print("Device connected successfully.")
-                for cmd in input_commands:
-                    d.write(cmd.encode())  # Send command to device
-
-                    # Only wait and read response if command ends with "?"
-                    if cmd.endswith("?"):
-                        time.sleep(1)  # Give the device time to respond
-                        out = d.read(1024)  # Read the response
-                        print(out.decode())  # Print the decoded output
-
-                    # If the command is not a query, we just continue
-                    else:
-                        out = b''  # No output for non-query commands
-
-                break  # Exit the loop once the connection and commands are successful
-
-        except (OSError, FileNotFoundError) as e:
-            # Catch specific exceptions related to the device connection
-            print(f"Connection failed at voltage {HLEV}: {e}. Retrying ({retries + 1}/{max_retries})...")
-            retries += 1
-            if retries < max_retries:
-                time.sleep(retry_delay)  # Delay before retrying
-            else:
-                print("Max retries reached. Could not connect to the device.")
-                break
+    _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
+    # _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BTWV STATE,ON", max_retries=max_retries, retry_delay=retry_delay)
     end = time.time()
     print("Elapsed time =", round(end-start,8), "seconds")
 
-
- 
 
 def time_sw_read32(ran=10):
     
@@ -460,17 +450,39 @@ def time_sw_write32(ran=10):
     write_time = time.process_time() - start
     print(f"write time={write_time}")
 
+_dnn_weights_cache = {}
+_hidden_bit_cache = {}
+
+# Power-of-two weights: dotting a 16-bit word with these packs it into an
+# integer directly, equivalent to the reverse-then-join-then-int(...,2)
+# approach previously used (reversing a bit sequence and reading it MSB-first
+# gives the same value as reading the original sequence LSB-first), but
+# vectorizable across all words at once instead of looping per-word.
+_BIT_WEIGHTS = 1 << np.arange(16)
+
+# Addresses depend only on loop index, never on dnnConfig's arguments, so the
+# hex strings are precomputed once instead of re-derived on every call.
+_ADDR_HEX_256 = [hex(i)[2:] for i in range(256)]
+_ADDR_HEX_69 = [hex(i)[2:] for i in range(69)]
+_ADDR_HEX_188 = [hex(i)[2:] for i in range(68, 256)]
+_ADDR_HEX_137 = [hex(i)[2:] for i in range(137)]
+
 def dnnConfig(weightsCSVFile=None, pixelConfig=None, hiddenBitCSV=None):
-    
-    if weightsCSVFile != None:   
+
+    if weightsCSVFile != None:
     # load dnn, append 12 zero's, prepend 8 zero's, reshape to 16 word blocks
-        dnn = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
-    else: 
+        # weightsCSVFile is the same path on every test vector within a run
+        # (only pixelConfig varies), so cache the parsed contents instead of
+        # re-reading and re-parsing the file from disk every call
+        if weightsCSVFile not in _dnn_weights_cache:
+            _dnn_weights_cache[weightsCSVFile] = list(genfromtxt(weightsCSVFile, delimiter=',').astype(int))
+        dnn = _dnn_weights_cache[weightsCSVFile]
+    else:
         dnn = [0]*5164
     dnn_frame1 = [0]*24 + dnn + [0]*12   # first frame
     dnn_frame2 = [0]*28 + dnn + [0]*8  # second frame
 
-    
+
     # if user gave 512 PIXEL_CONFIG_F2 then replace the last bits
     if pixelConfig != None:
         dnn_frame1[-512-12:-12] = pixelConfig
@@ -478,43 +490,43 @@ def dnnConfig(weightsCSVFile=None, pixelConfig=None, hiddenBitCSV=None):
 
     # if user gave 24 hidden values then replace the first bits
     if hiddenBitCSV != None:
-        hiddenBit = list(genfromtxt(hiddenBitCSV, delimiter=',').astype(int))
+        if hiddenBitCSV not in _hidden_bit_cache:
+            _hidden_bit_cache[hiddenBitCSV] = list(genfromtxt(hiddenBitCSV, delimiter=',').astype(int))
+        hiddenBit = _hidden_bit_cache[hiddenBitCSV]
         dnn_frame1[0:24] = hiddenBit
         dnn_frame2[4:24+4] = hiddenBit
 
     # reshape into 16 bit words
     dnn_frame1 = np.array(dnn_frame1).reshape(-1, 16)
-    dnn_frame2 = np.array(dnn_frame2).reshape(-1, 16) 
+    dnn_frame2 = np.array(dnn_frame2).reshape(-1, 16)
 
-    # split into array 0 and 1
-    array_0 = { i : dnn_frame1[i][::-1].tolist() for i in range(256) }
-    array_1 = { iA : dnn_frame1[i][::-1].tolist() for iA, i in enumerate(range(256,325)) }
+    # pack every word of both frames into an integer in one vectorized call
+    # instead of looping per-word with string reversal/join/int(...,2)
+    packed1 = dnn_frame1.dot(_BIT_WEIGHTS)
+    packed2 = dnn_frame2.dot(_BIT_WEIGHTS)
 
     # convert to hex_list for programming
     hex_list = []
-    for hexArray, array_i in zip(["6", "8"], [array_0, array_1]):
-        for key, val in array_i.items():
-            address = hex(key)[2:]
-            data = hex(int("".join([str(i) for i in val]),2))[2:]
-            data = "0"*(4-len(data)) + data
-            temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"]  #spells out 0x0FFF instead of 0xFFF
-            hex_list.append(temp)
-            #print(key, val, temp)
 
-    # split into array 1 and 2
-    array_1 = { i : dnn_frame2[iA][::-1].tolist() for iA, i in enumerate(range(68,256)) }    #256-69 = 187
-    array_2 = { iA : dnn_frame2[i][::-1].tolist() for iA, i in enumerate(range((256-68), 325)) }
+    # array_0 (opcode 6): words 0..255 of frame1
+    for key in range(256):
+        data = format(int(packed1[key]), '04x')
+        hex_list.append(["4'h1", "4'h6", f"8'h{_ADDR_HEX_256[key]}", f"16'h{data}"])  #spells out 0x0FFF instead of 0xFFF
 
-    # convert to hex_list for programming
-    # hex_list = []
-    for hexArray, array_i in zip(["8", "A"], [array_1, array_2]):
-        for key, val in array_i.items():
-            address = hex(key)[2:]
-            data = hex(int("".join([str(i) for i in val]),2))[2:]
-            data = "0"*(4-len(data)) + data
-            temp = ["4'h1", f"4'h{hexArray}", f"8'h{address}", f"16'h{data}"] 
-            hex_list.append(temp)
-            #print(key, val, temp)
+    # array_1 (opcode 8), first segment: words 256..324 of frame1, keyed 0..68
+    for iA in range(69):
+        data = format(int(packed1[256 + iA]), '04x')
+        hex_list.append(["4'h1", "4'h8", f"8'h{_ADDR_HEX_69[iA]}", f"16'h{data}"])
+
+    # array_1 (opcode 8), second segment: words 0..187 of frame2, keyed 68..255
+    for i in range(68, 256):
+        data = format(int(packed2[i - 68]), '04x')
+        hex_list.append(["4'h1", "4'h8", f"8'h{_ADDR_HEX_188[i - 68]}", f"16'h{data}"])
+
+    # array_2 (opcode A): words 188..324 of frame2, keyed 0..136
+    for iA in range(137):
+        data = format(int(packed2[188 + iA]), '04x')
+        hex_list.append(["4'h1", "4'hA", f"8'h{_ADDR_HEX_137[iA]}", f"16'h{data}"])
 
     #print(len(hex_list))
     return hex_list

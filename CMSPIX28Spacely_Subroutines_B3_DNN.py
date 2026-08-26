@@ -36,6 +36,7 @@ def DNN(
     vth0=0.08,
     vth1=0.16,
     vth2=0.32,
+    pg_hlev = 0.22,
     readYproj=True,
     dnnPowerBool = False
 ):
@@ -50,7 +51,7 @@ def DNN(
     V_LEVEL["vth2"] = vth2
 
     if dnnPowerBool==False:
-        SDG7102A_SWEEP(HLEV=0.3) # Set the pulse generator to 0.3V
+        SDG7102A_SWEEP(HLEV=pg_hlev) # Set the pulse generator to 0.3V
     
     testType = "DNN"
 
@@ -74,7 +75,8 @@ def DNN(
 
     # First set up the pulse generator
     if dnnPowerBool==False:
-        SDG7102A_SWEEP(HLEV=0.6)
+        SDG7102A_SWEEP(HLEV=pg_hlev)
+        print("Setting the pulse generator HLEV to “, pg_hlev, “V for ROUTINE_DNN.")
     
     # Program shift register
     hex_lists = [
@@ -97,28 +99,49 @@ def DNN(
     readouts = []
     iN = 0
 
+    # [TIMING] per-stage cumulative totals across the whole run, printed
+    # periodically below so the per-test-vector breakdown doesn't get lost
+    # in thousands of lines of output.
+    t_dnnconfig_total = 0.0
+    t_write_cfg_total = 0.0
+    t_write_exec1_total = 0.0
+    t_sleep_total = 0.0
+    t_write_scanload_total = 0.0
+    t_write_exec2_total = 0.0
+    t_read_yproj_total = 0.0
+    t_read_dnn_total = 0.0
+    t_save_total = 0.0
+    t_loop_start = time.time()
+    TIMING_PRINT_EVERY = 50
+
     # loop over all patterns
     for iP in tqdm.tqdm(patternIndexes):
-        
+
         # increment counter of number of patterns
         iN += 1
-        hiddenBit=hidden_csv if hidden_csv else "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
+        hiddenBit= "/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/hidden_debug.csv"
 
         # pick up pixel config for the given pattern
         pixelConfig = genPixelProgramList(pixelLists[iP], pixelValues[iP])
 
         # Programming the NN weights and biases
         # THIS TAKES SIGNIFICANT AMOUNT OF TIME (~0.3sec) --> COULD IMPROVE --<
+        t0 = time.time()
         if(progDebug==True):
             hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin_debug2.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
         else:
             filename = dnn_csv if dnn_csv else '/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv'
-            
+
             # hex_lists = dnnConfig('/asic/projects/C/CMS_PIX_28/benjamin/verilog/workarea/cms28_smartpix_verification/PnR_cms28_smartpix_verification_A/tb/dnn/csv/l6/b5_w5_b2_w2_pixel_bin.csv', pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
             hex_lists = dnnConfig(filename, pixelConfig = pixelConfig, hiddenBitCSV = hiddenBit)
+        t_dnnconfig_total += time.time() - t0
+
+        t0 = time.time()
         sw_write32_0(hex_lists)
-        
+        t_write_cfg_total += time.time() - t0
+
         # write execute command
+        t0 = time.time()
         hex_lists = [
             [
                 "4'h1",  # firmware id
@@ -133,11 +156,18 @@ def DNN(
             ]
         ]
         sw_write32_0(hex_lists)
+        t_write_exec1_total += time.time() - t0
 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32(print_code = "ihb")
-        # # We ran ROUTINE_ProgShiftRegs with debug mode ON and found the breaking point of the delay value to get the correct data in DATA_ARRAY 0 and DATA_ARRAY_1
-        # We went 10% above breaking point
-        time.sleep(0.02)
+        # Wait for the CONFIG-SHIFT-REG load triggered above to actually finish,
+        # by polling the real hardware status_done bit (sm_test1_o_status_done,
+        # bit 14 of sw_read32_1) instead of a fixed sleep. 20ms timeout kept as
+        # a safety fallback (the previously-tuned empirical worst case).
+        t0 = time.time()
+        cfgDone, cfgDoneElapsedUs = sw_pollStatusDone(bit_index=14, timeout_us=20000)
+        if not cfgDone:
+            print(f"WARNING: DNN CONFIG-SHIFT-REG status_done poll timed out after {cfgDoneElapsedUs}us")
+        t_sleep_total += time.time() - t0
         if dnnPowerBool:
             return None
 
@@ -222,6 +252,7 @@ def DNN(
                 writer.writerows(words_DA1)
 
         # NEED SLEEP TIME BECAUSE FW TAKES 53ms (5162 shift register at 100KHz speed) which is slower than python in this case
+        t0 = time.time()
         x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
         scanLoadPhase1= hex(int(x[:2], 2))[2:]
         scanLoadPhase0= hex(int(x[2:], 2))[2:]
@@ -250,14 +281,16 @@ def DNN(
             
 
         sw_write32_0(hex_lists)
+        t_write_scanload_total += time.time() - t0
 
         # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() #print_code = "ibh")
-        
+
         # each write CFG_ARRAY_0 is writing 16 bits. 768/16 = 48 writes in total.
-        
+
         # input("Press Enter to continue...") # wait for user input to continue
 
         # # DODO SETTINGS
+        t0 = time.time()
         hex_lists = [
             [
                 "4'h2",  # firmware id
@@ -275,32 +308,24 @@ def DNN(
 
 
         sw_write32_0(hex_lists)
+        t_write_exec2_total += time.time() - t0
 
-        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32() 
-        
-        # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits). 
+        # sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass = sw_read32()
+
+        # OP_CODE_R_DATA_ARRAY_0 24 times = address 0, 1, 2, ... until I read all 24 words (32 bits).
         # we'll have stored 24 words * 32 bits/word = 768. read sw_read32_0
-        
+
+        t0 = time.time()
         if readYproj:
             nwords = 24 # 24 words * 32 bits/word = 768 bits - I added one in case
-            words = []
-            
-            for iW in range(nwords):
 
-                # send read
-                address = "8'h" + hex(iW)[2:]
-                hex_lists = [
-                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-                ]
-                # sw_write32_0(hex_lists)
+            # burst-read all 24 DATA_ARRAY_0 words in one round trip instead of
+            # 24 individual write(address)+read requests
+            sw_read32_0_stream, _, _, _ = sw_readStream(
+                N=nwords, opcode=0xC, base_addr=0, do_sw_read32_1=False
+            )
+            words = [int_to_32bit(word)[::-1] for word in sw_read32_0_stream]
 
-                sw_write32_0(hex_lists)
-
-                sw_read32_0, sw_read32_1, _, _ = sw_read32() 
-
-                # store data
-                words.append(int_to_32bit(sw_read32_0)[::-1])
-            
             s = ''.join(words)
             row_sums = [0]*16
             if s.find("1") != -1:
@@ -321,23 +346,22 @@ def DNN(
                             row_sums.append(int(j))
                         # row_sums = np.array(row_sums) 
                 row_sums = row_sums[::-1]
-                 
+        t_read_yproj_total += time.time() - t0
 
+        t0 = time.time()
         dnn_nwords = 8
-        dnn_words = []
-        for iW in range(dnn_nwords):
-            # send read
-            address = "8'h" + hex(iW)[2:]
-            hex_lists = [
-                ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
-            ]
-            sw_write32_0(hex_lists)
-            sw_read32_0, sw_read32_1, _, _ = sw_read32() 
 
-            # store data
-            dnn_words.insert(0, int_to_32bit(sw_read32_0))
+        # burst-read all 8 DATA_ARRAY_1 words in one round trip instead of 8
+        # individual write(address)+read requests
+        sw_read32_0_stream, _, _, _ = sw_readStream(
+            N=dnn_nwords, opcode=0xD, base_addr=0, do_sw_read32_1=False
+        )
+        # old loop built dnn_words via insert(0, ...) each iteration, so the
+        # final order is address-descending (word7 first); reverse to match
+        dnn_words = [int_to_32bit(word) for word in reversed(sw_read32_0_stream)]
 
         dnn_s = ''.join(dnn_words)
+        t_read_dnn_total += time.time() - t0
 
         if verbose:
             print(f"the input vector to the DNN is {row_sums}")
@@ -362,7 +386,8 @@ def DNN(
         readouts.append(dnn_s)
 
         # save every 25 and on the last one
-        if iN % 25 == 0 or iN == len(patternIndexes):
+        t0 = time.time()
+        if iN % 100 == 0 or iN == len(patternIndexes):
             if readYproj:
                 # save to csv file
                 yprofileOutputFile = os.path.join(outDir,"yprofiles.csv")
@@ -370,7 +395,7 @@ def DNN(
                     writer = csv.writer(file)
                     writer.writerows(yprofiles)
                 print("Saving to: ", yprofileOutputFile)
-               
+
             # save readouts to csv
 
             readoutOutputFile = os.path.join(outDir,"readout.csv")
@@ -379,6 +404,25 @@ def DNN(
                 writer.writerows(readouts)
 
             print("Saving to: ", readoutOutputFile, iN)
+        t_save_total += time.time() - t0
+
+        # [TIMING] periodic per-stage breakdown so this doesn't get lost in
+        # thousands of lines of tqdm output. Uses tqdm.write() rather than
+        # print() so it doesn't corrupt the progress bar rendering.
+        if iN % TIMING_PRINT_EVERY == 0 or iN == len(patternIndexes):
+            elapsed = time.time() - t_loop_start
+            tqdm.tqdm.write(
+                f"[TIMING] n={iN} total_elapsed={elapsed:.2f}s avg/vec={elapsed/iN:.4f}s | "
+                f"dnnConfig={t_dnnconfig_total/iN:.4f} "
+                f"write_cfg={t_write_cfg_total/iN:.4f} "
+                f"write_exec1={t_write_exec1_total/iN:.4f} "
+                f"sleep={t_sleep_total/iN:.4f} "
+                f"write_scanload={t_write_scanload_total/iN:.4f} "
+                f"write_exec2={t_write_exec2_total/iN:.4f} "
+                f"read_yproj={t_read_yproj_total/iN:.4f} "
+                f"read_dnn={t_read_dnn_total/iN:.4f} "
+                f"save={t_save_total/iN:.4f} (s/vec)"
+            )
 
     return None
 

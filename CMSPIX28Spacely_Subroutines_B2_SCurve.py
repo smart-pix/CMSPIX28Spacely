@@ -338,22 +338,29 @@ def PreProgSCurveBurst(
 
     # loop over the voltage steps
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
-        
+
+        t_step_start = time.time()
+
         # vasic step
         v_asic = round(i, 3)
         if v_asic>0.9:
-            v_asic = 0 
-            return 
-        
+            v_asic = 0
+            return
+
         # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
         # each voltage step is then set with 2.vstep
         # 1mV equals 25e- (TBD!!!!!)
+        t0 = time.time()
         SDG7102A_SWEEP(v_asic*2)
         # BK4600HLEV_SWEEP(v_asic*2)
+        t_sweep = time.time() - t0
         time.sleep(tsleep) #added time for pulse generator to settle
 
         # save data
         save_data = []
+        t_write_total = 0
+        t_read_total = 0
+        t_postproc_total = 0
         for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
 
             # write configuration
@@ -367,54 +374,41 @@ def PreProgSCurveBurst(
                     f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
                     "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
                     #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
+                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST
                     f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
                     f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
                 ]
-            ] 
+            ]
+            t0 = time.time()
             sw_write32_0(hex_lists)
+            t_write_total += time.time() - t0
 
-            # prepare the word list to read 
+            # prepare the word list to read
             maxWordFWArray = 128
             nword = math.ceil(nsample*3/32)
-            wordList =  list(range(maxWordFWArray-nword,maxWordFWArray))  # VERIFY THIS : we list from 128-nword to 127
+            base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
             words = ["0"*32] * nword
             # added time for burst to complete
-            time.sleep(100e-6*nsample) 
-            
-            # loop over the words to read
-            for iW in wordList:
+            time.sleep(100e-6*nsample)
 
-                # DATA ARRAY 0 only contain LAST READ 
-                address = "8'h" + hex(iW)[2:]
-                # hex_lists = [
-                #     ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-                # ]
-                 
-                # DATA ARRAY 1 contains ALL READ 
-                hex_lists = [
-                    ["4'h2", "4'hD", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_1
-                ]
-                # start_write = time.time()
-                sw_write32_0(hex_lists)
-                # stop_write = time.time()
-                # print("Elapased write time = ", stop_write-start_write )
+            # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
+            t0 = time.time()
+            raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
+            t_read_total += time.time() - t0
 
-                # read back data
-                # start_read = time.time()
-                sw_read32_0, _, _, _ = sw_read32(do_sw_read32_1 = False) 
-                # stop_read = time.time()
-                # print("Elapased read time = ", stop_read-start_read )
-                
-                words[(maxWordFWArray-1)-iW] = int_to_32bit(sw_read32_0)
-            
+            t0 = time.time()
+            for i, iW in enumerate(range(base_addr, maxWordFWArray)):
+                words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
+
             # save words
             s = [int(i) for i in "".join(words)]
             # Cutting last bit because 3x1365 = 4095
             s = s[:nsample*3]
             save_data.append(s)
+            t_postproc_total += time.time() - t0
 
         # save just the correct npix
+        t0 = time.time()
         save_data = np.stack(save_data, 0)
         # Bit order might have to be reversed in the next line since b2-b1-b0
         save_data = save_data.reshape(nsample*nIter, 3)
@@ -422,7 +416,14 @@ def PreProgSCurveBurst(
         # save data
         outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
         np.save(outFileName, save_data)
-    
+        t_save = time.time() - t0
+
+        t_step_total = time.time() - t_step_start
+        burst_sleep_total = 100e-6*nsample*nIter
+        print(f"[TIMING] v={v_asic:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
+              f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
+              f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
+
     return None
 
 
@@ -448,14 +449,14 @@ def SCurveMatrix():
             startBxclkState = '0', 
             bxclk_delay = '11',         #superpix1 '11', superpix2 '12',
             bxclk_period = '28', 
-            injection_delay = '1C',     #superpix1 '1C', superpix2 '1E',
+            injection_delay = '1D',     #superpix1 '1C', superpix2 '1E',
             scanLoopBackBit = '0', 
             test_sample = '0F', 
             scanLoadPhase ='25',        #superpix1 '25', superpix2 '26',
             test_delay = '14', 
             v_min = 0.001, 
-            v_max = 0.4, 
-            v_step = 0.001, 
+            v_max = 0.2, 
+            v_step = 0.002, 
             nsample = 1365, 
             nPix = i,
             nIter=1,
@@ -579,7 +580,7 @@ def SCurveSweepVTHPix():
         SCurveSweepVTH(nPix=i)
 
 
-def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): 
+def SCurveSweep(nPix=0,  FWparameter = None, minPar = 10, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): 
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -612,8 +613,8 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 0, maxPar = 28, stepPar = 
                 scanLoadPhase ='26',
                 test_delay = '14', 
                 v_min = 0.001, 
-                v_max = 0.4, 
-                v_step = 0.001, 
+                v_max = 0.2, 
+                v_step = 0.002, 
                 nsample = 1365, 
                 nPix = nPix,
                 nIter=1,

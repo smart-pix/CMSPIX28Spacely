@@ -79,8 +79,8 @@ def ROUTINE_ProgPixelsOnly( configclk_period='64', cfg_test_delay='5', cfg_test_
     return ProgPixelsOnly(configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
-def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1', iP=0, timeSleep=0.011):
-    return ProgShiftRegs(progDebug, verbose, configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk, iP, timeSleep)
+def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1', iP=0, timeSleep=0.011,     send_fw_reset_opcode=True,   reset_asic_before_test= True, expect_previous_same_model=False):
+    return ProgShiftRegs(progDebug, verbose, configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk, iP, timeSleep, send_fw_reset_opcode, reset_asic_before_test, expect_previous_same_model)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_ScanChainOneShot(scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
@@ -94,15 +94,33 @@ def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='13', startBxclk
 def ROUTINE_SCurveMatrix():
     return SCurveMatrix()
 
+# def ROUTINE_DNN(
+#         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
+#         injection_delay='1E', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
+#         cfg_test_delay='5', cfg_test_sample='20', progResetMask='0', configclk_period='64', 
+#         test_delay='14', test_sample='0F', bxclk_delay='12',configClkGate='0',scanLoadPhase ='26',
+#         vth0 = 0.08, vth1=0.16, vth2=0.32, readYproj=True, pixel_compout_csv=None, dnn_csv=None
+# ):
+#         return DNN(progDebug,loopbackBit, patternIndexes, verbose, injection_delay, bxclk_period, startBxclkState, scan_load_delay, cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, test_delay, test_sample, bxclk_delay,configClkGate, scanLoadPhase, vth0=vth0, vth1=vth1, vth2=vth2, readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
+
 #<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
         injection_delay='1E', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
         cfg_test_delay='5', cfg_test_sample='20', progResetMask='0', configclk_period='64', 
         test_delay='14', test_sample='0F', bxclk_delay='12',configClkGate='0',scanLoadPhase ='26',
-        vth0 = 0.08, vth1=0.16, vth2=0.32, readYproj=True, pixel_compout_csv=None, dnn_csv=None
+        vth0 = 400, vth1=800, vth2=1200, pg_hlev=0.22, dnn0=1.586, dnn1=1.588,readYproj=True, pixel_compout_csv=None, dnn_csv=None
+        #dnn0 =  1.573, dnn1 = 1.588/ 1.589
+        # vth0 = 0.08, vth1=0.16, vth2=0.32, pg_hlev=0.22, dnn0=1.586, dnn1=1.588,readYproj=True, pixel_compout_csv=None, dnn_csv=None
 ):
-        return DNN(progDebug,loopbackBit, patternIndexes, verbose, injection_delay, bxclk_period, startBxclkState, scan_load_delay, cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, test_delay, test_sample, bxclk_delay,configClkGate, scanLoadPhase, vth0=vth0, vth1=vth1, vth2=vth2, readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
+        vth_0_mv = round((vth0 - 196.84)/16960.09, 3)
+        vth_1_mv = round((vth1 - 223.96)/16853.41, 3)
+        vth_2_mv = round((vth2 - 224.42)/16922.43, 3)
+        print(f"vth_0 [e-] = {vth0}, vth_1 [e-] = {vth1}, vth_2 [e-] = {vth2}")
+        print(f"vth_0 [mV] = {vth_0_mv}, vth_1 [mV] = {vth_1_mv}, vth_2 [mV] = {vth_2_mv}")
+        # V_PORT["dnn0_vt"].set_voltage(dnn0)
+        # V_PORT["dnn1_vt"].set_voltage(dnn1)
+        return DNN(progDebug,loopbackBit, patternIndexes, verbose, injection_delay, bxclk_period, startBxclkState, scan_load_delay, cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, test_delay, test_sample, bxclk_delay,configClkGate, scanLoadPhase, vth0=vth_0_mv, vth1=vth_1_mv, vth2=vth_2_mv, pg_hlev=pg_hlev, readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
 
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):

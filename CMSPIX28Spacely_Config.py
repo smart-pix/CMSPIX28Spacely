@@ -147,5 +147,5 @@ I_WARN_VOLTAGE = {
 FNAL_SETTINGS = {
     "storageDirectory" : "/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
     "chipVersion" : 1,
-    "chipID" : 17
+    "chipID" : 23
 }
