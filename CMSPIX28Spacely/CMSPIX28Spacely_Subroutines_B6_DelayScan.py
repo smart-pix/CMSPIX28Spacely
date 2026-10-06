@@ -65,6 +65,11 @@ def PulseDelayScan(
     if base_delay is None:
         base_delay = PULSEGEN[pulseGen]["base_delay"]
 
+    # negative offsets are fine as long as the absolute pulse generator delay stays positive
+    if base_delay + delay_min_ns*1e-9 < 0:
+        print(f"delay_min_ns = {delay_min_ns} ns would give a negative pulse generator delay (base delay is {base_delay*1e9:.1f} ns). Increase delay_min_ns or base_delay and rerun.")
+        return
+
     # program single pixel
     if progPixel:
         ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
@@ -84,8 +89,9 @@ def PulseDelayScan(
     sw_read32_0= sw_read32()
 
     # define range of delays (in ns, offset from base_delay)
-    n_step = int(round((delay_max_ns - delay_min_ns)/delay_step_ns))+1
-    delay_steps_ns = np.linspace(delay_min_ns, delay_max_ns, n_step)
+    # exact steps of delay_step_ns from delay_min_ns, last point is the largest one <= delay_max_ns
+    n_step = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
+    delay_steps_ns = delay_min_ns + delay_step_ns*np.arange(n_step)
 
     # 400MHz is the FPGA clock
     bxclk_period_inMhz = 400/int(bxclk_period, 16)
@@ -218,8 +224,9 @@ def PulseDelayScanSweepVTH(
     now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     # Sweep range
-    n_step = int(round((vth_max - vth_min)/vth_step))+1
-    vthList = np.linspace(vth_min, vth_max, n_step)
+    # exact steps of vth_step from vth_min, last point is the largest one <= vth_max
+    n_step = int(np.floor((vth_max - vth_min)/vth_step + 1e-6))+1
+    vthList = vth_min + vth_step*np.arange(n_step)
 
     # remember starting thresholds to restore at the end
     vthStart = {name : V_LEVEL[name] for name in vthNames}
@@ -234,6 +241,13 @@ def PulseDelayScanSweepVTH(
                 V_LEVEL[name] = vth
             time.sleep(tsleep_vth) # let the bias settle
             V_PORT["vdda"].get_current()
+
+            # read back what the board actually set
+            for name in vthNames:
+                v_rd = V_PORT[name].get_voltage()
+                print(f"  {name}: set {vth:.4f} V, read back {v_rd:.4f} V")
+                if abs(v_rd - vth) > vth_step/2:
+                    print(f"  WARNING: {name} read back differs from the set value by more than half a step ({vth_step/2*1e3:.1f} mV)")
 
             vthDir = PulseDelayScan(
                 nPix = nPix,
