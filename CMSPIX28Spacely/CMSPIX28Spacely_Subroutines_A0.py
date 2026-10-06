@@ -62,7 +62,37 @@ def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
                 time.sleep(retry_delay)
     print(f"Max retries reached. Could not write to {path}.")
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # 
+def _usbtmc_query(path, cmd, max_retries=10, retry_delay=0.1, wait=0.1):
+    """
+    Same as _usbtmc_write for a query ("...?") but returns the decoded answer
+    instead of printing it. Shares the persistent connection in _USBTMC_FILES.
+    Returns None if the device could not be reached.
+    """
+    retries = 0
+    while retries < max_retries:
+        d = _USBTMC_FILES.get(path)
+        try:
+            if d is None:
+                d = open(path, 'r+b', buffering = 0)
+                _USBTMC_FILES[path] = d
+            d.write(cmd.encode())
+            time.sleep(wait)  # Give the device time to respond
+            return d.read(1024).decode()
+        except (OSError, FileNotFoundError) as e:
+            print(f"USBTMC query to {path} failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            _USBTMC_FILES.pop(path, None)
+            if d is not None:
+                try:
+                    d.close()
+                except OSError:
+                    pass
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)
+    print(f"Max retries reached. Could not query {path}.")
+    return None
+
+# # # # ## # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # These are mini functions that execute a small part of a routine.
@@ -412,6 +442,36 @@ def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
     end = time.time()
     print("Elapsed time =", round(end-start,8), "seconds")
+
+
+# Pulse generators that can inject the test pulse, with the burst trigger delay
+# set in their INIT function. Used by the pulse delay scan (B6).
+PULSEGEN = {
+    "BK4600"   : {"path" : '/dev/usbtmc0', "channel" : "C1",    "base_delay" : 6.68e-7,  "set_hlev" : BK4600HLEV_SWEEP},
+    "SDG7102A" : {"path" : '/dev/usbtmc1', "channel" : CHANNEL, "base_delay" : 2.106e-6, "set_hlev" : SDG7102A_SWEEP},
+}
+
+def PULSEGEN_DLAY_SWEEP(DLAY, pulseGen="BK4600", verify=False, max_retries=10, retry_delay=0.1):
+    # Set the burst trigger delay (time from the external trigger edge to the injected pulse)
+    # DLAY is in seconds. Only the delay changes, everything else is set once by BK4600_INIT() / SDG7102A_INIT().
+    # If verify is True, read back BTWV? and return the DLAY value reported by the pulse generator (in seconds)
+    pg = PULSEGEN[pulseGen]
+    _usbtmc_write(pg["path"], f"{pg['channel']}:BTWV DLAY,{DLAY:.6e}S", max_retries=max_retries, retry_delay=retry_delay)
+    if not verify:
+        return None
+
+    # response looks like "C1:BTWV STATE,ON,...,DLAY,6.68e-07S,..."
+    out = _usbtmc_query(pg["path"], f"{pg['channel']}:BTWV?", max_retries=max_retries, retry_delay=retry_delay)
+    readback = None
+    if out:
+        fields = out.strip().split(",")
+        if "DLAY" in fields:
+            readback = float(fields[fields.index("DLAY")+1].rstrip("S"))
+    if readback is None:
+        print(f"WARNING: could not read back DLAY from {pulseGen}")
+    elif abs(readback - DLAY) > 1e-12:
+        print(f"WARNING: requested DLAY {DLAY:.6e}S but {pulseGen} reports {readback:.6e}S")
+    return readback
 
 
 def time_sw_read32(ran=10):
