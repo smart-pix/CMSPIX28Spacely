@@ -126,9 +126,10 @@ def ROUTINE_DNNTraining(asic_training=False):
     return DNNTraining(asic_training = asic_training)
 
 #<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
-def ROUTINE_PulseDelayScan(nPix=0, progPixel=True, v_asic=0.1, delay_min_ns=0, delay_max_ns=100, delay_step_ns=1, pulseGen="BK4600", base_delay=None, injection_delay='1E', bxclk_delay='12', scan_load_delay='13', scanLoadPhase='26', nsample=1365, nIter=1, verify=False):
+def ROUTINE_PulseDelayScan(nPix=0, progPixel=True, v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=2, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False):
     return PulseDelayScan(nPix=nPix, progPixel=progPixel, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify)
 
 #<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
-def ROUTINE_PulseDelayScanSweepVTH(nPix=0, vth_min=0.01, vth_max=0.2, vth_step=0.01, vthNames=["vth0", "vth1", "vth2"], v_asic=0.1, delay_min_ns=0, delay_max_ns=100, delay_step_ns=1, pulseGen="BK4600", base_delay=None, injection_delay='1E', bxclk_delay='12', scan_load_delay='13', scanLoadPhase='26', nsample=1365, nIter=1, verify=False):
+def ROUTINE_PulseDelayScanSweepVTH(nPix=0, vth_min=0.01, vth_max=0.120, vth_step=0.05, vthNames=["vth0", "vth1", "vth2"], v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=4, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False):
     return PulseDelayScanSweepVTH(nPix=nPix, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify)
+

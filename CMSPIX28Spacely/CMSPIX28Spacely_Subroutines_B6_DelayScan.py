@@ -39,11 +39,11 @@ def PulseDelayScan(
         delay_step_ns = 1,
         pulseGen = "BK4600", # key of PULSEGEN in A0
         base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this. Set to 0 for absolute delays
-        scan_load_delay = '13',
+        scan_load_delay = '5',
         startBxclkState = '0',
-        bxclk_delay = '12',
+        bxclk_delay = '10',
         bxclk_period = '28',
-        injection_delay = '1E',
+        injection_delay = '7',
         scanLoopBackBit = '0',
         test_sample = '0F',
         scanLoadPhase = '26',
