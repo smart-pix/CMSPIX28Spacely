@@ -58,17 +58,19 @@ def sw_read32(
     return sw_read32_0, sw_read32_1, sw_read32_0_pass, sw_read32_1_pass #, fw_error
 
 def sw_readStream(
-        sw_read32_0_expected = None, 
+        sw_read32_0_expected = None,
         sw_read32_1_expected = None,
         sw_read32_1_nbitsToCheck = 32, # number of bits to check. for some cases it is better to leave out the testX_o_status_done bits
         print_code = "",
         do_sw_read32_1 = True,
-        N = 1 #default to reading 1 word 
+        N = 1, #default to reading 1 word
+        opcode = 0xD, # op code for the memory being read (DATA_ARRAY_1 by default)
+        base_addr = 0 # first word address to read; words are read at base_addr, base_addr+1, ..., base_addr+N-1
 ):
-    
-    # read value of register
-    sw_read32_0_stream = sg.INSTR["car"].stream_memory("sw_read32_0", N)
-    # sw_read32_0_get = sg.INSTR["car"].get_memory("sw_read32_0")
+
+    # read N words in a single round trip: pearyd loops the write(address)+read
+    # sequence locally and returns all N words at once, in increasing address order
+    sw_read32_0_stream = sg.INSTR["car"].burst_read_data_array_1(opcode, base_addr, N)
     sw_read32_1 = sg.INSTR["car"].get_memory("sw_read32_1") if do_sw_read32_1 else None
 
     # store pass/fail

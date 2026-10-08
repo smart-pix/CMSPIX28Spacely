@@ -22,9 +22,77 @@ except ImportError as e:
     print("\033[93;1m" + f"Import error in {__file__}: {str(e)}".upper() + "\033[0m")
     sys.exit(1)  # Exit script immediately
 
+CHANNEL = "C2"  # Change this to the appropriate channel for your device (e.g., "C1", "C2", etc.)
 
+# Persistent USBTMC connections, keyed by device path. Opening a USBTMC
+# character device has real overhead (USB control transfers, driver init);
+# re-opening it on every voltage step was the dominant per-step cost for the
+# pulse generator sweep calls, so the file object is opened once and reused.
+_USBTMC_FILES = {}
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # 
+def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
+    """
+    Write a single SCPI command to a persistently-held USBTMC device file,
+    opening (and caching) it on first use instead of on every call. Re-opens
+    on failure (device unplugged, transient USB error, etc.).
+    """
+    retries = 0
+    while retries < max_retries:
+        d = _USBTMC_FILES.get(path)
+        try:
+            if d is None:
+                d = open(path, 'r+b', buffering = 0)
+                _USBTMC_FILES[path] = d
+            d.write(cmd.encode())
+            if cmd.endswith("?"):
+                time.sleep(1)  # Give the device time to respond
+                out = d.read(1024)
+                print(out.decode())
+            return
+        except (OSError, FileNotFoundError) as e:
+            print(f"USBTMC write to {path} failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            _USBTMC_FILES.pop(path, None)
+            if d is not None:
+                try:
+                    d.close()
+                except OSError:
+                    pass
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)
+    print(f"Max retries reached. Could not write to {path}.")
+
+def _usbtmc_query(path, cmd, max_retries=10, retry_delay=0.1, wait=0.1):
+    """
+    Same as _usbtmc_write for a query ("...?") but returns the decoded answer
+    instead of printing it. Shares the persistent connection in _USBTMC_FILES.
+    Returns None if the device could not be reached.
+    """
+    retries = 0
+    while retries < max_retries:
+        d = _USBTMC_FILES.get(path)
+        try:
+            if d is None:
+                d = open(path, 'r+b', buffering = 0)
+                _USBTMC_FILES[path] = d
+            d.write(cmd.encode())
+            time.sleep(wait)  # Give the device time to respond
+            return d.read(1024).decode()
+        except (OSError, FileNotFoundError) as e:
+            print(f"USBTMC query to {path} failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            _USBTMC_FILES.pop(path, None)
+            if d is not None:
+                try:
+                    d.close()
+                except OSError:
+                    pass
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)
+    print(f"Max retries reached. Could not query {path}.")
+    return None
+
+# # # # ## # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # These are mini functions that execute a small part of a routine.
@@ -92,13 +160,17 @@ def split_bits_to_numpy(bit_string, chunk_size=3):
     return np.array(bit_chunks)
 
 def BK4600_INIT():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    # One-time setup of everything that doesn't change across a voltage sweep
+    # (waveform shape, burst timing, trigger source, output state). Routed
+    # through _usbtmc_write so it shares the same persistent connection that
+    # BK4600HLEV_SWEEP() reuses on every step, instead of leaving its own
+    # separate fd open on the same device.
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
     "C1:BSWV FRQ,1000HZ",
-    "C1:BSWV PERI,0.001S",
-    "C1:BSWV HLEV,0.2V",
+    "C1:BSWV PERI,8e-6S",
+    "C1:BSWV HLEV,0.200V",
     "C1:BSWV LLEV,0V",
     "C1:BSWV DUTY,20",
     "C1:BSWV RISE,6e-09S",
@@ -109,7 +181,7 @@ def BK4600_INIT():
     "C1:BTWV TRSR,EXT",
     "C1:BTWV TIME,1",
     #"C1:BTWV DLAY,6.69e-07S",
-    "C1:BTWV DLAY,6.68e-07S",   
+    "C1:BTWV DLAY,6.68e-07S",
     "C1:BTWV EDGE,FALL",
     "C1:BTWV CARR,WVTP,PULSE",
     "C1:BTWV FRQ,1000HZ",
@@ -124,61 +196,32 @@ def BK4600_INIT():
     "C1:OUTP ON",
     "C1:OUTP LOAD,HZ"
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
+    for cmd in input:
+        print(cmd)
+        _usbtmc_write('/dev/usbtmc0', cmd)
 
-def BK4600HLEV_SWEEP(HLEV=0.2):
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
-    input = [
-    #"*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,1000HZ",
-    "C1:BSWV PERI,0.001S",
-    f"C1:BSWV HLEV,{HLEV}V",
-    "C1:BSWV LLEV,0V",
-    "C1:BSWV DUTY,20",
-    "C1:BSWV RISE,6e-09S",
-    "C1:BSWV FALL,6e-09S",
-    "C1:BSWV DLY,0",
-    #"C1:BSWV?",
-    "C1:BTWV STATE,ON",
-    "C1:BTWV TRSR,EXT",
-    "C1:BTWV TIME,1",
-    #"C1:BTWV DLAY,6.69e-07S",
-    "C1:BTWV DLAY,6.68e-07S",
-    "C1:BTWV EDGE,FALL",
-   # "C1:BTWV CARR,WVTP,PULSE",
-    #"C1:BTWV FRQ,1000HZ",
-   # "C1:BTWV PERI,0.001S",
-    #f"C1:BTWV HLEV,{HLEV}V",
-    #"C1:BTWV?"
-    ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        #print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            time.sleep(1)
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+def BK4600HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # Only update the high-level voltage per step; everything else (waveform
+    # shape, burst timing, trigger source, output state) is configured once
+    # by BK4600_INIT() and does not need to be re-sent every voltage step.
+    # Reuses the persistent connection instead of opening/closing the device
+    # file on every call.
+    start = time.time()
+    _usbtmc_write('/dev/usbtmc0', f"C1:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay) 
+    _usbtmc_write('/dev/usbtmc0', "C1:BTWV STATE,ON", max_retries=max_retries, retry_delay=retry_delay)   
+    end = time.time()
+    print("Elapsed time =", round(end-start,8), "seconds")
 
 def SDG7102A_QUERY():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",    
-    "C1:BSWV?",
-    "C1:BTWV?",
-    "C1:OUTP?"
+    f"{CHANNEL}:BSWV?",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTP?"
+    f"{CHANNEL}:BSWV?",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTP?"
         ]
     nlist=len(input)
     for i in range(nlist): 
@@ -193,43 +236,43 @@ def SDG7102A_QUERY():
 
 
 def SDG7102A_INIT():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,10e6HZ",
-    "C1:BSWV PERI,8e-6S",
-    "C1:BSWV HLEV,0.2V",
-    "C1:BSWV LLEV,0V",
-    "C1:BSWV DUTY,20",
-    "C1:BSWV RISE,5e-10S",
-    "C1:BSWV FALL,5e-10S",
-    "C1:BSWV DLY,-0S",
-    "C1:BSWV?",
+    f"{CHANNEL}:BSWV WVTP,PULSE",
+    f"{CHANNEL}:BSWV FRQ,10e6HZ",
+    f"{CHANNEL}:BSWV PERI,8e-6S",
+    f"{CHANNEL}:BSWV HLEV,0.2V",
+    f"{CHANNEL}:BSWV LLEV,0V",
+    f"{CHANNEL}:BSWV DUTY,20",
+    f"{CHANNEL}:BSWV RISE,5e-10S",
+    f"{CHANNEL}:BSWV FALL,5e-10S",
+    f"{CHANNEL}:BSWV DLY,-0S",
+    f"{CHANNEL}:BSWV?",
 
-    "C1:BTWV STATE,ON",
+    f"{CHANNEL}:BTWV STATE,ON",
     # "C1:BTWV PRD,0.00200099S",
-    "C1:BTWV PRD,80e-6S",
-    "C1:BTWV TRSR,EXT",
-    "C1:BTWV TIME,1",
-    "C1:BTWV COUNT,1",
-    "C1:BTWV DLAY,2.106e-06S",   
-    "C1:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
+    f"{CHANNEL}:BTWV PRD,80e-6S",
+    f"{CHANNEL}:BTWV TRSR,EXT",
+    f"{CHANNEL}:BTWV TIME,1",
+    f"{CHANNEL}:BTWV COUNT,1",
+    f"{CHANNEL}:BTWV DLAY,2.106e-06S",   
+    f"{CHANNEL}:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
     #"C1:BTWV EDGE,RISE",   
-    "C1:BTWV CARR,WVTP,PULSE",
-    "C1:BTWV FRQ,10e6HZ",
-    "C1:BTWV PERI,8e-6S",
-    "C1:BTWV HLEV,0.2V",
-    "C1:BTWV LLEV,0V",
-    "C1:BTWV DUTY,20",
-    "C1:BTWV RISE,5e-10S",
-    "C1:BTWV FALL,5e-10S",
-    "C1:BTWV DLY,-0S",
-    "C1:BTWV?",
-    "C1:OUTN ON",
+    f"{CHANNEL}:BTWV CARR,WVTP,PULSE",
+    f"{CHANNEL}:BTWV FRQ,10e6HZ",
+    f"{CHANNEL}:BTWV PERI,8e-6S",
+    f"{CHANNEL}:BTWV HLEV,0.2V",
+    f"{CHANNEL}:BTWV LLEV,0V",
+    f"{CHANNEL}:BTWV DUTY,20",
+    f"{CHANNEL}:BTWV RISE,5e-10S",
+    f"{CHANNEL}:BTWV FALL,5e-10S",
+    f"{CHANNEL}:BTWV DLY,-0S",
+    f"{CHANNEL}:BTWV?",
+    f"{CHANNEL}:OUTN ON",
     #"C1:OUTP LOAD,50",
-    "C1:OUTP LOAD,HZ",
-    "C1:OUTP PLRT, INVT"
+    f"{CHANNEL}:OUTP LOAD,HZ",
+    f"{CHANNEL}:OUTP PLRT, INVT"
     ]
     nlist=len(input)
     for i in range(nlist): 
@@ -244,7 +287,30 @@ def SDG7102A_INIT():
 
 
 def SDG7102A_INJ_BURST():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
+    input = [
+    "*IDN?",
+    f"{CHANNEL}:BSWV WVTP,PULSE",
+    f"{CHANNEL}:BSWV PERI,8e-6S",
+    f"{CHANNEL}:BSWV WIDTH, 1.6e-6S",
+    f"{CHANNEL}:BTWV STATE,ON",
+    f"{CHANNEL}:OUTN ON",
+    f"{CHANNEL}:OUTP LOAD,HZ",
+    f"{CHANNEL}:OUTP PLRT, INVT"
+    ]
+    nlist=len(input)
+    for i in range(nlist): 
+        os.write(d,input[i].encode())
+        out = b' '
+        # let's wait one second before reading output (let's give device time to answer)
+        print(input[i])
+        if(input[i][-1]=="?"):   #If the last character of the request is a question 
+            out=os.read(d,1024)  #Print out the response
+            print(out.decode())
+    os.close(d)
+
+def SDG7102A_INJ_CONT_BURST():
+    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
@@ -271,11 +337,14 @@ def SDG7102A_INJ_CONT():
     input = [
     "*IDN?",
     "C1:BSWV WVTP,PULSE",
-    "C1:BSWV FRQ,666666HZ",
+    # "C1:BSWV FRQ,666666HZ",
+
+    "C1:BSWV PERI 1.5e-6S",
+    
     "C1:BSWV WIDTH, 0.75e-6S",
     # "C1:BSWV PERI,1.5e-6S",
 
-    "C1:BTWV STATE,OFF",
+    "C1:BTWV STATE,ON",
    
     "C1:OUTN ON",
     #"C1:OUTP LOAD,50",
@@ -328,7 +397,7 @@ def SDG7102A_INJ_CONT():
 def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
     start = time.time()
     input_commands = [
-        f"C1:BSWV RISE,{TFALL}S",# Set low-level voltage FALL TIME is set with RISE TIME because the PG is inverted !!!!
+        f"{CHANNEL}:BSWV RISE,{TFALL}S",# Set low-level voltage FALL TIME is set with RISE TIME because the PG is inverted !!!!
     ]
     
     retries = 0
@@ -367,47 +436,43 @@ def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
 
 
 def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # Only the high-level voltage changes per step; reuses the persistent
+    # connection instead of opening/closing the device file on every call.
     start = time.time()
-    input_commands = [
-        f"C1:BSWV HLEV,{HLEV}V",  # Set high-level voltage
-        # "C1:BSWV LLEV,0V",  # Set low-level voltage
-    ]
-    
-    retries = 0
-    while retries < max_retries:
-        try:
-            # Attempt to open the device file in read/write binary mode using 'with'
-            with open('/dev/usbtmc0', 'r+b') as d:
-                # print("Device connected successfully.")
-                for cmd in input_commands:
-                    d.write(cmd.encode())  # Send command to device
-
-                    # Only wait and read response if command ends with "?"
-                    if cmd.endswith("?"):
-                        time.sleep(1)  # Give the device time to respond
-                        out = d.read(1024)  # Read the response
-                        print(out.decode())  # Print the decoded output
-
-                    # If the command is not a query, we just continue
-                    else:
-                        out = b''  # No output for non-query commands
-
-                break  # Exit the loop once the connection and commands are successful
-
-        except (OSError, FileNotFoundError) as e:
-            # Catch specific exceptions related to the device connection
-            print(f"Connection failed at voltage {HLEV}: {e}. Retrying ({retries + 1}/{max_retries})...")
-            retries += 1
-            if retries < max_retries:
-                time.sleep(retry_delay)  # Delay before retrying
-            else:
-                print("Max retries reached. Could not connect to the device.")
-                break
+    _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
     end = time.time()
     print("Elapsed time =", round(end-start,8), "seconds")
 
 
- 
+# Pulse generators that can inject the test pulse, with the burst trigger delay
+# set in their INIT function. Used by the pulse delay scan (B6).
+PULSEGEN = {
+    "BK4600"   : {"path" : '/dev/usbtmc0', "channel" : "C1",    "base_delay" : 6.68e-7,  "set_hlev" : BK4600HLEV_SWEEP},
+    "SDG7102A" : {"path" : '/dev/usbtmc1', "channel" : CHANNEL, "base_delay" : 2.106e-6, "set_hlev" : SDG7102A_SWEEP},
+}
+
+def PULSEGEN_DLAY_SWEEP(DLAY, pulseGen="BK4600", verify=False, max_retries=10, retry_delay=0.1):
+    # Set the burst trigger delay (time from the external trigger edge to the injected pulse)
+    # DLAY is in seconds. Only the delay changes, everything else is set once by BK4600_INIT() / SDG7102A_INIT().
+    # If verify is True, read back BTWV? and return the DLAY value reported by the pulse generator (in seconds)
+    pg = PULSEGEN[pulseGen]
+    _usbtmc_write(pg["path"], f"{pg['channel']}:BTWV DLAY,{DLAY:.6e}S", max_retries=max_retries, retry_delay=retry_delay)
+    if not verify:
+        return None
+
+    # response looks like "C1:BTWV STATE,ON,...,DLAY,6.68e-07S,..."
+    out = _usbtmc_query(pg["path"], f"{pg['channel']}:BTWV?", max_retries=max_retries, retry_delay=retry_delay)
+    readback = None
+    if out:
+        fields = out.strip().split(",")
+        if "DLAY" in fields:
+            readback = float(fields[fields.index("DLAY")+1].rstrip("S"))
+    if readback is None:
+        print(f"WARNING: could not read back DLAY from {pulseGen}")
+    elif abs(readback - DLAY) > 1e-12:
+        print(f"WARNING: requested DLAY {DLAY:.6e}S but {pulseGen} reports {readback:.6e}S")
+    return readback
+
 
 def time_sw_read32(ran=10):
     

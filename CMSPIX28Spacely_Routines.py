@@ -48,8 +48,19 @@ def onstartup():
     else:
         iDVDD = V_PORT["vddd"].get_current()
         iAVDD = V_PORT["vdda"].get_current()
+        I_PORT["ISource10uA"].set_current(0.000003) # just to initialize the current readout for the chip
+        I_LEVEL["ISource10uA"] = 0.000003
+
+        I_PORT["ThresholdOut"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdOut"] = 0.000001
+        I_PORT["ThresholdDown"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdDown"] = 0.000001
+        I_PORT["ThresholdUp"].set_current(0.000001) # just to initialize the current readout for the chip
+        I_LEVEL["ThresholdUp"] = 0.000001
+
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
+        print(f"Ibias current is {I_LEVEL['OUTsink']*1000000}uA")
         print("Programming of the ASIC shift register")
         # ROUTINE_IP1_test1() -> converted to ROUTINE_ProgPixelsOnly()
         print("shift register Programmed")
@@ -57,7 +68,6 @@ def onstartup():
         iAVDD = V_PORT["vdda"].get_current()
         print(f"DVDD current is {iDVDD}")
         print(f"AVDD current is {iAVDD}")
-
 
 #<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):
@@ -72,11 +82,11 @@ def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64',
     return ProgShiftRegs(progDebug, verbose, configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk, iP, timeSleep)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_ScanChainOneShot(scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
+def ROUTINE_ScanChainOneShot(scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='5', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
     return ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1D', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.001, v_max=0.4, v_step=0.001, nsample=1000, nPix=0):
+def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='10', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.1, v_max=0.4, v_step=0.1, nsample=1000, nPix=0):
     return PreProgSCurve(scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, v_min, v_max, v_step, nsample, nPix)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
@@ -86,7 +96,7 @@ def ROUTINE_SCurveMatrix():
 #<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
-        injection_delay='1E', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
+        injection_delay='10', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
         cfg_test_delay='5', cfg_test_sample='20', progResetMask='0', configclk_period='64', 
         test_delay='14', test_sample='0F', bxclk_delay='12',configClkGate='0',scanLoadPhase ='26',
         vth0 = 0.08, vth1=0.16, vth2=0.32, readYproj=True, pixel_compout_csv=None, dnn_csv=None
@@ -94,7 +104,7 @@ def ROUTINE_DNN(
         return DNN(progDebug,loopbackBit, patternIndexes, verbose, injection_delay, bxclk_period, startBxclkState, scan_load_delay, cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, test_delay, test_sample, bxclk_delay,configClkGate, scanLoadPhase, vth0=vth0, vth1=vth1, vth2=vth2, readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
 
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
-def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
+def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='10', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
     ROUTINE_DNN(patternIndexes=[dnn_Pattern])
     print("Routine_DNN completed, starting ScanChainOneShot loop.")
     for evt_iter in range(nEvents):
@@ -114,3 +124,12 @@ def ROUTINE_SettingsScan(
 #<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_DNNTraining(asic_training=False):
     return DNNTraining(asic_training = asic_training)
+
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
+def ROUTINE_PulseDelayScan(nPix=0, progPixel=True, v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=2, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.1):
+    return PulseDelayScan(nPix=nPix, progPixel=progPixel, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify, tsleep_delay=tsleep_delay)
+
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
+def ROUTINE_PulseDelayScanSweepVTH(nPix=0, vth_min=0.001, vth_max=0.120, vth_step=0.002, vthNames=["vth0", "vth1", "vth2"], v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=1, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.1):
+    return PulseDelayScanSweepVTH(nPix=nPix, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify, tsleep_delay=tsleep_delay)
+

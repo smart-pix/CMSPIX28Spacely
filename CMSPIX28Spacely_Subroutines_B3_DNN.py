@@ -228,7 +228,7 @@ def DNN(
         # # hex lists                                     
         hex_lists = [
         # Setting up STATIC_ARRAY_0 for IP 2 test 5 - nothing change from other test
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h1",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
          # BxCLK is set to 10MHz : "6'h28"
          # BxCLK starts with a delay: "5'h4"
          # BxCLK starts LOW: "1'h0"
