@@ -48,7 +48,8 @@ def PulseDelayScan(
         test_sample = '0F',
         scanLoadPhase = '26',
         test_delay = '14',
-        tsleep = 250e-3,
+        tsleep = 250e-3, # wait after setting the pulse amplitude
+        tsleep_delay = 100e-3, # wait after each pulse generator delay change
         nsample = 1365,
         nIter = 1,
         verify = False,
@@ -127,7 +128,7 @@ def PulseDelayScan(
 
             dly_ns = round(dly_ns, 3)
             readback = PULSEGEN_DLAY_SWEEP(base_delay + dly_ns*1e-9, pulseGen=pulseGen, verify=verify)
-            time.sleep(tsleep) # added time for pulse generator to settle
+            time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
 
             # save data
             save_data = []
@@ -213,6 +214,7 @@ def PulseDelayScanSweepVTH(
         nIter = 1,
         verify = False,
         tsleep_vth = 0.1,
+        tsleep_delay = 100e-3, # wait after each pulse generator delay change
         dataDir = FNAL_SETTINGS["storageDirectory"],
         **kwargs, # any other PulseDelayScan setting (injection_delay, bxclk_delay, ...)
 ):
@@ -265,6 +267,7 @@ def PulseDelayScanSweepVTH(
                 dateTime = now,
                 testType = "PulseDelayScanVTH",
                 vthLabel = vthNames[0],
+                tsleep_delay = tsleep_delay,
                 **kwargs
             )
             outDir = os.path.dirname(os.path.normpath(vthDir))
