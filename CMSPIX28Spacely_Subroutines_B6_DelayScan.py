@@ -107,6 +107,9 @@ def PulseDelayScan(
     if testType == "PulseDelayScanVTH":
         testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = f"vth{V_LEVEL[vthLabel]:.3f}"
+    elif testType == "PulseDelayScanMatrix":
+        testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}"
+        pixelInfo = os.path.join(f"nPix{nPix}", f"vth{V_LEVEL[vthLabel]:.3f}")
     else:
         testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = ""
@@ -216,6 +219,8 @@ def PulseDelayScanSweepVTH(
         tsleep_vth = 0.1,
         tsleep_delay = 100e-3, # wait after each pulse generator delay change
         dataDir = FNAL_SETTINGS["storageDirectory"],
+        dateTime = None, # set by PulseDelayScanMatrix so all pixels share one test folder
+        testType = "PulseDelayScanVTH",
         **kwargs, # any other PulseDelayScan setting (injection_delay, bxclk_delay, ...)
 ):
 
@@ -223,7 +228,7 @@ def PulseDelayScanSweepVTH(
     ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
 
     # same timestamp for every threshold so they end up in the same folder
-    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+    now = dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     # Sweep range
     # exact steps of vth_step from vth_min, last point is the largest one <= vth_max
@@ -265,7 +270,7 @@ def PulseDelayScanSweepVTH(
                 verify = verify,
                 dataDir = dataDir,
                 dateTime = now,
-                testType = "PulseDelayScanVTH",
+                testType = testType,
                 vthLabel = vthNames[0],
                 tsleep_delay = tsleep_delay,
                 **kwargs
@@ -277,5 +282,76 @@ def PulseDelayScanSweepVTH(
         for name, v in vthStart.items():
             V_PORT[name].set_voltage(v)
             V_LEVEL[name] = v
+
+    return outDir
+
+
+#-----------------------------------------------------------------------
+# PulseDelayScanMatrix function
+#-----------------------------------------------------------------------
+# Runs PulseDelayScanSweepVTH (delay vs threshold hit map) for every pixel in pixelList, like SCurveMatrix
+# Each pixel is programmed alone, then swept over thresholds and pulse generator delays
+# All pixels are stored in the same test folder: <test>/nPix<n>/vth<V>/delay_<ns>.npy
+# A full sweep is long: the time per pixel is printed before starting; use pixelList to run a subset
+# Analysis (2D maps per bit, cumulative hit rate vs threshold, width at half maximum threshold per pixel):
+# CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
+#-----------------------------------------------------------------------
+
+def PulseDelayScanMatrix(
+        pixelList = None, # None = all 256 pixels
+        vth_min = 0.002,
+        vth_max = 0.120,
+        vth_step = 0.004,
+        vthNames = ["vth0", "vth1", "vth2"],
+        v_asic = 0.1,
+        delay_min_ns = -50,
+        delay_max_ns = 50,
+        delay_step_ns = 2,
+        tsleep_delay = 100e-3,
+        tsleep_vth = 0.1,
+        nsample = 1365,
+        nIter = 1,
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        **kwargs, # any other PulseDelayScan setting (injection_delay, bxclk_delay, scan_load_delay, pulseGen, base_delay, ...)
+):
+
+    if pixelList is None:
+        pixelList = list(range(256))
+
+    # rough time estimate: delay wait + burst (100us per sample) + ~50 ms readout per point
+    nVth = int(np.floor((vth_max - vth_min)/vth_step + 1e-6))+1
+    nDelay = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
+    tPoint = tsleep_delay + 100e-6*nsample*nIter + 0.05
+    tPixel = nVth*(nDelay*tPoint + tsleep_vth)
+    print(f"PulseDelayScanMatrix: {len(pixelList)} pixels x {nVth} thresholds x {nDelay} delays")
+    print(f"Estimated time: ~{tPixel/60:.1f} min per pixel, ~{len(pixelList)*tPixel/3600:.1f} h in total")
+
+    # same timestamp for every pixel so they end up in the same folder
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    outDir = None
+    for iP, nPix in enumerate(pixelList):
+        print(f"Pixel {nPix} ({iP+1}/{len(pixelList)})")
+        pixDir = PulseDelayScanSweepVTH(
+            nPix = nPix,
+            vth_min = vth_min,
+            vth_max = vth_max,
+            vth_step = vth_step,
+            vthNames = vthNames,
+            v_asic = v_asic,
+            delay_min_ns = delay_min_ns,
+            delay_max_ns = delay_max_ns,
+            delay_step_ns = delay_step_ns,
+            tsleep_delay = tsleep_delay,
+            tsleep_vth = tsleep_vth,
+            nsample = nsample,
+            nIter = nIter,
+            dataDir = dataDir,
+            dateTime = now,
+            testType = "PulseDelayScanMatrix",
+            **kwargs
+        )
+        if pixDir is not None:
+            outDir = os.path.dirname(os.path.normpath(pixDir))
 
     return outDir
