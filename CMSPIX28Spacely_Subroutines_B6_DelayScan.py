@@ -26,6 +26,9 @@ except ImportError as e:
 # 3. Set the pulse generator amplitude to a fixed v_asic
 # 4. loop over the pulse generator burst delay: base_delay + [delay_min_ns, delay_max_ns] in steps of delay_step_ns
 # 5. Execute IP2 test 5, read DATA_ARRAY_1 and save the samples to delay_<ns>.npy
+# delayMode = "PG": every delay step is a pulse generator delay change (resolution limited by the pulse generator, ~8 ns for the BK4065)
+# delayMode = "FW": 2.5 ns steps with the firmware injection_delay (the 400 MHz FPGA clock, trigger position within one BxCLK period),
+#                   the pulse generator delay only changes by whole BxCLK periods when the scan range needs more than one period
 # The pulse generator must already be initialized (BK4600_INIT() or SDG7102A_INIT())
 # Analysis and plots: CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
 #-----------------------------------------------------------------------
@@ -57,6 +60,7 @@ def PulseDelayScan(
         dateTime = None,
         testType = "PulseDelayScan",
         vthLabel = "vth0", # threshold used to name the sub folder for PulseDelayScanVTH
+        delayMode = "PG", # "PG": pulse generator delay steps, "FW": 2.5 ns firmware injection_delay steps (see above)
 ):
 
     if nsample>1365:
@@ -65,11 +69,6 @@ def PulseDelayScan(
 
     if base_delay is None:
         base_delay = PULSEGEN[pulseGen]["base_delay"]
-
-    # negative offsets are fine as long as the absolute pulse generator delay stays positive
-    if base_delay + delay_min_ns*1e-9 < 0:
-        print(f"delay_min_ns = {delay_min_ns} ns would give a negative pulse generator delay (base delay is {base_delay*1e9:.1f} ns). Increase delay_min_ns or base_delay and rerun.")
-        return
 
     # program single pixel
     if progPixel:
@@ -94,6 +93,33 @@ def PulseDelayScan(
     n_step = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
     delay_steps_ns = delay_min_ns + delay_step_ns*np.arange(n_step)
 
+    # plan for every delay point: (total delay offset [ns], pulse generator delay offset [ns], injection_delay in hex)
+    if delayMode == "FW":
+        period = int(bxclk_period, 16)
+        inj0 = int(injection_delay, 16)
+        if not 1 <= inj0 <= period:
+            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period = {bxclk_period} (hex) for delayMode='FW'.")
+            return
+        # 2.5 ns grid; the firmware trigger fires when the BxCLK counter (1..period) equals injection_delay
+        # points on the grid inside [delay_min_ns, delay_max_ns], step rounded to a multiple of 2.5 ns (at least 2.5 ns)
+        k = max(1, int(round(delay_step_ns/2.5)))
+        n = np.arange(int(np.ceil(delay_min_ns/2.5 - 1e-6)), int(np.floor(delay_max_ns/2.5 + 1e-6)) + 1, k)
+        if abs(k*2.5 - delay_step_ns) > 1e-6 or abs(n[0]*2.5 - delay_min_ns) > 1e-6:
+            print(f"delayMode='FW': using the 2.5 ns firmware grid, {n[0]*2.5:.1f} to {n[-1]*2.5:.1f} ns in steps of {k*2.5:.1f} ns")
+        seg = np.floor((n + inj0 - 1)/period).astype(int)    # BxCLK periods the pulse generator has to move
+        inj = inj0 + n - seg*period                           # injection_delay for this point, always in 1..period
+        plan = [(round(2.5*ni, 3), round(2.5*period*si, 3), f"{ii:X}") for ni, si, ii in zip(n, seg, inj)]
+        if len(set(seg)) > 1:
+            print(f"delayMode='FW': the range spans {len(set(seg))} BxCLK periods, the pulse generator delay changes by {2.5*period:.0f} ns between them. "
+                  "Its delay resolution can offset the segments from each other by up to one of its steps: check the continuity at the segment boundaries.")
+    else:
+        plan = [(round(d, 3), round(d, 3), injection_delay) for d in delay_steps_ns]
+
+    # negative offsets are fine as long as the absolute pulse generator delay stays positive
+    if base_delay + min(p[1] for p in plan)*1e-9 < 0:
+        print(f"delay_min_ns = {delay_min_ns} ns would give a negative pulse generator delay (base delay is {base_delay*1e9:.1f} ns). Increase delay_min_ns or base_delay and rerun.")
+        return
+
     # 400MHz is the FPGA clock
     bxclk_period_inMhz = 400/int(bxclk_period, 16)
     injection_delay_in_ns = int(injection_delay,16)*2.5
@@ -114,6 +140,9 @@ def PulseDelayScan(
         testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = ""
 
+    if delayMode == "FW":
+        testInfo += "_dlyModeFW"
+
     # output directory
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
@@ -126,12 +155,19 @@ def PulseDelayScan(
     time.sleep(tsleep)
 
     try:
-        # loop over the delay steps
-        for dly_ns in tqdm.tqdm(delay_steps_ns, desc="Delay Step"):
+        # save the plan for FW mode: which pulse generator delay and injection_delay gave each point
+        if delayMode == "FW":
+            np.savez(os.path.join(outDir, "delay_plan.npz"), delay_ns=[p[0] for p in plan], pg_delay_ns=[p[1] for p in plan], injection_delay=[int(p[2], 16) for p in plan])
 
-            dly_ns = round(dly_ns, 3)
-            readback = PULSEGEN_DLAY_SWEEP(base_delay + dly_ns*1e-9, pulseGen=pulseGen, verify=verify)
-            time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
+        # loop over the delay steps
+        pg_set, readback = None, None
+        for dly_ns, pg_ns, inj_hex in tqdm.tqdm(plan, desc="Delay Step"):
+
+            # only touch the pulse generator when its delay changes
+            if pg_ns != pg_set:
+                readback = PULSEGEN_DLAY_SWEEP(base_delay + pg_ns*1e-9, pulseGen=pulseGen, verify=verify)
+                time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
+                pg_set = pg_ns
 
             # save data
             save_data = []
@@ -143,7 +179,7 @@ def PulseDelayScan(
                         "4'h2",  # firmware id
                         "4'hF",  # op code for execute
                         "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                        f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"6'h{inj_hex}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
                         f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
                         "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
                         f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
@@ -182,6 +218,8 @@ def PulseDelayScan(
 
             # quick look at the bench, full analysis is in lab_analysis/PulseDelayScan.py
             readbackInfo = f" (PG reports {(readback - base_delay)*1e9:.3f} ns)" if readback is not None else ""
+            if delayMode == "FW":
+                readbackInfo += f" [PG offset {pg_ns:.1f} ns, injection_delay {inj_hex}]"
             tqdm.tqdm.write(f"delay {dly_ns:.3f} ns{readbackInfo}: hit rate any bit = {100*np.any(save_data, axis=1).mean():.1f}%")
 
     finally:
@@ -321,8 +359,12 @@ def PulseDelayScanMatrix(
     # rough time estimate: delay wait + burst (100us per sample) + ~50 ms readout per point
     nVth = int(np.floor((vth_max - vth_min)/vth_step + 1e-6))+1
     nDelay = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
-    tPoint = tsleep_delay + 100e-6*nsample*nIter + 0.05
-    tPixel = nVth*(nDelay*tPoint + tsleep_vth)
+    if kwargs.get("delayMode", "PG") == "FW":
+        nSeg = int(np.ceil((delay_max_ns - delay_min_ns)/(2.5*int(kwargs.get("bxclk_period", '28'), 16)))) + 1
+        tPixel = nVth*(nDelay*(100e-6*nsample*nIter + 0.05) + nSeg*tsleep_delay + tsleep_vth)
+    else:
+        tPoint = tsleep_delay + 100e-6*nsample*nIter + 0.05
+        tPixel = nVth*(nDelay*tPoint + tsleep_vth)
     print(f"PulseDelayScanMatrix: {len(pixelList)} pixels x {nVth} thresholds x {nDelay} delays")
     print(f"Estimated time: ~{tPixel/60:.1f} min per pixel, ~{len(pixelList)*tPixel/3600:.1f} h in total")
 
