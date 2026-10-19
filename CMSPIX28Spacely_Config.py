@@ -15,7 +15,11 @@ V_SEQUENCE = ["vdda",
               "VMC", 
               "SUPERPIX", 
               "INJ_1",
-              "Ibias"
+              "Ibias",
+              "dnn0",
+              "dnn1",
+              "dnn_glob"
+
 ]
 
 I_SEQUENCE = [
@@ -25,7 +29,8 @@ I_SEQUENCE = [
               "ThresholdDown",
               "ThresholdUp",
               "Source1mA",
-              "VlogSink1mA"
+              "VlogSink1mA",
+              "Isource10uA"
               ]
 
 V_INSTR = {"vdda": "car",
@@ -36,7 +41,10 @@ V_INSTR = {"vdda": "car",
            "VMC":"car",
            "SUPERPIX":"car",
            "INJ_1": "car",
-           "Ibias": "car"
+           "Ibias": "car",
+           "dnn0": "car",
+           "dnn1": "car",
+           "dnn_glob": "car"
 }
 
 I_INSTR = {
@@ -46,7 +54,8 @@ I_INSTR = {
            "ThresholdDown": "car",
            "ThresholdUp": "car",
            "Source1mA": "car",
-           "VlogSink1mA": "car"
+           "VlogSink1mA": "car",
+           "Isource10uA": "car"
            }
 
 V_CHAN = {"vdda": "PWR_OUT_1",
@@ -57,7 +66,10 @@ V_CHAN = {"vdda": "PWR_OUT_1",
            "VMC":"BIAS_1",
            "SUPERPIX":"BIAS_5",
            "INJ_1":"INJ_1",
-           "Ibias":"BIAS_26"
+           "Ibias":"BIAS_26",
+           "dnn0":"BIAS_7",
+           "dnn1":"BIAS_6",
+           "dnn_glob":"BIAS_9"
 }
 
 I_CHAN = {
@@ -67,18 +79,22 @@ I_CHAN = {
            "ThresholdDown":"CUR_3",
            "ThresholdUp":"CUR_4",
            "Source1mA":"CUR_5",
-           "VlogSink1mA":"CUR_6"
+           "VlogSink1mA":"CUR_6",
+           "Isource10uA":"CUR_7"
            }
 
 V_LEVEL = {"vdda": 0.9,
            "vddd": 0.9,
-           "vth0": 0.031, #0.05 is 1000e-
-           "vth1": 0.031, #0.08 is 1500e-
-           "vth2": 0.031, #0.11 is 2000e-
+           "vth0": 0.012, #0.05 is 1000e-
+           "vth1": 0.024, #0.08 is 1500e-
+           "vth2": 0.048, #0.11 is 2000e-
            "VMC": 0.4,
            "SUPERPIX":0,
            "INJ_1": 2,
-           "Ibias": 0.6            #TUNE TO have 5uW/pixel
+           "Ibias": 0.6,            #TUNE TO have 5uW/pixel
+           "dnn0": 0.079,   # DAC code 79; flips 79-80 mV. see RUN_DNN0
+           "dnn1": 0.070,   # DAC code 70; flips 70-71 mV. see RUN_DNN1
+           "dnn_glob": 1.5
 }
 
 I_LEVEL = {
@@ -88,7 +104,8 @@ I_LEVEL = {
            "ThresholdDown": -0.00001,
            "ThresholdUp": -0.00001,
            "Source1mA": -0.00001,
-           "VlogSink1mA": -0.00001
+           "VlogSink1mA": -0.00001,
+           "Isource10uA": -0.00001
            }
 
 V_WARN_VOLTAGE = {"vdda": [0.82,0.99],
@@ -99,7 +116,10 @@ V_WARN_VOLTAGE = {"vdda": [0.82,0.99],
            "VMC": [0,0.4],
            "SUPERPIX":[0,0.99],
            "INJ_1": [1.8,2.2],
-           "Ibias": [0,0.9]
+           "Ibias": [0,0.9],
+            "dnn0": [0,2.5],
+            "dnn1": [0,2.5],
+            "dnn_glob": [1.3,1.7]
       }
 
 V_PORT  = {"vdda": None,
@@ -110,7 +130,10 @@ V_PORT  = {"vdda": None,
            "VMC":None,
            "SUPERPIX":None,
            "INJ_1": None,
-           "Ibias": None
+           "Ibias": None,
+           "dnn0": None,
+           "dnn1": None,
+           "dnn_glob": None
 }
 
 I_PORT = {
@@ -120,7 +143,8 @@ I_PORT = {
            "ThresholdDown": None,
            "ThresholdUp": None,
            "Source1mA": None,
-           "VlogSink1mA": None
+           "VlogSink1mA": None,
+           "Isource10uA": None
            }
 
 I_VOLT_LIMIT = {
@@ -130,7 +154,8 @@ I_VOLT_LIMIT = {
               "ThresholdDown": 0.01,
               "ThresholdUp": 0.01,
               "Source1mA": 0.01,
-              "VlogSink1mA": 0.01
+              "VlogSink1mA": 0.01,
+                "Isource10uA": 0.01
     }
 
 I_WARN_VOLTAGE = {
@@ -140,12 +165,13 @@ I_WARN_VOLTAGE = {
               "ThresholdDown": [0,0.9],
               "ThresholdUp": [0,0.9],
               "Source1mA": [0,0.9],
-              "VlogSink1mA": [0,0.9]    
+              "VlogSink1mA": [0,0.9], 
+              "Isource10uA": [0,0.9]
       }
 
 
 FNAL_SETTINGS = {
-    "storageDirectory" : "/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
+    "storageDirectory" : "/mnt/local/CMSPIX28/Scurve",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
     "chipVersion" : 1,
-    "chipID" : 23
+    "chipID" : 31
 }

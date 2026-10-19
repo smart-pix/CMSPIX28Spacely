@@ -295,7 +295,11 @@ def PreProgSCurveBurst(
     injection_delay_in_ns = int(injection_delay,16)*2.5
     bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
 
-    ipixel = (V_PORT["vdda"].get_current())*1000000/(512*10)    # extract roughtly Ibias for a pixel. NEED TO KNOW I_testStructure!!!
+    # ipixel is only used in the "Single" testType's output name below; skip the
+    # hardware round-trip to fetch it otherwise (it was previously fetched and
+    # discarded on every voltage/pixel/bias iteration of the matrix sweeps).
+    if testType == "Single":
+        ipixel = (V_PORT["vdda"].get_current())*1000000/(512*10)    # extract roughtly Ibias for a pixel. NEED TO KNOW I_testStructure!!!
     # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
@@ -314,17 +318,25 @@ def PreProgSCurveBurst(
         # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
         pixelInfo = f"Ibias{I_LEVEL['OUTsink']*1000000:.1f}uA"
     elif testType == "MatrixVTH":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
-        pixelInfo = f"vth{V_LEVEL['vth0']:.3f}"
+        # Ibias in the folder name must reflect the actual current source that gets
+        # tuned (Isource10uA, in Amps) rather than the unrelated V_LEVEL['Ibias']
+        # config value, converted to uA to match the other Ibias-labeled folders.
+        ibias_uA = I_LEVEL['Isource10uA'] * 1e6
+        # One shared root per run (same bias_conditions string regardless of nPix/vth,
+        # both of which move to pixelInfo below), so all 256 pixels of a
+        # SCurveSweepVTHPix run land under a single shared "<date>_linearity_<bias
+        # conditions>" folder instead of each pixel creating its own top-level folder.
+        testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_linearity_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{ibias_uA:.3f}uA"
+        pixelInfo = os.path.join(f"nPix{nPix}", f"vth{V_LEVEL['vth0']:.3f}")
     elif testType == "MatrixInjDly":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
-        pixelInfo = f"injDly{injection_delay_in_ns:.2f}"  
+        pixelInfo = f"injDly{injection_delay_in_ns:.2f}"
     elif testType == "MatrixBxCLKDly":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
-        pixelInfo = f"MatrixBxCLKDly{bxclk_delay_in_ns:.2f}"     
+        pixelInfo = f"MatrixBxCLKDly{bxclk_delay_in_ns:.2f}"
     elif testType == "MatrixPulseGenFall":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}__vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
-        pixelInfo = f"FallTime{parameter:.3e}"         
+        pixelInfo = f"FallTime{parameter:.3e}"
     elif testType == "Single":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
         pixelInfo = ""
@@ -335,6 +347,41 @@ def PreProgSCurveBurst(
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
+
+    # dump a .log at the run root (shared across every pix/vth/etc. under this
+    # testInfo folder) with the full set of conditions that aren't captured in the
+    # folder names, so a run stays reproducible without reverse-engineering the code.
+    runRoot = os.path.join(dataDir, chipInfo, testInfo)
+    runLogPath = os.path.join(runRoot, "run_conditions.log")
+    if not os.path.exists(runLogPath):
+        with open(runLogPath, "w") as f:
+            f.write(f"chipInfo: {chipInfo}\n")
+            f.write(f"testType: {testType}\n")
+            f.write(f"dataDir: {dataDir}\n")
+            f.write(f"timestamp: {datetime.now().strftime('%Y.%m.%d_%H.%M.%S')}\n")
+            f.write("\n[scan chain / firmware timing]\n")
+            f.write(f"scan_load_delay: {scan_load_delay}\n")
+            f.write(f"startBxclkState: {startBxclkState}\n")
+            f.write(f"bxclk_delay: {bxclk_delay} ({bxclk_delay_in_ns:.2f} ns)\n")
+            f.write(f"bxclk_period: {bxclk_period} ({bxclk_period_inMhz:.2f} MHz)\n")
+            f.write(f"injection_delay: {injection_delay} ({injection_delay_in_ns:.2f} ns)\n")
+            f.write(f"scanLoopBackBit: {scanLoopBackBit}\n")
+            f.write(f"test_sample: {test_sample}\n")
+            f.write(f"scanLoadPhase: {scanLoadPhase}\n")
+            f.write(f"test_delay: {test_delay}\n")
+            f.write(f"tsleep: {tsleep}\n")
+            f.write("\n[voltage sweep]\n")
+            f.write(f"v_min: {v_min}\n")
+            f.write(f"v_max: {v_max}\n")
+            f.write(f"v_step: {v_step}\n")
+            f.write(f"nsample: {nsample}\n")
+            f.write(f"nIter: {nIter}\n")
+            f.write("\n[bias / voltage levels at run start]\n")
+            for k, v in V_LEVEL.items():
+                f.write(f"V_LEVEL[{k}]: {v}\n")
+            for k, v in I_LEVEL.items():
+                f.write(f"I_LEVEL[{k}]: {v}\n")
+        os.chmod(runLogPath, mode=0o666)
 
     # loop over the voltage steps
     for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
@@ -532,7 +579,7 @@ def SCurveSweepIbias(nPix=0):
     SDG7102A_INIT()
 
   
-def SCurveSweepVTH(nPix=0):
+def SCurveSweepVTH(nPix=0, dateTime=None):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -541,15 +588,17 @@ def SCurveSweepVTH(nPix=0):
     print(nPix)
     #program single pixel
     ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
-    
+
 
     # create an output directory/mnt/local/CMSPIX28/Scurve/data/ChipVersion1_ChipID9_SuperPix2/2025.02.25_08.36.02_Matrix_vMin0.001_vMax0.600_vStep0.00100_nSample1000.000_vdda0.900_VTH0.800_BXCLK10.00/nPix0.8
     dataDir = FNAL_SETTINGS["storageDirectory"]
-    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+    # dateTime is passed in by SCurveSweepVTHPix so every pixel of a run shares one
+    # root folder; a standalone call (dateTime=None) still gets its own fresh timestamp.
+    now = dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
 
     # Sweep range
-    biasList = np.arange(0,0.3,0.01)
-    # biasList = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]
+    # biasList = np.arange(0,0.3,0.01)
+    biasList = [0.04, 0.05, 0.06, 0.07]
     # vthList = [1.5,1.6]
     for i in biasList:
         V_PORT["vth0"].set_voltage(i)
@@ -558,7 +607,6 @@ def SCurveSweepVTH(nPix=0):
         V_LEVEL["vth1"] = i
         V_PORT["vth2"].set_voltage(i)
         V_LEVEL["vth2"] = i
-        V_PORT["vdda"].get_current()
         PreProgSCurveBurst(
             scan_load_delay = '13', 
             startBxclkState = '0', 
@@ -569,8 +617,8 @@ def SCurveSweepVTH(nPix=0):
             test_sample = '0F', 
             scanLoadPhase ='26',
             test_delay = '14', 
-            v_min = 0.001, 
-            v_max = 0.4, 
+            v_min = 0.004, 
+            v_max = 0.35, 
             v_step = 0.001, 
             nsample = 1365, 
             nPix = nPix,
@@ -583,8 +631,11 @@ def SCurveSweepVTH(nPix=0):
 def SCurveSweepVTHPix():
     nPix = 256
     nPixList =  [192]
-    for i in nPixList: #range(nPix):
-        SCurveSweepVTH(nPix=i)
+    # generate the shared run root once so all 256 pixels land under one
+    # "<date>_linearity_<bias conditions>" folder instead of each pixel making its own
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+    for i in range(nPix):
+        SCurveSweepVTH(nPix=i, dateTime=now)
 
 
 def SCurveSweep(nPix=0,  FWparameter = None, minPar = 10, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): 

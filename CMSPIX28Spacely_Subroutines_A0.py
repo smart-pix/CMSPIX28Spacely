@@ -195,20 +195,26 @@ def SDG7102A_QUERY():
     d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",    
-    f"{CHANNEL}:BSWV?",
-    f"{CHANNEL}:BTWV?",
-    f"{CHANNEL}:OUTP?"
-    f"{CHANNEL}:BSWV?",
-    f"{CHANNEL}:BTWV?",
-    f"{CHANNEL}:OUTP?"
+    "C1:BSWV?",
+    "C1:BTWV?",
+    "C1:OUTP?",
+    "C1:BSWV?",
+    "C1:BTWV?",
+    "C1:OUTP?",
+    "C2:BSWV?",
+    "C2:BTWV?",
+    "C2:OUTP?",
+    "C2:BSWV?",
+    "C2:BTWV?",
+    "C2:OUTP?"
         ]
     nlist=len(input)
-    for i in range(nlist): 
+    for i in range(nlist):
         os.write(d,input[i].encode())
         out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
         print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
+        if(input[i][-1]=="?"):   #If the last character of the request is a question
+            time.sleep(1)  # let's wait one second before reading output (give device time to answer)
             out=os.read(d,1024)  #Print out the response
             print(out.decode())
     os.close(d)
@@ -292,13 +298,13 @@ def SDG7102A_INJ_CONT_BURST():
     d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    "C1:BSWV PERI,8e-6S",
-    "C1:BSWV WIDTH, 1.6e-6S",
-    "C1:BTWV STATE,ON",
-    "C1:OUTN ON",
-    "C1:OUTP LOAD,HZ",
-    "C1:OUTP PLRT, INVT"
+    "C2:BSWV WVTP,PULSE",
+    "C2:BSWV PERI,8e-6S",
+    "C2:BSWV WIDTH, 1.6e-6S",
+    "C2:BTWV STATE,ON",
+    "C2:OUTN ON",
+    "C2:OUTP LOAD,HZ",
+    "C2:OUTP PLRT, INVT"
     ]
     nlist=len(input)
     for i in range(nlist): 
@@ -311,35 +317,34 @@ def SDG7102A_INJ_CONT_BURST():
             print(out.decode())
     os.close(d)
 
-def SDG7102A_INJ_CONT():
-    d = os.open('/dev/usbtmc0', os.O_RDWR)
+
+
+def SDG7102A_INJ_CONT(LHC_RATE=1, max_retries=10, retry_delay=0.1):
+    # Routed through _usbtmc_write (persistent connection + retry-on-failure)
+    # instead of a raw os.open/write/read/close, matching BK4600HLEV_SWEEP().
+    PERI = LHC_RATE*1.5e-6
+    WIDTH = 0.75e-6/LHC_RATE
     input = [
     "*IDN?",
-    "C1:BSWV WVTP,PULSE",
-    # "C1:BSWV FRQ,666666HZ",
-
-    "C1:BSWV PERI 1.5e-6S",
-    
-    "C1:BSWV WIDTH, 0.75e-6S",
-    # "C1:BSWV PERI,1.5e-6S",
-
-    "C1:BTWV STATE,ON",
-   
-    "C1:OUTN ON",
-    #"C1:OUTP LOAD,50",
+    "C2:BSWV WVTP,PULSE",
+    f"C2:BSWV PERI {PERI}S",
+    f"C2:BSWV WIDTH, {WIDTH}S",
+    "C2:BSWV DLY, -55e-9S",
+    # "C2:BTWV STATE,ON",
+    "C2:OUTP ON",
+    "C2:OUTP LOAD,HZ",
+    "C2:OUTP PLRT, INVT",
+    # "C1:BSWV DLY, 70e-9S",
+    "C1:BSWV FRQ, 10e6HZ",
+    "C1:BSWV HLEV,0.9V",
+    "C1:BSWV LLEV,0V",
+    "C1:OUTP ON",
     "C1:OUTP LOAD,HZ",
     "C1:OUTP PLRT, INVT"
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+    for cmd in input:
+        print(cmd)
+        _usbtmc_write('/dev/usbtmc1', cmd, max_retries=max_retries, retry_delay=retry_delay)
 
 # def SDG7102A_SWEEP(HLEV=0.2):
 
@@ -383,7 +388,7 @@ def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
     while retries < max_retries:
         try:
             # Attempt to open the device file in read/write binary mode using 'with'
-            with open('/dev/usbtmc0', 'r+b') as d:
+            with open('/dev/usbtmc1', 'r+b') as d:
                 # print("Device connected successfully.")
                 for cmd in input_commands:
                     d.write(cmd.encode())  # Send command to device
@@ -707,7 +712,17 @@ def get_power():
     print(f"DVDD current is {iDVDD}")
     print(f"AVDD current is {iAVDD}")
 
+# DNN()/DNN_power() call genPixelConfigFromInputCSV() once per test vector
+# with the same filename, and this parse can take several seconds on large
+# CSVs (e.g. ~9s for a 169k-row file) - so cache the parsed result per path
+# rather than re-reading and re-parsing the whole file every call.
+_pixel_config_cache = {}
+
 def genPixelConfigFromInputCSV(filename):
+
+    cached = _pixel_config_cache.get(filename)
+    if cached is not None:
+        return cached
 
     # Initialize an empty list to store the lists of numbers
     pixelLists = []
@@ -750,6 +765,7 @@ def genPixelConfigFromInputCSV(filename):
             pixelLists.append(pixelList)
             pixelValues.append(pixelValue)
 
+    _pixel_config_cache[filename] = (pixelLists, pixelValues)
     return pixelLists, pixelValues
 
 # helper function to print a loud message for the user
