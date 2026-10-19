@@ -9,6 +9,7 @@ try:
     import tqdm
     import numpy as np
     import math
+    import json
     from datetime import datetime
 except ImportError as e:
     loud_message(header_import_error, f"{__file__}: {str(e)}")
@@ -155,6 +156,12 @@ def PulseDelayScan(
     time.sleep(tsleep)
 
     try:
+        # save the timing settings of this run, so scope measurements of the timing (for the 2D map overlay) can be matched to the settings
+        with open(os.path.join(outDir, "scan_settings.json"), "w") as fs:
+            json.dump({"bxclk_period": bxclk_period, "bxclk_delay": bxclk_delay, "scanLoadPhase": scanLoadPhase, "scan_load_delay": scan_load_delay,
+                       "injection_delay": injection_delay, "test_delay": test_delay, "test_sample": test_sample, "base_delay_ns": base_delay*1e9,
+                       "pulseGen": pulseGen, "delayMode": delayMode, "v_asic": v_asic, "nPix": nPix}, fs, indent=1)
+
         # save the plan for FW mode: which pulse generator delay and injection_delay gave each point
         if delayMode == "FW":
             np.savez(os.path.join(outDir, "delay_plan.npz"), delay_ns=[p[0] for p in plan], pg_delay_ns=[p[1] for p in plan], injection_delay=[int(p[2], 16) for p in plan])
