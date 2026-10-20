@@ -29,7 +29,8 @@ except ImportError as e:
 # 5. Execute IP2 test 5, read DATA_ARRAY_1 and save the samples to delay_<ns>.npy
 # delayMode = "PG": every delay step is a pulse generator delay change (resolution limited by the pulse generator, ~8 ns for the BK4065)
 # delayMode = "FW": 2.5 ns steps with the firmware injection_delay (the 400 MHz FPGA clock, trigger position within one BxCLK period),
-#                   the pulse generator delay only changes by whole BxCLK periods when the scan range needs more than one period
+#                   only injection_delay = 1..period/2 injects (21..40 gave no hits at bxclk_period '28'), so the pulse generator
+#                   delay changes by half BxCLK periods when the scan range needs more than one half period
 # The pulse generator must already be initialized (BK4600_INIT() or SDG7102A_INIT())
 # Analysis and plots: CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
 #-----------------------------------------------------------------------
@@ -98,20 +99,21 @@ def PulseDelayScan(
     if delayMode == "FW":
         period = int(bxclk_period, 16)
         inj0 = int(injection_delay, 16)
-        if not 1 <= inj0 <= period:
-            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period = {bxclk_period} (hex) for delayMode='FW'.")
+        half = period//2
+        if not 1 <= inj0 <= half:
+            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period/2 = {half:X} (hex) for delayMode='FW'.")
             return
-        # 2.5 ns grid; the firmware trigger fires when the BxCLK counter (1..period) equals injection_delay
+        # 2.5 ns grid; only injection_delay in the first half of the BxCLK period (1..period/2) injects a pulse
         # points on the grid inside [delay_min_ns, delay_max_ns], step rounded to a multiple of 2.5 ns (at least 2.5 ns)
         k = max(1, int(round(delay_step_ns/2.5)))
         n = np.arange(int(np.ceil(delay_min_ns/2.5 - 1e-6)), int(np.floor(delay_max_ns/2.5 + 1e-6)) + 1, k)
         if abs(k*2.5 - delay_step_ns) > 1e-6 or abs(n[0]*2.5 - delay_min_ns) > 1e-6:
             print(f"delayMode='FW': using the 2.5 ns firmware grid, {n[0]*2.5:.1f} to {n[-1]*2.5:.1f} ns in steps of {k*2.5:.1f} ns")
-        seg = np.floor((n + inj0 - 1)/period).astype(int)    # BxCLK periods the pulse generator has to move
-        inj = inj0 + n - seg*period                           # injection_delay for this point, always in 1..period
-        plan = [(round(2.5*ni, 3), round(2.5*period*si, 3), f"{ii:X}") for ni, si, ii in zip(n, seg, inj)]
+        seg = np.floor((n + inj0 - 1)/half).astype(int)      # half BxCLK periods the pulse generator has to move
+        inj = inj0 + n - seg*half                             # injection_delay for this point, always in 1..period/2
+        plan = [(round(2.5*ni, 3), round(2.5*half*si, 3), f"{ii:X}") for ni, si, ii in zip(n, seg, inj)]
         if len(set(seg)) > 1:
-            print(f"delayMode='FW': the range spans {len(set(seg))} BxCLK periods, the pulse generator delay changes by {2.5*period:.0f} ns between them. "
+            print(f"delayMode='FW': the range spans {len(set(seg))} half BxCLK periods, the pulse generator delay changes by {2.5*half:.1f} ns between them. "
                   "Its delay resolution can offset the segments from each other by up to one of its steps: check the continuity at the segment boundaries.")
     else:
         plan = [(round(d, 3), round(d, 3), injection_delay) for d in delay_steps_ns]
@@ -367,7 +369,7 @@ def PulseDelayScanMatrix(
     nVth = int(np.floor((vth_max - vth_min)/vth_step + 1e-6))+1
     nDelay = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
     if kwargs.get("delayMode", "PG") == "FW":
-        nSeg = int(np.ceil((delay_max_ns - delay_min_ns)/(2.5*int(kwargs.get("bxclk_period", '28'), 16)))) + 1
+        nSeg = int(np.ceil((delay_max_ns - delay_min_ns)/(2.5*(int(kwargs.get("bxclk_period", '28'), 16)//2)))) + 1
         tPixel = nVth*(nDelay*(100e-6*nsample*nIter + 0.05) + nSeg*tsleep_delay + tsleep_vth)
     else:
         tPoint = tsleep_delay + 100e-6*nsample*nIter + 0.05
