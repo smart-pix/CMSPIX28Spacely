@@ -17,6 +17,103 @@ except ImportError as e:
 
 
 #-----------------------------------------------------------------------
+# helpers shared by PulseDelayScan and ScurveDelaySweep
+#-----------------------------------------------------------------------
+
+def DelayScanPlan(delay_min_ns, delay_max_ns, delay_step_ns, delayMode="PG", injection_delay='7', bxclk_period='28'):
+    # plan for every delay point: (total delay offset [ns], pulse generator delay offset [ns], injection_delay in hex)
+    # returns None if the settings are not valid
+    if delayMode == "FW":
+        period = int(bxclk_period, 16)
+        inj0 = int(injection_delay, 16)
+        half = period//2
+        if not 1 <= inj0 <= half:
+            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period/2 = {half:X} (hex) for delayMode='FW'.")
+            return None
+        # 2.5 ns grid; only injection_delay in the first half of the BxCLK period (1..period/2) injects a pulse
+        # points on the grid inside [delay_min_ns, delay_max_ns], step rounded to a multiple of 2.5 ns (at least 2.5 ns)
+        k = max(1, int(round(delay_step_ns/2.5)))
+        n = np.arange(int(np.ceil(delay_min_ns/2.5 - 1e-6)), int(np.floor(delay_max_ns/2.5 + 1e-6)) + 1, k)
+        if abs(k*2.5 - delay_step_ns) > 1e-6 or abs(n[0]*2.5 - delay_min_ns) > 1e-6:
+            print(f"delayMode='FW': using the 2.5 ns firmware grid, {n[0]*2.5:.1f} to {n[-1]*2.5:.1f} ns in steps of {k*2.5:.1f} ns")
+        seg = np.floor((n + inj0 - 1)/half).astype(int)      # half BxCLK periods the pulse generator has to move
+        inj = inj0 + n - seg*half                             # injection_delay for this point, always in 1..period/2
+        plan = [(round(2.5*ni, 3), round(2.5*half*si, 3), f"{ii:X}") for ni, si, ii in zip(n, seg, inj)]
+        if len(set(seg)) > 1:
+            print(f"delayMode='FW': the range spans {len(set(seg))} half BxCLK periods, the pulse generator delay changes by {2.5*half:.1f} ns between them. "
+                  "Its delay resolution can offset the segments from each other by up to one of its steps: check the continuity at the segment boundaries.")
+    else:
+        # exact steps of delay_step_ns from delay_min_ns, last point is the largest one <= delay_max_ns
+        n_step = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
+        delay_steps_ns = delay_min_ns + delay_step_ns*np.arange(n_step)
+        plan = [(round(d, 3), round(d, 3), injection_delay) for d in delay_steps_ns]
+    return plan
+
+def DelayScanStatic(nPix, nsample, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, scanLoadPhase):
+    # static configuration for IP2 test 5 - same as PreProgSCurveBurst
+    nPixHex = int_to_32bit_hex(nPix)
+    nsampleHex = int_to_32bit_hex(nsample)
+    x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
+    scanLoadPhase1= hex(int(x[:2], 2))[2:]
+    scanLoadPhase0= hex(int(x[2:], 2))[2:]
+    hex_lists = [
+        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
+        ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", f"11'h{nsampleHex}", f"8'h{nPixHex}"],
+    ]
+    sw_write32_0(hex_lists)
+    sw_read32_0= sw_read32()
+
+def DelayScanBurst(inj_hex, nsample, nIter, scanLoopBackBit, test_sample, test_delay):
+    # run IP2 test 5 nIter times and return the samples, shape (nsample*nIter, 3)
+    save_data = []
+    for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
+
+        # write configuration
+        hex_lists = [
+            [
+                "4'h2",  # firmware id
+                "4'hF",  # op code for execute
+                "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                f"6'h{inj_hex}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
+                f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            ]
+        ]
+        sw_write32_0(hex_lists)
+
+        # prepare the word list to read
+        maxWordFWArray = 128
+        nword = math.ceil(nsample*3/32)
+        base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
+        words = ["0"*32] * nword
+        # added time for burst to complete
+        time.sleep(100e-6*nsample)
+
+        # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
+        raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
+        for i, iW in enumerate(range(base_addr, maxWordFWArray)):
+            words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
+
+        # save words
+        s = [int(i) for i in "".join(words)]
+        # Cutting last bit because 3x1365 = 4095
+        s = s[:nsample*3]
+        save_data.append(s)
+
+    # same bit ordering as PreProgSCurveBurst
+    save_data = np.stack(save_data, 0)
+    save_data = save_data.reshape(nsample*nIter, 3)
+    return save_data[:,::-1]
+
+def DelayScanSettings(outDir, **settings):
+    # save the timing settings of this run, so scope measurements of the timing (for the 2D map overlay) can be matched to the settings
+    with open(os.path.join(outDir, "scan_settings.json"), "w") as fs:
+        json.dump(settings, fs, indent=1)
+
+
+#-----------------------------------------------------------------------
 # PulseDelayScan function
 #-----------------------------------------------------------------------
 # This test measures the hit rate of a single pixel as a function of the
@@ -76,47 +173,12 @@ def PulseDelayScan(
     if progPixel:
         ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
 
-    nPixHex = int_to_32bit_hex(nPix)
-    nsampleHex = int_to_32bit_hex(nsample)
+    DelayScanStatic(nPix, nsample, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, scanLoadPhase)
 
-    x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
-    scanLoadPhase1= hex(int(x[:2], 2))[2:]
-    scanLoadPhase0= hex(int(x[2:], 2))[2:]
-    # hex lists - same static configuration as PreProgSCurveBurst
-    hex_lists = [
-        ["4'h2", "4'h2", f"4'h{scanLoadPhase0}", "1'h0",f"6'h{scan_load_delay}", "1'h1", f"1'h{startBxclkState}", f"5'h{bxclk_delay}", f"6'h{bxclk_period}"],
-        ["4'h2", "4'h4", "3'h3", f"2'h{scanLoadPhase1}", f"11'h{nsampleHex}", f"8'h{nPixHex}"],
-    ]
-    sw_write32_0(hex_lists)
-    sw_read32_0= sw_read32()
-
-    # define range of delays (in ns, offset from base_delay)
-    # exact steps of delay_step_ns from delay_min_ns, last point is the largest one <= delay_max_ns
-    n_step = int(np.floor((delay_max_ns - delay_min_ns)/delay_step_ns + 1e-6))+1
-    delay_steps_ns = delay_min_ns + delay_step_ns*np.arange(n_step)
-
-    # plan for every delay point: (total delay offset [ns], pulse generator delay offset [ns], injection_delay in hex)
-    if delayMode == "FW":
-        period = int(bxclk_period, 16)
-        inj0 = int(injection_delay, 16)
-        half = period//2
-        if not 1 <= inj0 <= half:
-            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period/2 = {half:X} (hex) for delayMode='FW'.")
-            return
-        # 2.5 ns grid; only injection_delay in the first half of the BxCLK period (1..period/2) injects a pulse
-        # points on the grid inside [delay_min_ns, delay_max_ns], step rounded to a multiple of 2.5 ns (at least 2.5 ns)
-        k = max(1, int(round(delay_step_ns/2.5)))
-        n = np.arange(int(np.ceil(delay_min_ns/2.5 - 1e-6)), int(np.floor(delay_max_ns/2.5 + 1e-6)) + 1, k)
-        if abs(k*2.5 - delay_step_ns) > 1e-6 or abs(n[0]*2.5 - delay_min_ns) > 1e-6:
-            print(f"delayMode='FW': using the 2.5 ns firmware grid, {n[0]*2.5:.1f} to {n[-1]*2.5:.1f} ns in steps of {k*2.5:.1f} ns")
-        seg = np.floor((n + inj0 - 1)/half).astype(int)      # half BxCLK periods the pulse generator has to move
-        inj = inj0 + n - seg*half                             # injection_delay for this point, always in 1..period/2
-        plan = [(round(2.5*ni, 3), round(2.5*half*si, 3), f"{ii:X}") for ni, si, ii in zip(n, seg, inj)]
-        if len(set(seg)) > 1:
-            print(f"delayMode='FW': the range spans {len(set(seg))} half BxCLK periods, the pulse generator delay changes by {2.5*half:.1f} ns between them. "
-                  "Its delay resolution can offset the segments from each other by up to one of its steps: check the continuity at the segment boundaries.")
-    else:
-        plan = [(round(d, 3), round(d, 3), injection_delay) for d in delay_steps_ns]
+    # delay points (in ns, offset from base_delay)
+    plan = DelayScanPlan(delay_min_ns, delay_max_ns, delay_step_ns, delayMode, injection_delay, bxclk_period)
+    if plan is None:
+        return
 
     # negative offsets are fine as long as the absolute pulse generator delay stays positive
     if base_delay + min(p[1] for p in plan)*1e-9 < 0:
@@ -158,11 +220,10 @@ def PulseDelayScan(
     time.sleep(tsleep)
 
     try:
-        # save the timing settings of this run, so scope measurements of the timing (for the 2D map overlay) can be matched to the settings
-        with open(os.path.join(outDir, "scan_settings.json"), "w") as fs:
-            json.dump({"bxclk_period": bxclk_period, "bxclk_delay": bxclk_delay, "scanLoadPhase": scanLoadPhase, "scan_load_delay": scan_load_delay,
-                       "injection_delay": injection_delay, "test_delay": test_delay, "test_sample": test_sample, "base_delay_ns": base_delay*1e9,
-                       "pulseGen": pulseGen, "delayMode": delayMode, "v_asic": v_asic, "nPix": nPix}, fs, indent=1)
+        # timing settings of this run, to match scope measurements of the timing (for the 2D map overlay) to the settings
+        DelayScanSettings(outDir, bxclk_period=bxclk_period, bxclk_delay=bxclk_delay, scanLoadPhase=scanLoadPhase, scan_load_delay=scan_load_delay,
+                          injection_delay=injection_delay, test_delay=test_delay, test_sample=test_sample, base_delay_ns=base_delay*1e9,
+                          pulseGen=pulseGen, delayMode=delayMode, v_asic=v_asic, nPix=nPix)
 
         # save the plan for FW mode: which pulse generator delay and injection_delay gave each point
         if delayMode == "FW":
@@ -178,48 +239,7 @@ def PulseDelayScan(
                 time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
                 pg_set = pg_ns
 
-            # save data
-            save_data = []
-            for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
-
-                # write configuration
-                hex_lists = [
-                    [
-                        "4'h2",  # firmware id
-                        "4'hF",  # op code for execute
-                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                        f"6'h{inj_hex}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                        f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                        "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
-                        f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                        f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-                    ]
-                ]
-                sw_write32_0(hex_lists)
-
-                # prepare the word list to read
-                maxWordFWArray = 128
-                nword = math.ceil(nsample*3/32)
-                base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
-                words = ["0"*32] * nword
-                # added time for burst to complete
-                time.sleep(100e-6*nsample)
-
-                # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
-                raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
-                for i, iW in enumerate(range(base_addr, maxWordFWArray)):
-                    words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
-
-                # save words
-                s = [int(i) for i in "".join(words)]
-                # Cutting last bit because 3x1365 = 4095
-                s = s[:nsample*3]
-                save_data.append(s)
-
-            # same bit ordering as PreProgSCurveBurst
-            save_data = np.stack(save_data, 0)
-            save_data = save_data.reshape(nsample*nIter, 3)
-            save_data = save_data[:,::-1]
+            save_data = DelayScanBurst(inj_hex, nsample, nIter, scanLoopBackBit, test_sample, test_delay)
 
             # save data
             outFileName = os.path.join(outDir, f"delay_{dly_ns:.3f}.npy")
@@ -404,5 +424,213 @@ def PulseDelayScanMatrix(
         )
         if pixDir is not None:
             outDir = os.path.dirname(os.path.normpath(pixDir))
+
+    return outDir
+
+
+#-----------------------------------------------------------------------
+# ScurveDelaySweep function
+#-----------------------------------------------------------------------
+# Same 2D hit map (delay vs threshold) as PulseDelayScanSweepVTH, but with the loops swapped:
+# at every delay the threshold is swept like PreProgSCurveBurst_StaticPulse (fixed pulse amplitude v_asic, vth swept),
+# then the delay moves to the next point. The pulse generator delay changes once per delay instead of once per point
+# delayMode = "PG" or "FW" with the same delay plan as PulseDelayScan (see above)
+# By default vth0, vth1 and vth2 are set to the same value; use vthNames to sweep only some of them
+# Output: <test>/delay_<ns>/vth_<V>.npy (matrix: <test>/nPix<n>/delay_<ns>/vth_<V>.npy)
+# The thresholds and the pulse generator delay are restored at the end
+# Analysis (2D maps per bit, cumulative hit rate vs threshold, matrix width at half maximum threshold):
+# CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
+#-----------------------------------------------------------------------
+
+def ScurveDelaySweep(
+        nPix = 0,
+        progPixel = True,
+        v_asic = 0.1,
+        vth_min = 0.001,
+        vth_max = 0.080,
+        vth_step = 0.002,
+        vthNames = ["vth0", "vth1", "vth2"],
+        delay_min_ns = -50,
+        delay_max_ns = 50,
+        delay_step_ns = 2.5,
+        pulseGen = "BK4600", # key of PULSEGEN in A0
+        base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this
+        scan_load_delay = '5',
+        startBxclkState = '0',
+        bxclk_delay = '10',
+        bxclk_period = '28',
+        injection_delay = '7',
+        scanLoopBackBit = '0',
+        test_sample = '0F',
+        scanLoadPhase = '26',
+        test_delay = '14',
+        tsleep = 250e-3, # wait after setting the pulse amplitude
+        tsleep_vth = 10e-3, # wait after each threshold change (same as PreProgSCurveBurst_StaticPulse)
+        tsleep_delay = 100e-3, # wait after each pulse generator delay change
+        nsample = 1365,
+        nIter = 1,
+        verify = False,
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        dateTime = None, # set by ScurveDelaySweepMatrix so all pixels share one test folder
+        testType = "ScurveDelaySweep",
+        delayMode = "PG", # "PG": pulse generator delay steps, "FW": 2.5 ns firmware injection_delay steps
+):
+
+    if nsample>1365:
+        print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
+        return
+
+    if base_delay is None:
+        base_delay = PULSEGEN[pulseGen]["base_delay"]
+
+    # delay points (in ns, offset from base_delay)
+    plan = DelayScanPlan(delay_min_ns, delay_max_ns, delay_step_ns, delayMode, injection_delay, bxclk_period)
+    if plan is None:
+        return
+    if base_delay + min(p[1] for p in plan)*1e-9 < 0:
+        print(f"delay_min_ns = {delay_min_ns} ns would give a negative pulse generator delay (base delay is {base_delay*1e9:.1f} ns). Increase delay_min_ns or base_delay and rerun.")
+        return
+
+    # thresholds: exact steps of vth_step from vth_min, last point is the largest one <= vth_max
+    n_step = int(np.floor((vth_max - vth_min)/vth_step + 1e-6))+1
+    vthList = [round(v, 4) for v in vth_min + vth_step*np.arange(n_step)]
+
+    # rough time estimate: threshold wait + burst (100us per sample) + ~50 ms readout per point
+    nPG = len(set(p[1] for p in plan))
+    tTotal = len(plan)*len(vthList)*(tsleep_vth + 100e-6*nsample*nIter + 0.05) + nPG*tsleep_delay
+    print(f"ScurveDelaySweep pixel {nPix}: {len(plan)} delays x {len(vthList)} thresholds, ~{tTotal/60:.1f} min")
+
+    # program single pixel
+    if progPixel:
+        ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+
+    DelayScanStatic(nPix, nsample, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, scanLoadPhase)
+
+    # 400MHz is the FPGA clock
+    bxclk_period_inMhz = 400/int(bxclk_period, 16)
+    injection_delay_in_ns = int(injection_delay,16)*2.5
+    bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
+
+    # configure chip info
+    chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
+    # configure test info
+    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
+    testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_vthMin{vth_min:.3f}_vthMax{vth_max:.3f}_vthStep{vth_step:.4f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}"
+    if testType == "ScurveDelaySweepMatrix":
+        pixelInfo = f"nPix{nPix}"
+    else:
+        testInfo += f"_nPix{nPix}"
+        pixelInfo = ""
+    if delayMode == "FW":
+        testInfo += "_dlyModeFW"
+
+    # output directory
+    outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
+    print(f"Saving results to {outDir}")
+    os.makedirs(outDir, exist_ok=True)
+    os.chmod(outDir, mode=0o777)
+
+    # set the injected amplitude once
+    # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+    PULSEGEN[pulseGen]["set_hlev"](v_asic*2)
+    time.sleep(tsleep)
+
+    # remember starting thresholds to restore at the end
+    vthStart = {name : V_LEVEL[name] for name in vthNames}
+
+    try:
+        # timing settings of this run, to match scope measurements of the timing (for the 2D map overlay) to the settings
+        DelayScanSettings(outDir, bxclk_period=bxclk_period, bxclk_delay=bxclk_delay, scanLoadPhase=scanLoadPhase, scan_load_delay=scan_load_delay,
+                          injection_delay=injection_delay, test_delay=test_delay, test_sample=test_sample, base_delay_ns=base_delay*1e9,
+                          pulseGen=pulseGen, delayMode=delayMode, v_asic=v_asic, nPix=nPix, vthNames=vthNames)
+
+        # save the plan for FW mode: which pulse generator delay and injection_delay gave each point
+        if delayMode == "FW":
+            np.savez(os.path.join(outDir, "delay_plan.npz"), delay_ns=[p[0] for p in plan], pg_delay_ns=[p[1] for p in plan], injection_delay=[int(p[2], 16) for p in plan])
+
+        # loop over the delay steps, sweep the threshold at each delay
+        pg_set = None
+        for iD, (dly_ns, pg_ns, inj_hex) in enumerate(tqdm.tqdm(plan, desc="Delay Step")):
+
+            # only touch the pulse generator when its delay changes
+            if pg_ns != pg_set:
+                PULSEGEN_DLAY_SWEEP(base_delay + pg_ns*1e-9, pulseGen=pulseGen, verify=verify)
+                time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
+                pg_set = pg_ns
+
+            dlyDir = os.path.join(outDir, f"delay_{dly_ns:.3f}")
+            os.makedirs(dlyDir, exist_ok=True)
+
+            hitAny = []
+            for vth in tqdm.tqdm(vthList, desc="Threshold Step", leave=False):
+                for name in vthNames:
+                    V_PORT[name].set_voltage(vth)
+                    V_LEVEL[name] = vth
+                time.sleep(tsleep_vth) # let the bias settle
+
+                # read back what the board actually set, once for every threshold (first delay only, it is the same afterwards)
+                if iD == 0:
+                    for name in vthNames:
+                        v_rd = V_PORT[name].get_voltage()
+                        if abs(v_rd - vth) > vth_step/2:
+                            tqdm.tqdm.write(f"  WARNING: {name} set {vth:.4f} V, read back {v_rd:.4f} V (more than half a step off)")
+
+                save_data = DelayScanBurst(inj_hex, nsample, nIter, scanLoopBackBit, test_sample, test_delay)
+                np.save(os.path.join(dlyDir, f"vth_{vth:.4f}.npy"), save_data)
+                hitAny.append(100*np.any(save_data, axis=1).mean())
+
+            # quick look at the bench, full analysis is in lab_analysis/PulseDelayScan.py
+            hitAny = np.array(hitAny)
+            above = [v for v, h in zip(vthList, hitAny) if h >= 50]
+            pgInfo = f" [PG offset {pg_ns:.1f} ns, injection_delay {inj_hex}]" if delayMode == "FW" else ""
+            tqdm.tqdm.write(f"delay {dly_ns:.3f} ns{pgInfo}: max hit rate any bit = {hitAny.max():.1f}%, "
+                            + (f"highest threshold with >= 50% = {1000*max(above):.1f} mV" if above else "no threshold with >= 50%"))
+
+    finally:
+        # put the thresholds and the pulse generator delay back
+        for name, v in vthStart.items():
+            V_PORT[name].set_voltage(v)
+            V_LEVEL[name] = v
+        PULSEGEN_DLAY_SWEEP(base_delay, pulseGen=pulseGen)
+
+    return outDir
+
+
+#-----------------------------------------------------------------------
+# ScurveDelaySweepMatrix function
+#-----------------------------------------------------------------------
+# Runs ScurveDelaySweep for every pixel in pixelList, like PulseDelayScanMatrix
+# Each pixel is programmed alone; all pixels are stored in the same test folder: <test>/nPix<n>/delay_<ns>/vth_<V>.npy
+# A full sweep is long: the time per pixel is printed before starting; use pixelList to run a subset
+#-----------------------------------------------------------------------
+
+def ScurveDelaySweepMatrix(
+        pixelList = None, # None = all 256 pixels
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        **kwargs, # any other ScurveDelaySweep setting (v_asic, vth_min, delay_min_ns, delayMode, injection_delay, ...)
+):
+
+    if pixelList is None:
+        pixelList = list(range(256))
+    print(f"ScurveDelaySweepMatrix: {len(pixelList)} pixels")
+
+    # same timestamp for every pixel so they end up in the same folder
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    outDir = None
+    for iP, nPix in enumerate(pixelList):
+        print(f"Pixel {nPix} ({iP+1}/{len(pixelList)})")
+        pixDir = ScurveDelaySweep(
+            nPix = nPix,
+            progPixel = True,
+            dataDir = dataDir,
+            dateTime = now,
+            testType = "ScurveDelaySweepMatrix",
+            **kwargs
+        )
+        if pixDir is None:
+            print("ScurveDelaySweep did not run, stopping the matrix scan.")
+            break
+        outDir = os.path.dirname(os.path.normpath(pixDir))
 
     return outDir
