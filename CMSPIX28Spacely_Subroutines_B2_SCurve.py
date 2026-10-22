@@ -39,7 +39,7 @@ def PreProgSCurve(
         v_max = 0.4, 
         v_step = 0.01, 
         nsample = 1000, 
-        nPix = 0, 
+        nPix = 1, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
         testType = "Single",
@@ -243,7 +243,7 @@ def PreProgSCurveBurst(
         v_step = 0.001, 
         nsample = 1365,
         nIter = 1,
-        nPix = 0, 
+        nPix = 1, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
         testType = "Single",
@@ -448,7 +448,7 @@ def PreProgSCurveBurst_StaticPulse(
         v_step = 0.001, 
         nsample = 1365,
         nIter = 1,
-        nPix = 0, 
+        nPix = 1, 
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
         testType = "Single",
@@ -653,7 +653,7 @@ def PreProgSCurveBurst_StaticPulse(
     return None
 
 
-def SCurveSweepVTH_StaticPulse(nPix=0):
+def SCurveSweepVTH_StaticPulse(nPix=1):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -835,7 +835,7 @@ def SCurveMatrix():
 # This is useful to extract linearity
 #-----------------------------------------------------------------------
         
-def SCurveSweepIbias(nPix=0):
+def SCurveSweepIbias(nPix=1):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -886,7 +886,7 @@ def SCurveSweepIbias(nPix=0):
     SDG7102A_INIT()
 
   
-def SCurveSweepVTH(nPix=0):
+def SCurveSweepVTH(nPix=1):
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD
@@ -941,7 +941,7 @@ def SCurveSweepVTHPix():
         SCurveSweepVTH(nPix=i)
 
 
-def SCurveSweep(nPix=0,  FWparameter = None, minPar = 10, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): 
+def SCurveSweep(nPix=1,  FWparameter = None, minPar = 10, maxPar = 28, stepPar = 1, PGparameter=None, minPG=5e-10, maxPG=10e-9, stepPG = 5e-10): 
 
 # This function programs a single pixel and extrac Scurve while sweeping a bias voltage
 # the voltage being sweep is VTH but could be changed to VDDA or VDDD

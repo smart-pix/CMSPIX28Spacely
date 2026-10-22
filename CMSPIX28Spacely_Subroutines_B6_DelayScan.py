@@ -133,7 +133,7 @@ def DelayScanSettings(outDir, **settings):
 #-----------------------------------------------------------------------
 
 def PulseDelayScan(
-        nPix = 0,
+        nPix = 1,
         progPixel = True,
         v_asic = 0.1,
         delay_min_ns = 0,
@@ -269,7 +269,7 @@ def PulseDelayScan(
 #-----------------------------------------------------------------------
 
 def PulseDelayScanSweepVTH(
-        nPix = 0,
+        nPix = 1,
         vth_min = 0.01,
         vth_max = 0.2,
         vth_step = 0.01,
@@ -443,7 +443,7 @@ def PulseDelayScanMatrix(
 #-----------------------------------------------------------------------
 
 def ScurveDelaySweep(
-        nPix = 0,
+        nPix = 1,
         progPixel = True,
         v_asic = 0.1,
         vth_min = 0.001,

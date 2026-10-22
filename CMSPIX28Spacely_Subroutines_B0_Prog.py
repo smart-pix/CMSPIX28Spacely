@@ -109,7 +109,7 @@ def ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='
 # there is a debug interface that needs to be reworked to check that what is
 #-----------------------------------------------------------------------
 
-def ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [0], pixelValue=[1]):
+def ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [1], pixelValue=[1]):
     fw_status_clear()
 
     hex_list = [

@@ -74,7 +74,7 @@ def ROUTINE_ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_
     return ProgShiftRegRaw(configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk)
 
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_ProgPixelsOnly( configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [0], pixelValue=[1]):
+def ROUTINE_ProgPixelsOnly( configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [1], pixelValue=[1]):
     return ProgPixelsOnly(configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
@@ -86,7 +86,7 @@ def ROUTINE_ScanChainOneShot(scan_load_delay='5', startBxclkState='0', bxclk_del
     return ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='5', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.1, v_max=0.4, v_step=0.1, nsample=1000, nPix=0):
+def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='5', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.1, v_max=0.4, v_step=0.1, nsample=1000, nPix=1):
     return PreProgSCurve(scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, v_min, v_max, v_step, nsample, nPix)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
@@ -126,11 +126,11 @@ def ROUTINE_DNNTraining(asic_training=False):
     return DNNTraining(asic_training = asic_training)
 
 #<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
-def ROUTINE_PulseDelayScan(nPix=0, progPixel=True, v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=2, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.1, delayMode="PG"):
+def ROUTINE_PulseDelayScan(nPix=1, progPixel=True, v_asic=0.1, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=2, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.1, delayMode="PG"):
     return PulseDelayScan(nPix=nPix, progPixel=progPixel, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify, tsleep_delay=tsleep_delay, delayMode=delayMode)
 
 #<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
-def ROUTINE_PulseDelayScanSweepVTH(nPix=0, vth_min=0.001, vth_max=0.120, vth_step=0.002, vthNames=["vth0", "vth1", "vth2"], v_asic=0.100, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=1, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.200, delayMode="PG"):
+def ROUTINE_PulseDelayScanSweepVTH(nPix=1, vth_min=0.001, vth_max=0.120, vth_step=0.002, vthNames=["vth0", "vth1", "vth2"], v_asic=0.100, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=1, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_delay=0.200, delayMode="PG"):
     return PulseDelayScanSweepVTH(nPix=nPix, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify, tsleep_delay=tsleep_delay, delayMode=delayMode)
 
 #<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
@@ -138,7 +138,7 @@ def ROUTINE_PulseDelayScanMatrix(pixelList=None, vth_min=0.000, vth_max=0.072, v
     return PulseDelayScanMatrix(pixelList=pixelList, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, tsleep_delay=tsleep_delay, delayMode=delayMode)
 
 #<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
-def ROUTINE_ScurveDelaySweep(nPix=0, v_asic=0.100, vth_min=0.001, vth_max=0.080, vth_step=0.002, vthNames=["vth0", "vth1", "vth2"], delay_min_ns=-62.5, delay_max_ns=30, delay_step_ns=2.5, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_vth=0.010, tsleep_delay=0.200, delayMode="FW"):
+def ROUTINE_ScurveDelaySweep(nPix=1, v_asic=0.100, vth_min=0.001, vth_max=0.080, vth_step=0.002, vthNames=["vth0", "vth1", "vth2"], delay_min_ns=-62.5, delay_max_ns=30, delay_step_ns=2.5, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, verify=False, tsleep_vth=0.010, tsleep_delay=0.200, delayMode="FW"):
     return ScurveDelaySweep(nPix=nPix, v_asic=v_asic, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, verify=verify, tsleep_vth=tsleep_vth, tsleep_delay=tsleep_delay, delayMode=delayMode)
 
 #<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
@@ -146,5 +146,5 @@ def ROUTINE_ScurveDelaySweepMatrix(pixelList=None, v_asic=0.100, vth_min=0.000, 
     return ScurveDelaySweepMatrix(pixelList=pixelList, v_asic=v_asic, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, tsleep_vth=tsleep_vth, tsleep_delay=tsleep_delay, delayMode=delayMode)
 
 #<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
-def ROUTINE_PreProgSCurveBurst_StaticPulse(scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='7', scanLoopBackBit='0', test_sample='0F', scanLoadPhase='26', test_delay='14', tsleep=10e-3, v_min=0.001, v_max=0.2, v_step=0.001, nsample=1365, nIter=1, nPix=0, pulse_HLEV=0.05):
+def ROUTINE_PreProgSCurveBurst_StaticPulse(scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='7', scanLoopBackBit='0', test_sample='0F', scanLoadPhase='26', test_delay='14', tsleep=10e-3, v_min=0.001, v_max=0.2, v_step=0.001, nsample=1365, nIter=1, nPix=1, pulse_HLEV=0.05):
     return PreProgSCurveBurst_StaticPulse(scan_load_delay=scan_load_delay, startBxclkState=startBxclkState, bxclk_delay=bxclk_delay, bxclk_period=bxclk_period, injection_delay=injection_delay, scanLoopBackBit=scanLoopBackBit, test_sample=test_sample, scanLoadPhase=scanLoadPhase, test_delay=test_delay, tsleep=tsleep, v_min=v_min, v_max=v_max, v_step=v_step, nsample=nsample, nIter=nIter, nPix=nPix, pulse_HLEV=pulse_HLEV)
