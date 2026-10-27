@@ -453,7 +453,7 @@ def PreProgSCurveBurst_StaticPulse(
         dateTime = None,
         testType = "Single",
         parameter = None,
-        pulse_HLEV = .05
+        v_asic = .05
 ):
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
@@ -512,38 +512,38 @@ def PreProgSCurveBurst_StaticPulse(
 
     # Set vth so directories are named properly
     #V_PORT["vth0"].set_voltage(.031)
-    #V_LEVEL["vth0"] = pulse_HLEV
+    #V_LEVEL["vth0"] = v_asic
     #V_PORT["vth1"].set_voltage(.031)
-    #V_LEVEL["vth1"] = pulse_HLEV
+    #V_LEVEL["vth1"] = v_asic
     #V_PORT["vth2"].set_voltage(.031)
-    #V_LEVEL["vth2"] = pulse_HLEV
+    #V_LEVEL["vth2"] = v_asic
 
-    BK4600HLEV_SWEEP(pulse_HLEV*2) 
+    BK4600HLEV_SWEEP(v_asic*2) 
     time.sleep(250e-3)
 
     # TODO : STORE THE CURRENT/POWER INFO INSIDE EACH PIXEL FOLDER FOR ALL MATRIX TESTS
       
     if testType == "MatrixNPix":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_Ibias{V_LEVEL['Ibias']:.3f}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_Ibias{V_LEVEL['Ibias']:.3f}"
         pixelInfo = f"nPix{nPix}"
     elif testType == "MatrixIbias":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_nPix{nPix}"
         # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
         pixelInfo = f"Ibias{I_LEVEL['OUTsink']*1000000:.1f}uA"
     elif testType == "MatrixVTH":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
-        pixelInfo = f"vth{pulse_HLEV:.3f}"
+        pixelInfo = f"vth{v_asic:.3f}"
     elif testType == "MatrixInjDly":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_nPix{nPix}"
         pixelInfo = f"injDly{injection_delay_in_ns:.2f}"  
     elif testType == "MatrixBxCLKDly":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_nPix{nPix}"
         pixelInfo = f"MatrixBxCLKDly{bxclk_delay_in_ns:.2f}"     
     elif testType == "MatrixPulseGenFall":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}__vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}__vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_nPix{nPix}"
         pixelInfo = f"FallTime{parameter:.3e}"         
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{pulse_HLEV:.3f}_vth1-{pulse_HLEV:.3f}_vth2-{pulse_HLEV:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
         pixelInfo = ""
 
     # output directory
@@ -559,24 +559,24 @@ def PreProgSCurveBurst_StaticPulse(
         t_step_start = time.time()
 
         # vasic step
-        v_asic = round(i, 3)
-        if v_asic>0.9:
-            v_asic = 0
+        vth = round(i, 3)
+        if vth>0.9:
+            vth = 0
             return
 
         # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
         # each voltage step is then set with 2.vstep
         # 1mV equals 25e- (TBD!!!!!)
         t0 = time.time()
-        # SDG7102A_SWEEP(v_asic*2)
-        # BK4600HLEV_SWEEP(v_asic*2)
-        # V_PORT["INJ_1"].set_voltage(v_asic*2)
-        V_PORT["vth0"].set_voltage(v_asic)
-        V_LEVEL["vth0"] = v_asic
-        V_PORT["vth1"].set_voltage(v_asic)
-        V_LEVEL["vth1"] = v_asic
-        V_PORT["vth2"].set_voltage(v_asic)
-        V_LEVEL["vth2"] = v_asic
+        # SDG7102A_SWEEP(vth*2)
+        # BK4600HLEV_SWEEP(vth*2)
+        # V_PORT["INJ_1"].set_voltage(vth*2)
+        V_PORT["vth0"].set_voltage(vth)
+        V_LEVEL["vth0"] = vth
+        V_PORT["vth1"].set_voltage(vth)
+        V_LEVEL["vth1"] = vth
+        V_PORT["vth2"].set_voltage(vth)
+        V_LEVEL["vth2"] = vth
         V_PORT["vdda"].get_current()
 
         t_sweep = time.time() - t0
@@ -640,13 +640,13 @@ def PreProgSCurveBurst_StaticPulse(
         save_data = save_data.reshape(nsample*nIter, 3)
         save_data = save_data[:,::-1]
         # save data
-        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
+        outFileName = os.path.join(outDir, f"vasic_{vth:.3f}.npy")
         np.save(outFileName, save_data)
         t_save = time.time() - t0
 
         t_step_total = time.time() - t_step_start
         burst_sleep_total = 100e-6*nsample*nIter
-        print(f"[TIMING] v={v_asic:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
+        print(f"[TIMING] v={vth:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
               f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
               f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
 
@@ -701,7 +701,7 @@ def SCurveSweepVTH_StaticPulse(nPix=1):
             dataDir = dataDir,
             dateTime = now,
             testType = "MatrixVTH",
-            pulse_HLEV = i
+            v_asic = i
         )
 
 def SCurveSweepVTHPix_StaticPulse():
@@ -762,7 +762,7 @@ def SCurveMatrix_StaticPulse():
             dataDir = dataDir,
             dateTime = now,
             testType = "MatrixNPix",
-            pulse_HLEV = 0.050
+            v_asic = 0.050
         )
 
 
