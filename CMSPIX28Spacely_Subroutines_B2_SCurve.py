@@ -445,7 +445,7 @@ def PreProgSCurveBurst_StaticPulse(
         tsleep = 10e-3,
         v_min = 0.001, 
         v_max = 0.2, 
-        v_step = 0.001, 
+        v_step = 0.01, 
         nsample = 1365,
         nIter = 1,
         nPix = 0, 

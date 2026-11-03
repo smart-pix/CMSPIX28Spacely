@@ -151,7 +151,8 @@ I_WARN_VOLTAGE = {
 
 
 FNAL_SETTINGS = {
-    "storageDirectory" : "/home/bparpill/Documents/test_bench_2_output",#"/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
+    # "storageDirectory" : "/home/bparpill/Documents/test_bench_2_output",#"/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
+    "storageDirectory" : "/home/bparpill/Documents/beren_output",
     "chipVersion" : 1,
     "chipID" : 30
 }

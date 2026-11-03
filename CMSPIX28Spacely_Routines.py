@@ -73,8 +73,9 @@ def onstartup():
 def ROUTINE_ProgShiftRegRaw(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1'):
     return ProgShiftRegRaw(configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk)
 
+# ROUTINE_ProgPixelsOnly(pixelList = [5])
 #<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
-def ROUTINE_ProgPixelsOnly( configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [0], pixelValue=[1]):
+def ROUTINE_ProgPixelsOnly( configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk='1',pixelList = [5], pixelValue=[1]):
     return ProgPixelsOnly(configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk,pixelList, pixelValue) 
 
 #<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
@@ -106,7 +107,7 @@ def ROUTINE_DNN(
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='10', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
     ROUTINE_DNN(patternIndexes=[dnn_Pattern])
-    print("Routine_DNN completed, starting ScanChainOneShot loop.")
+    print("Routine_DNN completed, starPreProgSCurveBurst_StaticPulseting ScanChainOneShot loop.")
     for evt_iter in range(nEvents):
         ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
         print(f'ScanChainOneShot number {evt_iter+1} executed, sleeping 1s.')
@@ -136,3 +137,18 @@ def ROUTINE_PulseDelayScanSweepVTH(nPix=0, vth_min=0.001, vth_max=0.120, vth_ste
 #<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
 def ROUTINE_PulseDelayScanMatrix(pixelList=None, vth_min=0.000, vth_max=0.072, vth_step=0.003, vthNames=["vth0", "vth1", "vth2"], v_asic=0.100, delay_min_ns=-50, delay_max_ns=50, delay_step_ns=4, pulseGen="BK4600", base_delay=None, injection_delay='7', bxclk_delay='10', scan_load_delay='5', scanLoadPhase='26', nsample=1365, nIter=1, tsleep_delay=0.200, delayMode="PG"):
     return PulseDelayScanMatrix(pixelList=pixelList, vth_min=vth_min, vth_max=vth_max, vth_step=vth_step, vthNames=vthNames, v_asic=v_asic, delay_min_ns=delay_min_ns, delay_max_ns=delay_max_ns, delay_step_ns=delay_step_ns, pulseGen=pulseGen, base_delay=base_delay, injection_delay=injection_delay, bxclk_delay=bxclk_delay, scan_load_delay=scan_load_delay, scanLoadPhase=scanLoadPhase, nsample=nsample, nIter=nIter, tsleep_delay=tsleep_delay, delayMode=delayMode)
+
+#def ROUTINE_PreProgSCurveBurst_StaticPulse(pulse_HLEV=0.100, scanLoadPhase = '26', scan_load_delay='5', startBxclkState='0', bxclk_delay='10', bxclk_period='28', injection_delay='7', scanLoopBackBit='0', test_sample='0F', test_delay='14', tsleep=0.001, v_min = 0.001, v_max=0.2, v_step=0.001, nsample=1365, nPix=0, nIter=1):
+ #   return PreProgSCurveBurst_StaticPulse(pulse_HLEV, scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, tsleep, v_min, v_max, v_step, nsample, nPix, nIter)
+# PreProgSCurveBurst_StaticPulse(nPix=0, pulse_HLEV=0.100, v_min=0.001, v_max=0.100, v_step=0.001)
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
+def ROUTINE_PreProgSCurveBurst_StaticPulse(
+        nPix=5, pulse_HLEV=0.100,
+        v_min=0.001, v_max=0.100, v_step=0.004, **kwargs):
+    return PreProgSCurveBurst_StaticPulse(
+        nPix=nPix,
+        pulse_HLEV=pulse_HLEV,
+        v_min=v_min,
+        v_max=v_max,
+        v_step=v_step,
+        **kwargs)
