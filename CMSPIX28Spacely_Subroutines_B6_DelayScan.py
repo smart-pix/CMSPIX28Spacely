@@ -471,7 +471,7 @@ def ScurveDelaySweep(
         nIter = 1,
         verify = False,
         dataDir = FNAL_SETTINGS["storageDirectory"],
-        dateTime = None, # set by ScurveDelaySweepMatrix so all pixels share one test folder
+        dateTime = None, # set by ScurveDelaySweepMatrix / ScurveDelaySweepISource so all runs share one test folder
         testType = "ScurveDelaySweep",
         delayMode = "PG", # "PG": pulse generator delay steps, "FW": 2.5 ns firmware injection_delay steps
 ):
@@ -518,6 +518,9 @@ def ScurveDelaySweep(
     testInfo += f"_vasic{v_asic:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_vthMin{vth_min:.3f}_vthMax{vth_max:.3f}_vthStep{vth_step:.4f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}"
     if testType == "ScurveDelaySweepMatrix":
         pixelInfo = f"nPix{nPix}"
+    elif testType == "ScurveDelaySweepISource":
+        testInfo += f"_nPix{nPix}"
+        pixelInfo = f"ISource{I_LEVEL['ISource10uA']*1e6:.2f}uA"
     else:
         testInfo += f"_nPix{nPix}"
         pixelInfo = ""
@@ -632,5 +635,57 @@ def ScurveDelaySweepMatrix(
             print("ScurveDelaySweep did not run, stopping the matrix scan.")
             break
         outDir = os.path.dirname(os.path.normpath(pixDir))
+
+    return outDir
+
+
+#-----------------------------------------------------------------------
+# ScurveDelaySweepISource function
+# ScurveDelaySweep of one pixel repeated for several ISource10uA currents
+# Output: <test folder>/ISource<I>uA/delay_<ns>/vth_<V>.npy, one sub folder per current (I in uA)
+# Analysis: CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (2D maps per current, Vmax and width at Vmax/2 vs current)
+#-----------------------------------------------------------------------
+
+def ScurveDelaySweepISource(
+        nPix = 1,
+        isourceList = [1e-6, 2e-6, 3e-6, 4e-6, 5e-6, 6e-6], # ISource10uA currents [A]
+        tsleep_isource = 0.5, # wait after each current change
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        **kwargs, # any other ScurveDelaySweep setting (v_asic, vth_min, delay_min_ns, delayMode, injection_delay, ...)
+):
+
+    print(f"ScurveDelaySweepISource pixel {nPix}: ISource10uA = {', '.join(f'{i*1e6:.2f}' for i in isourceList)} uA")
+
+    # same timestamp for every current so they end up in the same folder
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    # remember the starting current to restore at the end
+    iStart = I_LEVEL["ISource10uA"]
+
+    outDir = None
+    try:
+        for iI, isource in enumerate(isourceList):
+            print(f"ISource10uA = {isource*1e6:.2f} uA ({iI+1}/{len(isourceList)})")
+            I_PORT["ISource10uA"].set_current(isource)
+            I_LEVEL["ISource10uA"] = isource
+            time.sleep(tsleep_isource) # let the bias settle
+            V_PORT["vdda"].get_current()
+
+            iDir = ScurveDelaySweep(
+                nPix = nPix,
+                progPixel = (iI == 0), # program the pixel once, the current change does not touch the configuration
+                dataDir = dataDir,
+                dateTime = now,
+                testType = "ScurveDelaySweepISource",
+                **kwargs
+            )
+            if iDir is None:
+                print("ScurveDelaySweep did not run, stopping the ISource10uA sweep.")
+                break
+            outDir = os.path.dirname(os.path.normpath(iDir))
+
+    finally:
+        I_PORT["ISource10uA"].set_current(iStart)
+        I_LEVEL["ISource10uA"] = iStart
 
     return outDir
