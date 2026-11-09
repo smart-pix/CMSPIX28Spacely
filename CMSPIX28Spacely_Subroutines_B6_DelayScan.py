@@ -689,3 +689,165 @@ def ScurveDelaySweepISource(
         I_LEVEL["ISource10uA"] = iStart
 
     return outDir
+
+
+#-----------------------------------------------------------------------
+# ScurveDelaySweepAmp function
+#-----------------------------------------------------------------------
+# Same 2D scan as ScurveDelaySweep, but the threshold is kept constant and the pulse generator amplitude is swept:
+# at every delay the injected amplitude v_asic is swept from vasic_min to vasic_max, then the delay moves to the next point
+# vth is applied to all vthNames once at the start (default vth0, vth1 and vth2 at the same value)
+# delayMode = "PG" or "FW" with the same delay plan as PulseDelayScan (see above)
+# The first point after a pulse generator delay change is at vasic_min (small pulse, normally no hits), so a delay change
+# that has not settled yet does not show up as a hit
+# Output: <test>/delay_<ns>/vasic_<V>.npy (v_asic at the ASIC input, half of the pulse generator high level)
+# The thresholds and the pulse generator delay are restored at the end; the amplitude is left at the last point
+# Analysis (2D maps delay vs v_asic per bit, 50% amplitude vs delay, hit window edges vs amplitude):
+# CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
+#-----------------------------------------------------------------------
+
+def ScurveDelaySweepAmp(
+        nPix = 1,
+        progPixel = True,
+        vth = 0.030, # fixed threshold [V]
+        vthNames = ["vth0", "vth1", "vth2"],
+        vasic_min = 0.010, # injected amplitude at the ASIC input [V]
+        vasic_max = 0.200,
+        vasic_step = 0.005,
+        delay_min_ns = -62.5,
+        delay_max_ns = 30,
+        delay_step_ns = 2.5,
+        pulseGen = "BK4600", # key of PULSEGEN in A0
+        base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this
+        scan_load_delay = '5',
+        startBxclkState = '0',
+        bxclk_delay = '10',
+        bxclk_period = '28',
+        injection_delay = '7',
+        scanLoopBackBit = '0',
+        test_sample = '0F',
+        scanLoadPhase = '26',
+        test_delay = '14',
+        tsleep = 250e-3, # wait after setting the threshold
+        tsleep_amp = 50e-3, # wait after each amplitude change
+        tsleep_delay = 100e-3, # wait after each pulse generator delay change
+        nsample = 1365,
+        nIter = 1,
+        verify = False,
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        dateTime = None,
+        testType = "ScurveDelaySweepAmp",
+        delayMode = "PG", # "PG": pulse generator delay steps, "FW": 2.5 ns firmware injection_delay steps
+):
+
+    if nsample>1365:
+        print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
+        return
+
+    if base_delay is None:
+        base_delay = PULSEGEN[pulseGen]["base_delay"]
+
+    # delay points (in ns, offset from base_delay)
+    plan = DelayScanPlan(delay_min_ns, delay_max_ns, delay_step_ns, delayMode, injection_delay, bxclk_period)
+    if plan is None:
+        return
+    if base_delay + min(p[1] for p in plan)*1e-9 < 0:
+        print(f"delay_min_ns = {delay_min_ns} ns would give a negative pulse generator delay (base delay is {base_delay*1e9:.1f} ns). Increase delay_min_ns or base_delay and rerun.")
+        return
+
+    # amplitudes: exact steps of vasic_step from vasic_min, last point is the largest one <= vasic_max
+    n_step = int(np.floor((vasic_max - vasic_min)/vasic_step + 1e-6))+1
+    vasicList = [round(v, 4) for v in vasic_min + vasic_step*np.arange(n_step)]
+
+    # rough time estimate: amplitude wait + ~20 ms to set it + burst (100us per sample) + ~50 ms readout per point
+    nPG = len(set(p[1] for p in plan))
+    tTotal = len(plan)*len(vasicList)*(tsleep_amp + 0.02 + 100e-6*nsample*nIter + 0.05) + nPG*tsleep_delay
+    print(f"ScurveDelaySweepAmp pixel {nPix}: {len(plan)} delays x {len(vasicList)} amplitudes at vth = {vth*1000:.1f} mV, ~{tTotal/60:.1f} min")
+
+    # program single pixel
+    if progPixel:
+        ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [nPix], pixelValue=[1])
+
+    DelayScanStatic(nPix, nsample, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, scanLoadPhase)
+
+    # 400MHz is the FPGA clock
+    bxclk_period_inMhz = 400/int(bxclk_period, 16)
+    injection_delay_in_ns = int(injection_delay,16)*2.5
+    bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
+
+    # configure chip info
+    chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
+    # configure test info
+    testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
+    testInfo += f"_vth{vth:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_vasicMin{vasic_min:.3f}_vasicMax{vasic_max:.3f}_vasicStep{vasic_step:.4f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
+    if delayMode == "FW":
+        testInfo += "_dlyModeFW"
+
+    # output directory
+    outDir = os.path.join(dataDir, chipInfo, testInfo)
+    print(f"Saving results to {outDir}")
+    os.makedirs(outDir, exist_ok=True)
+    os.chmod(outDir, mode=0o777)
+
+    # remember starting thresholds to restore at the end
+    vthStart = {name : V_LEVEL[name] for name in vthNames}
+
+    try:
+        # set the fixed threshold once and check what the board actually set
+        for name in vthNames:
+            V_PORT[name].set_voltage(vth)
+            V_LEVEL[name] = vth
+        time.sleep(tsleep) # let the bias settle
+        for name in vthNames:
+            v_rd = V_PORT[name].get_voltage()
+            if abs(v_rd - vth) > 0.5e-3:
+                print(f"WARNING: {name} set {vth:.4f} V, read back {v_rd:.4f} V")
+
+        # timing settings of this run, to match scope measurements of the timing (for the 2D map overlay) to the settings
+        DelayScanSettings(outDir, bxclk_period=bxclk_period, bxclk_delay=bxclk_delay, scanLoadPhase=scanLoadPhase, scan_load_delay=scan_load_delay,
+                          injection_delay=injection_delay, test_delay=test_delay, test_sample=test_sample, base_delay_ns=base_delay*1e9,
+                          pulseGen=pulseGen, delayMode=delayMode, vth=vth, nPix=nPix, vthNames=vthNames,
+                          vasic_min=vasic_min, vasic_max=vasic_max, vasic_step=vasic_step)
+
+        # save the plan for FW mode: which pulse generator delay and injection_delay gave each point
+        if delayMode == "FW":
+            np.savez(os.path.join(outDir, "delay_plan.npz"), delay_ns=[p[0] for p in plan], pg_delay_ns=[p[1] for p in plan], injection_delay=[int(p[2], 16) for p in plan])
+
+        # loop over the delay steps, sweep the amplitude at each delay
+        pg_set = None
+        for dly_ns, pg_ns, inj_hex in tqdm.tqdm(plan, desc="Delay Step"):
+
+            # only touch the pulse generator delay when it changes
+            if pg_ns != pg_set:
+                PULSEGEN_DLAY_SWEEP(base_delay + pg_ns*1e-9, pulseGen=pulseGen, verify=verify)
+                time.sleep(tsleep_delay) # added time for pulse generator to settle after the delay change
+                pg_set = pg_ns
+
+            dlyDir = os.path.join(outDir, f"delay_{dly_ns:.3f}")
+            os.makedirs(dlyDir, exist_ok=True)
+
+            hitAny = []
+            for v_asic in tqdm.tqdm(vasicList, desc="Amplitude Step", leave=False):
+                # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+                PULSEGEN[pulseGen]["set_hlev"](v_asic*2)
+                time.sleep(tsleep_amp)
+
+                save_data = DelayScanBurst(inj_hex, nsample, nIter, scanLoopBackBit, test_sample, test_delay)
+                np.save(os.path.join(dlyDir, f"vasic_{v_asic:.4f}.npy"), save_data)
+                hitAny.append(100*np.any(save_data, axis=1).mean())
+
+            # quick look at the bench, full analysis is in lab_analysis/PulseDelayScan.py
+            hitAny = np.array(hitAny)
+            above = [v for v, h in zip(vasicList, hitAny) if h >= 50]
+            pgInfo = f" [PG offset {pg_ns:.1f} ns, injection_delay {inj_hex}]" if delayMode == "FW" else ""
+            tqdm.tqdm.write(f"delay {dly_ns:.3f} ns{pgInfo}: max hit rate any bit = {hitAny.max():.1f}%, "
+                            + (f"lowest amplitude with >= 50% = {1000*min(above):.1f} mV" if above else "no amplitude with >= 50%"))
+
+    finally:
+        # put the thresholds and the pulse generator delay back
+        for name, v in vthStart.items():
+            V_PORT[name].set_voltage(v)
+            V_LEVEL[name] = v
+        PULSEGEN_DLAY_SWEEP(base_delay, pulseGen=pulseGen)
+
+    return outDir
