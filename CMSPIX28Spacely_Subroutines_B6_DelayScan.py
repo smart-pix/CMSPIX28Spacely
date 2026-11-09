@@ -701,6 +701,7 @@ def ScurveDelaySweepISource(
 # The first point after a pulse generator delay change is at vasic_min (small pulse, normally no hits), so a delay change
 # that has not settled yet does not show up as a hit
 # Output: <test>/delay_<ns>/vasic_<V>.npy (v_asic at the ASIC input, half of the pulse generator high level)
+#         (matrix: <test>/nPix<n>/delay_<ns>/vasic_<V>.npy)
 # The thresholds and the pulse generator delay are restored at the end; the amplitude is left at the last point
 # Analysis (2D maps delay vs v_asic per bit, 50% amplitude vs delay, hit window edges vs amplitude):
 # CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
@@ -779,12 +780,17 @@ def ScurveDelaySweepAmp(
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
     testInfo = (dateTime if dateTime else datetime.now().strftime("%Y.%m.%d_%H.%M.%S")) + f"_{testType}"
-    testInfo += f"_vth{vth:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_vasicMin{vasic_min:.3f}_vasicMax{vasic_max:.3f}_vasicStep{vasic_step:.4f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
+    testInfo += f"_vth{vth:.3f}_baseDly{base_delay*1e9:.1f}_dlyMin{delay_min_ns:.1f}_dlyMax{delay_max_ns:.1f}_dlyStep{delay_step_ns:.2f}_vasicMin{vasic_min:.3f}_vasicMax{vasic_max:.3f}_vasicStep{vasic_step:.4f}_nSample{nsample*nIter}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}"
+    if testType == "ScurveDelaySweepAmpMatrix":
+        pixelInfo = f"nPix{nPix}"
+    else:
+        testInfo += f"_nPix{nPix}"
+        pixelInfo = ""
     if delayMode == "FW":
         testInfo += "_dlyModeFW"
 
     # output directory
-    outDir = os.path.join(dataDir, chipInfo, testInfo)
+    outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
@@ -849,5 +855,46 @@ def ScurveDelaySweepAmp(
             V_PORT[name].set_voltage(v)
             V_LEVEL[name] = v
         PULSEGEN_DLAY_SWEEP(base_delay, pulseGen=pulseGen)
+
+    return outDir
+
+
+#-----------------------------------------------------------------------
+# ScurveDelaySweepAmpMatrix function
+#-----------------------------------------------------------------------
+# Runs ScurveDelaySweepAmp for every pixel in pixelList, like ScurveDelaySweepMatrix
+# Each pixel is programmed alone; all pixels are stored in the same test folder: <test>/nPix<n>/delay_<ns>/vasic_<V>.npy
+# A full sweep is long: the time per pixel is printed before starting; use pixelList to run a subset
+# Analysis: CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (amplitude threshold and time walk maps per bit)
+#-----------------------------------------------------------------------
+
+def ScurveDelaySweepAmpMatrix(
+        pixelList = None, # None = all 256 pixels
+        dataDir = FNAL_SETTINGS["storageDirectory"],
+        **kwargs, # any other ScurveDelaySweepAmp setting (vth, vasic_min, delay_min_ns, delayMode, injection_delay, ...)
+):
+
+    if pixelList is None:
+        pixelList = list(range(256))
+    print(f"ScurveDelaySweepAmpMatrix: {len(pixelList)} pixels")
+
+    # same timestamp for every pixel so they end up in the same folder
+    now = datetime.now().strftime("%Y.%m.%d_%H.%M.%S")
+
+    outDir = None
+    for iP, nPix in enumerate(pixelList):
+        print(f"Pixel {nPix} ({iP+1}/{len(pixelList)})")
+        pixDir = ScurveDelaySweepAmp(
+            nPix = nPix,
+            progPixel = True,
+            dataDir = dataDir,
+            dateTime = now,
+            testType = "ScurveDelaySweepAmpMatrix",
+            **kwargs
+        )
+        if pixDir is None:
+            print("ScurveDelaySweepAmp did not run, stopping the matrix scan.")
+            break
+        outDir = os.path.dirname(os.path.normpath(pixDir))
 
     return outDir
