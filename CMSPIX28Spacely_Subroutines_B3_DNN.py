@@ -383,6 +383,27 @@ def DNN(
     return None
 
 
+_DNN_MODEL_ROOT = "/asic/projects/C/CMS_PIX_28/dshekar/filter/model_pipeline/tmp_16x16_hlevOptimized"
+
+def _dnn_model_entry(vth0, vth1, vth2, model, pg_hlev):
+    return {
+        "vth0": vth0,
+        "vth1": vth1,
+        "vth2": vth2,
+        "pg_hlev": pg_hlev,
+        "dnn_csv": f"{_DNN_MODEL_ROOT}/trainedModel_{vth0}_{vth1}_{vth2}/model{model}/qmodel_0_catapult_prj/firmware/weights/b5_w5_b2_w2_pixel_bin.csv",
+    }
+
+# Label -> settings (vth0/1/2 in mV, pulse-generator high level, DNN weights csv).
+# Usage: DNN_power(**DNN_MODELS["Model1_400_800_1200"], pixel_compout_csv=..., ...)
+DNN_MODELS = {
+    "Model1_400_800_1200":   _dnn_model_entry(400,  800,  1200, 1, 0.15),
+    "Model0_550_1100_1650":  _dnn_model_entry(550,  1100, 1650, 0, 0.145),
+    "Model3_700_1400_2100":  _dnn_model_entry(700,  1400, 2100, 3, 0.2),
+    "Model0_850_1700_2550":  _dnn_model_entry(850,  1700, 2550, 0, 0.225),
+    "Model0_1000_2000_3000": _dnn_model_entry(1000, 2000, 3000, 0, 0.345),
+}
+
 def DNN_power(n_tb=100, waitTime=1.4, dnnwaitTime=1, pNoiseBool=False, vth0=0.014, vth1=0.083, vth2=0.128):
 
     startTime = time.time()
