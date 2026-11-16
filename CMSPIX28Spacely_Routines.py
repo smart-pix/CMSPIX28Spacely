@@ -172,7 +172,13 @@ def ROUTINE_DNN(
         injection_delay='1E', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
         cfg_test_delay='5', cfg_test_sample='20', progResetMask='0', configclk_period='64', 
         test_delay='14', test_sample='0F', bxclk_delay='12',configClkGate='0',scanLoadPhase ='26',
-        vth0 = 400, vth1=800, vth2=1200, pg_hlev=0.22, dnn0=RUN_DNN0, dnn1=RUN_DNN1,readYproj=True, pixel_compout_csv=None, dnn_csv=None):
+        vth0 = 400, vth1=800, vth2=1200, pg_hlev=0.22, dnn0=RUN_DNN0, dnn1=RUN_DNN1,readYproj=True, pixel_compout_csv=None, dnn_csv=None, model=None):
+        # model: key of DNN_MODELS (e.g. "Model1_400_800_1200"); overrides vth0/1/2, pg_hlev and dnn_csv
+        if model is not None:
+            if model not in DNN_MODELS:
+                raise ValueError(f"Unknown DNN model '{model}', valid: {list(DNN_MODELS)}")
+            m = DNN_MODELS[model]
+            vth0, vth1, vth2, pg_hlev, dnn_csv = m["vth0"], m["vth1"], m["vth2"], m["pg_hlev"], m["dnn_csv"]
         #dnn0 =  1.573, dnn1 = 1.588/ 1.589
         # vth0 = 0.08, vth1=0.16, vth2=0.32, pg_hlev=0.22, dnn0=1.586, dnn1=1.588,readYproj=True, pixel_compout_csv=None, dnn_csv=None
         vth_0_mv = round((vth0 - 196.84)/16960.09, 3)
