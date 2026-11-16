@@ -196,11 +196,13 @@ TB_DELAYS = {
     "TB2": dict(scan_load_delay='5',  startBxclkState='0', bxclk_delay='10', bxclk_period='28',
                 injection_delay='5',  scanLoopBackBit='0', test_delay='14', scanLoadPhase='26',
                 pulseGen='SDG7102A', delayMode='FW', base_delay=2.64e-6),
-    "TB1": dict(scan_load_delay='19', startBxclkState='0', bxclk_delay='11', bxclk_period='28',
+    "TB1": dict(scan_load_delay='19', startBxclkState='0', bxclk_delay='12', bxclk_period='28',
                 injection_delay='1E', scanLoopBackBit='0', test_delay='14', scanLoadPhase='26',
                 pulseGen='SDG7102A', delayMode='FW', base_delay=2.74e-6),
 }
 
+# USE FOLLOWING COMMAND TO UPDATE DELAYS DURING A LIVE SPACELY SESSION 
+# TB_DELAYS["TB1"].update(injection_delay='1F', bxclk_delay='10')
 # Optional per-user tweaks on top of a test bench, keyed by login name then test bench, e.g.
 # USER_DELAY_OVERRIDES = {"bparpill": {"TB2": dict(injection_delay='1F')}}
 USER_DELAY_OVERRIDES = {}
