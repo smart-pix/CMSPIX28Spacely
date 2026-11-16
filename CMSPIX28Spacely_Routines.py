@@ -7,6 +7,19 @@ Date: June, 2024
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
+import getpass
+
+def tb(args):
+    """Fill every delay argument left as None from the active test bench profile
+    (CMSPIX28Spacely_Config: TESTBENCH, TB_DELAYS, USER_DELAY_OVERRIDES).
+    Pass locals() of a ROUTINE_*; returns the dict with the delays resolved."""
+    if TESTBENCH not in TB_DELAYS:
+        raise ValueError(f"Unknown TESTBENCH '{TESTBENCH}', valid: {list(TB_DELAYS)}")
+    prof = dict(TB_DELAYS[TESTBENCH])
+    prof.update(USER_DELAY_OVERRIDES.get(getpass.getuser(), {}).get(TESTBENCH, {}))
+    out = {k: (prof[k] if v is None and k in prof else v) for k, v in args.items()}
+    print(f"[{TESTBENCH}] delays: " + ", ".join(f"{k}={out[k]}" for k in prof if k in out))
+    return out
 
 def onstartup():
 
@@ -86,12 +99,14 @@ def ROUTINE_ProgShiftRegs(progDebug=False, verbose=False, configclk_period='64',
     return ProgShiftRegs(progDebug, verbose, configclk_period, cfg_test_delay, cfg_test_sample,cfg_test_gate_config_clk, iP, timeSleep, send_fw_reset_opcode, reset_asic_before_test, expect_previous_same_model)
 
 #<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
-def ROUTINE_ScanChainOneShot(scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
-    return ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
+def ROUTINE_ScanChainOneShot(scan_load_delay=None, startBxclkState=None, bxclk_delay=None, bxclk_period=None, injection_delay=None, scanLoopBackBit=None, test_sample='F', test_delay=None, scanLoadPhase=None):
+    a = tb(locals())
+    return ScanChainOneShot(a['scan_load_delay'], a['startBxclkState'], a['bxclk_delay'], a['bxclk_period'], a['injection_delay'], a['scanLoopBackBit'], test_sample, a['test_delay'], a['scanLoadPhase'] )
 
 #<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
-def ROUTINE_PreProgSCurve(scanLoadPhase = '26', scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1D', scanLoopBackBit='0', test_sample='0F', test_delay='14', v_min = 0.001, v_max=0.4, v_step=0.001, nsample=1000, nPix=0):
-    return PreProgSCurve(scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, v_min, v_max, v_step, nsample, nPix)
+def ROUTINE_PreProgSCurve(scanLoadPhase=None, scan_load_delay=None, startBxclkState=None, bxclk_delay=None, bxclk_period=None, injection_delay=None, scanLoopBackBit=None, test_sample='0F', test_delay=None, v_min = 0.001, v_max=0.4, v_step=0.001, nsample=1000, nPix=0):
+    a = tb(locals())
+    return PreProgSCurve(a['scanLoadPhase'], a['scan_load_delay'], a['startBxclkState'], a['bxclk_delay'], a['bxclk_period'], a['injection_delay'], a['scanLoopBackBit'], test_sample, a['test_delay'], v_min, v_max, v_step, nsample, nPix)
 
 #<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_SCurveMatrix():
@@ -169,9 +184,9 @@ RUN_POT_STEPS = False
 #<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_DNN(
         progDebug=False, loopbackBit=0, patternIndexes = [0], verbose=False, 
-        injection_delay='1E', bxclk_period='28', startBxclkState='0',scan_load_delay='13', 
+        injection_delay=None, bxclk_period=None, startBxclkState=None,scan_load_delay=None, 
         cfg_test_delay='5', cfg_test_sample='20', progResetMask='0', configclk_period='64', 
-        test_delay='14', test_sample='0F', bxclk_delay='12',configClkGate='0',scanLoadPhase ='26',
+        test_delay=None, test_sample='0F', bxclk_delay=None,configClkGate='0',scanLoadPhase=None,
         vth0 = 400, vth1=800, vth2=1200, pg_hlev=0.22, dnn0=RUN_DNN0, dnn1=RUN_DNN1,readYproj=True, pixel_compout_csv=None, dnn_csv=None, model=None):
         # model: key of DNN_MODELS (e.g. "Model1_400_800_1200"); overrides vth0/1/2, pg_hlev and dnn_csv
         if model is not None:
@@ -179,6 +194,7 @@ def ROUTINE_DNN(
                 raise ValueError(f"Unknown DNN model '{model}', valid: {list(DNN_MODELS)}")
             m = DNN_MODELS[model]
             vth0, vth1, vth2, pg_hlev, dnn_csv = m["vth0"], m["vth1"], m["vth2"], m["pg_hlev"], m["dnn_csv"]
+        a = tb(locals())
         #dnn0 =  1.573, dnn1 = 1.588/ 1.589
         # vth0 = 0.08, vth1=0.16, vth2=0.32, pg_hlev=0.22, dnn0=1.586, dnn1=1.588,readYproj=True, pixel_compout_csv=None, dnn_csv=None
         vth_0_mv = round((vth0 - 196.84)/16960.09, 3)
@@ -188,14 +204,15 @@ def ROUTINE_DNN(
         print(f"vth_0 [mV] = {vth_0_mv}, vth_1 [mV] = {vth_1_mv}, vth_2 [mV] = {vth_2_mv}")
         # V_PORT["dnn0_vt"].set_voltage(dnn0)
         # V_PORT["dnn1_vt"].set_voltage(dnn1)
-        return DNN(progDebug,loopbackBit, patternIndexes, verbose, injection_delay, bxclk_period, startBxclkState, scan_load_delay, cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, test_delay, test_sample, bxclk_delay,configClkGate, scanLoadPhase, vth0=vth_0_mv, vth1=vth_1_mv, vth2=vth_2_mv, pg_hlev=pg_hlev, dnn0=dnn0, dnn1=dnn1 ,readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
+        return DNN(progDebug,loopbackBit, patternIndexes, verbose, a['injection_delay'], a['bxclk_period'], a['startBxclkState'], a['scan_load_delay'], cfg_test_delay, cfg_test_sample, progResetMask, configclk_period, a['test_delay'], test_sample, a['bxclk_delay'],configClkGate, a['scanLoadPhase'], vth0=vth_0_mv, vth1=vth_1_mv, vth2=vth_2_mv, pg_hlev=pg_hlev, dnn0=dnn0, dnn1=dnn1 ,readYproj=readYproj, pixel_compout_csv=pixel_compout_csv, dnn_csv=dnn_csv)
 
 #<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
-def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay='13', startBxclkState='0', bxclk_delay='12', bxclk_period='28', injection_delay='1E', scanLoopBackBit='0', test_sample='F', test_delay='14', scanLoadPhase ='26'):
+def ROUTINE_DiscrimTuneScanChain(nEvents=1000, time_sleep = 1, dnn_Pattern=0,  scan_load_delay=None, startBxclkState=None, bxclk_delay=None, bxclk_period=None, injection_delay=None, scanLoopBackBit=None, test_sample='F', test_delay=None, scanLoadPhase=None):
+    a = tb(locals())
     ROUTINE_DNN(patternIndexes=[dnn_Pattern])
     print("Routine_DNN completed, starting ScanChainOneShot loop.")
     for evt_iter in range(nEvents):
-        ScanChainOneShot(scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_sample, test_delay, scanLoadPhase )
+        ScanChainOneShot(a['scan_load_delay'], a['startBxclkState'], a['bxclk_delay'], a['bxclk_period'], a['injection_delay'], a['scanLoopBackBit'], test_sample, a['test_delay'], a['scanLoadPhase'] )
         print(f'ScanChainOneShot number {evt_iter+1} executed, sleeping 1s.')
         time.sleep(1)
 

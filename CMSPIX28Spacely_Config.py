@@ -175,3 +175,32 @@ FNAL_SETTINGS = {
     "chipVersion" : 1,
     "chipID" : 31
 }
+
+
+# ---------------------------------------------------------------------------
+# Test bench timing profiles
+# The only thing a user needs to change is TESTBENCH (or set the environment
+# variable CMSPIX28_TB, e.g. CMSPIX28_TB=TB1). Every ROUTINE_* that takes these
+# delays and is called without them picks them up from the profile below.
+# Precedence: value passed on the call > USER_DELAY_OVERRIDES > TB_DELAYS.
+# delayMode ("PG" pulse generator steps, "FW" 2.5 ns firmware steps) and base_delay (pulse generator delay [s] that
+# the scans are an offset from, 0 ns of the scan) only apply to the delay scans (~r10 to ~r14, ~r16).
+# In "FW" mode the scan sets the firmware injection_delay itself (0 to half a BxCLK period, pulse generator moved in
+# half period blocks), so the injection_delay of the profile is not used by the delay scans.
+# ---------------------------------------------------------------------------
+import os as _os
+
+TESTBENCH = _os.environ.get("CMSPIX28_TB", "TB1")
+
+TB_DELAYS = {
+    "TB2": dict(scan_load_delay='5',  startBxclkState='0', bxclk_delay='10', bxclk_period='28',
+                injection_delay='5',  scanLoopBackBit='0', test_delay='14', scanLoadPhase='26',
+                pulseGen='SDG7102A', delayMode='FW', base_delay=2.64e-6),
+    "TB1": dict(scan_load_delay='19', startBxclkState='0', bxclk_delay='11', bxclk_period='28',
+                injection_delay='1E', scanLoopBackBit='0', test_delay='14', scanLoadPhase='26',
+                pulseGen='SDG7102A', delayMode='FW', base_delay=2.74e-6),
+}
+
+# Optional per-user tweaks on top of a test bench, keyed by login name then test bench, e.g.
+# USER_DELAY_OVERRIDES = {"bparpill": {"TB2": dict(injection_delay='1F')}}
+USER_DELAY_OVERRIDES = {}
