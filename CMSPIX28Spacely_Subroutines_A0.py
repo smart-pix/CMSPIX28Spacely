@@ -34,7 +34,9 @@ _USBTMC_FILES = {}
 # so it is driven over LAN with raw SCPI on TCP port 5025 instead. Paths that
 # start with "tcp://" go through _SCPISocket, anything else is a /dev/usbtmcN file.
 # The generator serves ONE SCPI client at a time (close Spacely before using nc, etc.).
-SDG7102A_PATH = "tcp://192.168.1.50:5025"
+# Port 5024 is Siglent's telnet-style SCPI service. It kept answering while the raw-socket
+# service on 5025 had stopped replying, so it is the primary; 5025 is the fallback.
+SDG7102A_PATH = "tcp://192.168.1.50:5024"
 SDG7102A_CMD_GAP = 0.15  # seconds between commands (0.15 s verified to apply every INIT command)
 # Seconds from the external trigger to the injected pulse. The generator clamps
 # BTWV DLAY to a minimum of ~2.606 us on firmware 1.1.1.33R1, so lower values are
@@ -46,6 +48,14 @@ class _SCPISocket:
     def __init__(self, host, port, timeout=5.0):
         import socket
         self.sock = socket.create_connection((host, port), timeout=timeout)
+        self.sock.settimeout(timeout)
+        # The telnet-style port (5024) sends a welcome banner on connect; drop it
+        # so it isn't mistaken for the reply to the first query.
+        self.sock.settimeout(0.5)
+        try:
+            self.sock.recv(256)
+        except OSError:
+            pass
         self.sock.settimeout(timeout)
     def write(self, data):
         self.sock.sendall(data + b"\n")  # raw SCPI sockets need newline termination
@@ -60,7 +70,7 @@ class _SCPISocket:
             if not chunk:
                 break
             buf += chunk
-        return buf
+        return buf.lstrip(b"\x00")  # port 5024 prefixes replies with a NUL byte
     def close(self):
         self.sock.close()
 
