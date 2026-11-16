@@ -7,19 +7,6 @@ Date: June, 2024
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
-import getpass
-
-def tb(args):
-    """Fill every delay argument left as None from the active test bench profile
-    (CMSPIX28Spacely_Config: TESTBENCH, TB_DELAYS, USER_DELAY_OVERRIDES).
-    Pass locals() of a ROUTINE_*; returns the dict with the delays resolved."""
-    if TESTBENCH not in TB_DELAYS:
-        raise ValueError(f"Unknown TESTBENCH '{TESTBENCH}', valid: {list(TB_DELAYS)}")
-    prof = dict(TB_DELAYS[TESTBENCH])
-    prof.update(USER_DELAY_OVERRIDES.get(getpass.getuser(), {}).get(TESTBENCH, {}))
-    out = {k: (prof[k] if v is None and k in prof else v) for k, v in args.items()}
-    print(f"[{TESTBENCH}] delays: " + ", ".join(f"{k}={out[k]}" for k in prof if k in out))
-    return out
 
 def onstartup():
 

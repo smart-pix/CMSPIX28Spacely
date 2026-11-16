@@ -26,15 +26,15 @@ except ImportError as e:
 #-----------------------------------------------------------------------
     
 def PreProgSCurve(
-        scanLoadPhase = '26',
-        scan_load_delay = '13', 
-        startBxclkState = '0', 
-        bxclk_delay = '12', #'0B', 
-        bxclk_period = '28',
-        injection_delay = '1E', # vin_test_trig_out in the FW
-        scanLoopBackBit = '0', 
+        scanLoadPhase = None,
+        scan_load_delay = None,
+        startBxclkState = None,
+        bxclk_delay = None, #'0B', 
+        bxclk_period = None,
+        injection_delay = None, # vin_test_trig_out in the FW
+        scanLoopBackBit = None,
         test_sample = '0F', 
-        test_delay = '14', 
+        test_delay = None,
         v_min = 0.01, 
         v_max = 0.4, 
         v_step = 0.01, 
@@ -45,6 +45,9 @@ def PreProgSCurve(
         testType = "Single",
         parameter = None
 ):
+    # Delays left as None come from the active test bench profile (Config: TESTBENCH, TB_DELAYS).
+    a = tb(locals())
+    scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_delay = a['scanLoadPhase'], a['scan_load_delay'], a['startBxclkState'], a['bxclk_delay'], a['bxclk_period'], a['injection_delay'], a['scanLoopBackBit'], a['test_delay']
     
 
     
@@ -83,7 +86,6 @@ def PreProgSCurve(
 
     # number of 32bit word to read the scanChain
     nWord = 24
-    ipixel = (V_PORT["vdda"].get_current())*1000000/(512*10)    # extract roughtly Ibias for a pixel. NEED TO KNOW I_testStructure!!!
     
     # 400MHz is the FPGA clock
     bxclk_period_inMhz = 400/int(bxclk_period, 16) 
@@ -103,7 +105,7 @@ def PreProgSCurve(
     elif testType == "MatrixIbias":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
         # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
-        pixelInfo = f"Ibias{I_LEVEL['OUTsink']:.6f}"
+        pixelInfo = f"Ibias{I_LEVEL['Isource10uA']:.6f}"
     elif testType == "MatrixVTH":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}_nPix{nPix}"
         pixelInfo = f"vth{V_LEVEL['vth0']:.3f}"
@@ -118,7 +120,7 @@ def PreProgSCurve(
         pixelInfo = f"FallTime{parameter:.3e}"    
         
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_Isource_{round(I_LEVEL['Isource10uA']*1e6, 3):g}uA_nPix{nPix}"
         pixelInfo = ""
 
     # output directory
@@ -227,15 +229,15 @@ def PreProgSCurve(
 #-----------------------------------------------------------------------
 
 def PreProgSCurveBurst(
-        scan_load_delay = '13', 
-        startBxclkState = '0', 
-        bxclk_delay = '12', #'11', 
-        bxclk_period = '28',
-        injection_delay = '1E', #'17', 
-        scanLoopBackBit = '0', 
+        scan_load_delay = None,
+        startBxclkState = None,
+        bxclk_delay = None, #'11', 
+        bxclk_period = None,
+        injection_delay = None, #'17', 
+        scanLoopBackBit = None,
         test_sample = '0F', 
-        scanLoadPhase = '26',
-        test_delay = '14', 
+        scanLoadPhase = None,
+        test_delay = None,
         tsleep = 100e-3,
         v_min = 0.001, 
         v_max = 0.4, 
@@ -248,6 +250,9 @@ def PreProgSCurveBurst(
         testType = "Single",
         parameter = None
 ):
+    # Delays left as None come from the active test bench profile (Config: TESTBENCH, TB_DELAYS).
+    a = tb(locals())
+    scanLoadPhase, scan_load_delay, startBxclkState, bxclk_delay, bxclk_period, injection_delay, scanLoopBackBit, test_delay = a['scanLoadPhase'], a['scan_load_delay'], a['startBxclkState'], a['bxclk_delay'], a['bxclk_period'], a['injection_delay'], a['scanLoopBackBit'], a['test_delay']
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
     nPixHex = int_to_32bit_hex(nPix)
@@ -295,11 +300,6 @@ def PreProgSCurveBurst(
     injection_delay_in_ns = int(injection_delay,16)*2.5
     bxclk_delay_in_ns = int(bxclk_delay,16)*2.5
 
-    # ipixel is only used in the "Single" testType's output name below; skip the
-    # hardware round-trip to fetch it otherwise (it was previously fetched and
-    # discarded on every voltage/pixel/bias iteration of the matrix sweeps).
-    if testType == "Single":
-        ipixel = (V_PORT["vdda"].get_current())*1000000/(512*10)    # extract roughtly Ibias for a pixel. NEED TO KNOW I_testStructure!!!
     # configure chip info
     chipInfo = f"ChipVersion{FNAL_SETTINGS['chipVersion']}_ChipID{FNAL_SETTINGS['chipID']}_SuperPix{2 if V_LEVEL['SUPERPIX'] == 0.9 else 1}"
     # configure test info
@@ -316,7 +316,7 @@ def PreProgSCurveBurst(
     elif testType == "MatrixIbias":
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
         # pixelInfo = f"Ibias{V_LEVEL['Ibias']:.3f}"
-        pixelInfo = f"Ibias{I_LEVEL['OUTsink']*1000000:.1f}uA"
+        pixelInfo = f"Ibias{I_LEVEL['Isource10uA']*1000000:.1f}uA"
     elif testType == "MatrixVTH":
         # Ibias in the folder name must reflect the actual current source that gets
         # tuned (Isource10uA, in Amps) rather than the unrelated V_LEVEL['Ibias']
@@ -338,7 +338,7 @@ def PreProgSCurveBurst(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_Ibias{V_LEVEL['Ibias']:.3f}__vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_nPix{nPix}"
         pixelInfo = f"FallTime{parameter:.3e}"
     elif testType == "Single":
-        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
+        testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_Isource_{round(I_LEVEL['Isource10uA']*1e6, 3):g}uA_nPix{nPix}"
         pixelInfo = ""
 
     # output directory
@@ -499,15 +499,7 @@ def SCurveMatrix():
         ProgPixelsOnly(configclk_period='64', cfg_test_delay='5', cfg_test_sample='20',cfg_test_gate_config_clk ='1', pixelList = [i], pixelValue=[1])
         
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '11',         #superpix1 '11', superpix2 '12',
-            bxclk_period = '28', 
-            injection_delay = '1D',     #superpix1 '1C', superpix2 '1E',
-            scanLoopBackBit = '0', 
             test_sample = '0F', 
-            scanLoadPhase ='25',        #superpix1 '25', superpix2 '26',
-            test_delay = '14', 
             v_min = 0.001, 
             v_max = 0.2, 
             v_step = 0.002, 
@@ -553,21 +545,13 @@ def SCurveSweepIbias(nPix=0):
 
     for i in I_biasList:
         # V_PORT["Ibias"].set_voltage(i)
-        I_PORT["OUTsink"].set_current(i)
-        I_LEVEL["OUTsink"] = i
+        I_PORT["Isource10uA"].set_current(i)
+        I_LEVEL["Isource10uA"] = i
         V_PORT["vdda"].get_current()
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '12', #'0B', 
-            bxclk_period = '28', 
-            injection_delay = '1E', #'1D', 
-            scanLoopBackBit = '0', 
             test_sample = '0F', 
-            scanLoadPhase ='26',
-            test_delay = '14', 
             v_min = 0.001, 
-            v_max = 0.4, 
+            v_max = 0.2, 
             v_step = 0.001, 
             nsample = 1365, 
             nPix = nPix,
@@ -608,15 +592,7 @@ def SCurveSweepVTH(nPix=0, dateTime=None):
         V_PORT["vth2"].set_voltage(i)
         V_LEVEL["vth2"] = i
         PreProgSCurveBurst(
-            scan_load_delay = '13', 
-            startBxclkState = '0', 
-            bxclk_delay = '12', #'0B', 
-            bxclk_period = '28', 
-            injection_delay = '1E', #'1D', 
-            scanLoopBackBit = '0', 
             test_sample = '0F', 
-            scanLoadPhase ='26',
-            test_delay = '14', 
             v_min = 0.004, 
             v_max = 0.35, 
             v_step = 0.001, 
@@ -661,15 +637,8 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 10, maxPar = 28, stepPar =
 
             V_PORT["vdda"].get_current()
             PreProgSCurveBurst(
-                scan_load_delay = '13', 
-                startBxclkState = '0', 
-                bxclk_delay = '12', #'12', 
-                bxclk_period = '28', 
                 injection_delay = i, 
-                scanLoopBackBit = '0', 
                 test_sample = '0F', 
-                scanLoadPhase ='26',
-                test_delay = '14', 
                 v_min = 0.001, 
                 v_max = 0.2, 
                 v_step = 0.002, 
@@ -692,15 +661,7 @@ def SCurveSweep(nPix=0,  FWparameter = None, minPar = 10, maxPar = 28, stepPar =
             time.sleep(0.1) # added time for pulse generator to settle
             V_PORT["vdda"].get_current()
             PreProgSCurveBurst(
-                scan_load_delay = '13', 
-                startBxclkState = '0', 
-                bxclk_delay = '12', #'0B', 
-                bxclk_period = '28', 
-                injection_delay = '1E', 
-                scanLoopBackBit = '0', 
                 test_sample = '0F', 
-                scanLoadPhase ='26',
-                test_delay = '14', 
                 v_min = 0.001, 
                 v_max = 0.4, 
                 v_step = 0.001, 
@@ -775,8 +736,8 @@ def analogPower(
 
     # === measure: for each ibias, repeat nIter times ===
     for idx, ibias in enumerate(ibiasList):
-        I_PORT["OUTsink"].set_current(float(ibias))
-        I_LEVEL["OUTsink"] = float(ibias)
+        I_PORT["Isource10uA"].set_current(float(ibias))
+        I_LEVEL["Isource10uA"] = float(ibias)
 
         # optional settle after changing ibias
         if settle_s and settle_s > 0:

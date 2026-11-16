@@ -18,9 +18,25 @@ try:
     import sys
     import importlib 
     import csv
+    import getpass
 except ImportError as e:
     print("\033[93;1m" + f"Import error in {__file__}: {str(e)}".upper() + "\033[0m")
     sys.exit(1)  # Exit script immediately
+
+def tb(args):
+    """Fill every delay argument left as None from the active test bench profile
+    (CMSPIX28Spacely_Config: TESTBENCH, TB_DELAYS, USER_DELAY_OVERRIDES).
+    Pass locals() at the top of a function; returns the dict with the delays resolved.
+    Lives in A0 (loaded before B2 and Routines) so the S-curve functions and the
+    ROUTINE_* wrappers share one copy. Prints only when it filled something in."""
+    if TESTBENCH not in TB_DELAYS:
+        raise ValueError(f"Unknown TESTBENCH '{TESTBENCH}', valid: {list(TB_DELAYS)}")
+    prof = dict(TB_DELAYS[TESTBENCH])
+    prof.update(USER_DELAY_OVERRIDES.get(getpass.getuser(), {}).get(TESTBENCH, {}))
+    out = {k: (prof[k] if v is None and k in prof else v) for k, v in args.items()}
+    if any(v is None and k in prof for k, v in args.items()):
+        print(f"[{TESTBENCH}] delays: " + ", ".join(f"{k}={out[k]}" for k in prof if k in out))
+    return out
 
 CHANNEL = "C2"  # Change this to the appropriate channel for your device (e.g., "C1", "C2", etc.)
 
