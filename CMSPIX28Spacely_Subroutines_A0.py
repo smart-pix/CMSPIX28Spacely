@@ -30,6 +30,60 @@ CHANNEL = "C2"  # Change this to the appropriate channel for your device (e.g., 
 # pulse generator sweep calls, so the file object is opened once and reused.
 _USBTMC_FILES = {}
 
+# The SDG7102A stops answering on USB after its first transaction (any firmware),
+# so it is driven over LAN with raw SCPI on TCP port 5025 instead. Paths that
+# start with "tcp://" go through _SCPISocket, anything else is a /dev/usbtmcN file.
+# The generator serves ONE SCPI client at a time (close Spacely before using nc, etc.).
+SDG7102A_PATH = "tcp://192.168.1.50:5025"
+SDG7102A_CMD_GAP = 0.15  # seconds between commands (0.15 s verified to apply every INIT command)
+# Seconds from the external trigger to the injected pulse. The generator clamps
+# BTWV DLAY to a minimum of ~2.606 us on firmware 1.1.1.33R1, so lower values are
+# silently raised to that.
+BASE_DELAY = 2.67e-6
+
+class _SCPISocket:
+    """File-like (write/read/close) wrapper around a raw SCPI TCP socket."""
+    def __init__(self, host, port, timeout=5.0):
+        import socket
+        self.sock = socket.create_connection((host, port), timeout=timeout)
+        self.sock.settimeout(timeout)
+    def write(self, data):
+        self.sock.sendall(data + b"\n")  # raw SCPI sockets need newline termination
+        # The SDG drops commands that arrive back-to-back (INIT left TRSR,INT and
+        # the output off), so give it time to process each one.
+        time.sleep(SDG7102A_CMD_GAP)
+        return len(data)
+    def read(self, n=1024):
+        buf = b""
+        while not buf.endswith(b"\n"):  # replies are newline terminated
+            chunk = self.sock.recv(n)
+            if not chunk:
+                break
+            buf += chunk
+        return buf
+    def close(self):
+        self.sock.close()
+
+def _close_scpi_connections():
+    # Close cached connections on exit so a killed session doesn't leave the
+    # generator's single SCPI connection stale.
+    for d in list(_USBTMC_FILES.values()):
+        try:
+            d.close()
+        except Exception:
+            pass
+    _USBTMC_FILES.clear()
+
+import atexit
+atexit.register(_close_scpi_connections)
+
+def _scpi_open(path):
+    if path.startswith("tcp://"):
+        host, port = path[len("tcp://"):].rsplit(":", 1)
+        return _SCPISocket(host, int(port))
+    # buffering=0: USBTMC treats each write(2) syscall as one message boundary
+    return open(path, 'r+b', buffering=0)
+
 def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
     """
     Write a single SCPI command to a persistently-held USBTMC device file,
@@ -46,7 +100,7 @@ def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
                 # (the default) holds writes in userspace until the buffer fills
                 # or the file is closed, so with a persistent (long-lived) file
                 # object commands would never actually reach the instrument.
-                d = open(path, 'r+b', buffering=0)
+                d = _scpi_open(path)
                 _USBTMC_FILES[path] = d
             d.write(cmd.encode())
             if cmd.endswith("?"):
@@ -66,6 +120,46 @@ def _usbtmc_write(path, cmd, max_retries=10, retry_delay=0.1):
             if retries < max_retries:
                 time.sleep(retry_delay)
     print(f"Max retries reached. Could not write to {path}.")
+
+def _usbtmc_query(path, cmd, max_retries=10, retry_delay=0.1, wait=0.1):
+    """
+    Same as _usbtmc_write for a query ("...?") but returns the decoded answer
+    instead of printing it. Shares the persistent connection in _USBTMC_FILES.
+    Returns None if the device could not be reached.
+    """
+    retries = 0
+    while retries < max_retries:
+        d = _USBTMC_FILES.get(path)
+        try:
+            if d is None:
+                d = _scpi_open(path)
+                _USBTMC_FILES[path] = d
+            d.write(cmd.encode())
+            time.sleep(wait)  # Give the device time to respond
+            return d.read(1024).decode()
+        except (OSError, FileNotFoundError) as e:
+            print(f"SCPI query to {path} failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            _USBTMC_FILES.pop(path, None)
+            if d is not None:
+                try:
+                    d.close()
+                except OSError:
+                    pass
+            retries += 1
+            if retries < max_retries:
+                time.sleep(retry_delay)
+    print(f"Max retries reached. Could not query {path}.")
+    return None
+
+def _scpi_run(path, commands):
+    # Send a list of SCPI commands over the persistent connection, printing each
+    # one and the reply of every query.
+    for cmd in commands:
+        print(cmd)
+        if cmd.endswith("?"):
+            print(_usbtmc_query(path, cmd, wait=0.1))
+        else:
+            _usbtmc_write(path, cmd)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #            SUB-ROUTINES                         #
@@ -192,7 +286,6 @@ def BK4600HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     print("Elapsed time =", round(end-start,8), "seconds")
 
 def SDG7102A_QUERY():
-    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",    
     "C1:BSWV?",
@@ -208,20 +301,10 @@ def SDG7102A_QUERY():
     "C2:BTWV?",
     "C2:OUTP?"
         ]
-    nlist=len(input)
-    for i in range(nlist):
-        os.write(d,input[i].encode())
-        out = b' '
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question
-            time.sleep(1)  # let's wait one second before reading output (give device time to answer)
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+    _scpi_run(SDG7102A_PATH, input)
 
 
 def SDG7102A_INIT():
-    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     f"{CHANNEL}:BSWV WVTP,PULSE",
@@ -241,7 +324,7 @@ def SDG7102A_INIT():
     f"{CHANNEL}:BTWV TRSR,EXT",
     f"{CHANNEL}:BTWV TIME,1",
     f"{CHANNEL}:BTWV COUNT,1",
-    f"{CHANNEL}:BTWV DLAY,2.106e-06S",   
+    f"{CHANNEL}:BTWV DLAY,{BASE_DELAY}S",   
     f"{CHANNEL}:BTWV EDGE,FALL",     # we trigger with the INJ_OUT_1 from carboard
     #"C1:BTWV EDGE,RISE",   
     f"{CHANNEL}:BTWV CARR,WVTP,PULSE",
@@ -254,68 +337,39 @@ def SDG7102A_INIT():
     f"{CHANNEL}:BTWV FALL,5e-10S",
     f"{CHANNEL}:BTWV DLY,-0S",
     f"{CHANNEL}:BTWV?",
-    f"{CHANNEL}:OUTN ON",
     #"C1:OUTP LOAD,50",
     f"{CHANNEL}:OUTP LOAD,HZ",
-    f"{CHANNEL}:OUTP PLRT, INVT"
+    f"{CHANNEL}:OUTP PLRT, INVT",
+    f"{CHANNEL}:OUTP ON"   # enable the output last, once load and polarity are set
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+    _scpi_run(SDG7102A_PATH, input)
 
 
 def SDG7102A_INJ_BURST():
-    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     f"{CHANNEL}:BSWV WVTP,PULSE",
     f"{CHANNEL}:BSWV PERI,8e-6S",
     f"{CHANNEL}:BSWV WIDTH, 1.6e-6S",
     f"{CHANNEL}:BTWV STATE,ON",
-    f"{CHANNEL}:OUTN ON",
     f"{CHANNEL}:OUTP LOAD,HZ",
-    f"{CHANNEL}:OUTP PLRT, INVT"
+    f"{CHANNEL}:OUTP PLRT, INVT",
+    f"{CHANNEL}:OUTP ON"   # enable the output last, once load and polarity are set
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+    _scpi_run(SDG7102A_PATH, input)
 
 def SDG7102A_INJ_CONT_BURST():
-    d = os.open('/dev/usbtmc1', os.O_RDWR)
     input = [
     "*IDN?",
     "C2:BSWV WVTP,PULSE",
     "C2:BSWV PERI,8e-6S",
     "C2:BSWV WIDTH, 1.6e-6S",
     "C2:BTWV STATE,ON",
-    "C2:OUTN ON",
     "C2:OUTP LOAD,HZ",
-    "C2:OUTP PLRT, INVT"
+    "C2:OUTP PLRT, INVT",
+    "C2:OUTP ON"   # enable the output last, once load and polarity are set
     ]
-    nlist=len(input)
-    for i in range(nlist): 
-        os.write(d,input[i].encode())
-        out = b' '
-        # let's wait one second before reading output (let's give device time to answer)
-        print(input[i])
-        if(input[i][-1]=="?"):   #If the last character of the request is a question 
-            out=os.read(d,1024)  #Print out the response
-            print(out.decode())
-    os.close(d)
+    _scpi_run(SDG7102A_PATH, input)
 
 
 
@@ -344,7 +398,7 @@ def SDG7102A_INJ_CONT(LHC_RATE=1, max_retries=10, retry_delay=0.1):
     ]
     for cmd in input:
         print(cmd)
-        _usbtmc_write('/dev/usbtmc1', cmd, max_retries=max_retries, retry_delay=retry_delay)
+        _usbtmc_write(SDG7102A_PATH, cmd, max_retries=max_retries, retry_delay=retry_delay)
 
 # def SDG7102A_SWEEP(HLEV=0.2):
 
@@ -380,43 +434,10 @@ def SDG7102A_INJ_CONT(LHC_RATE=1, max_retries=10, retry_delay=0.1):
 #     os.close(d)
 def SDG7102A_SWEEP_FALL(TFALL=5e-10, max_retries=10, retry_delay=0.1):
     start = time.time()
-    input_commands = [
-        f"{CHANNEL}:BSWV RISE,{TFALL}S",# Set low-level voltage FALL TIME is set with RISE TIME because the PG is inverted !!!!
-    ]
-    
-    retries = 0
-    while retries < max_retries:
-        try:
-            # Attempt to open the device file in read/write binary mode using 'with'
-            with open('/dev/usbtmc1', 'r+b') as d:
-                # print("Device connected successfully.")
-                for cmd in input_commands:
-                    d.write(cmd.encode())  # Send command to device
-
-                    # Only wait and read response if command ends with "?"
-                    if cmd.endswith("?"):
-                        time.sleep(1)  # Give the device time to respond
-                        out = d.read(1024)  # Read the response
-                        print(out.decode())  # Print the decoded output
-
-                    # If the command is not a query, we just continue
-                    else:
-                        out = b''  # No output for non-query commands
-
-                break  # Exit the loop once the connection and commands are successful
-
-        except (OSError, FileNotFoundError) as e:
-            # Catch specific exceptions related to the device connection
-            print(f"Connection failed at voltage {HLEV}: {e}. Retrying ({retries + 1}/{max_retries})...")
-            retries += 1
-            if retries < max_retries:
-                time.sleep(retry_delay)  # Delay before retrying
-            else:
-                print("Max retries reached. Could not connect to the device.")
-                break
+    # FALL TIME is set with RISE TIME because the PG is inverted !!!!
+    _usbtmc_write(SDG7102A_PATH, f"{CHANNEL}:BSWV RISE,{TFALL}S", max_retries=max_retries, retry_delay=retry_delay)
     end = time.time()
     print("Elapsed time =", round(end-start,8), "seconds")
-
 
 
 def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
@@ -427,8 +448,8 @@ def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     # channel out of burst mode back to continuous mode on this instrument,
     # so BTWV STATE must be re-asserted after every HLEV write.
     start = time.time()
-    _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
-    # _usbtmc_write('/dev/usbtmc1', f"{CHANNEL}:BTWV STATE,ON", max_retries=max_retries, retry_delay=retry_delay)
+    _usbtmc_write(SDG7102A_PATH, f"{CHANNEL}:BSWV HLEV,{HLEV}V", max_retries=max_retries, retry_delay=retry_delay)
+    # _usbtmc_write(SDG7102A_PATH, f"{CHANNEL}:BTWV STATE,ON", max_retries=max_retries, retry_delay=retry_delay)
     end = time.time()
     print("Elapsed time =", round(end-start,8), "seconds")
 
