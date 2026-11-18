@@ -14,6 +14,35 @@ except ImportError as e:
 
 
 #-----------------------------------------------------------------------
+# injection source for the S-curve functions
+#-----------------------------------------------------------------------
+# injSource = "PG" : pulse generator on the Vin_Test SMA (J38 via J26), the 49.9 ohm termination halves it, so it is set to 2*v_asic
+# injSource = "CAR": CaR board INJ_1 output (Vin_Test_Trigger, J27 closed instead of J26), no termination, so INJ_1 = v_asic.
+#                    This is the same signal that triggers the pulse generator (via J61), its pulse timing and width come from the firmware
+#                    injection_delay. INJ_1 is put back to INJ_1_TRIGGER_LEVEL afterwards so the pulse generator sees a valid trigger again.
+INJ_1_TRIGGER_LEVEL = 2.0
+
+def SetInjection(v_asic, injSource="PG"):
+    if injSource == "CAR":
+        V_PORT["INJ_1"].set_voltage(v_asic)
+        V_LEVEL["INJ_1"] = v_asic
+    else:
+        BK4600HLEV_SWEEP(v_asic*2)
+
+def RestoreInjection(injSource="PG"):
+    if injSource == "CAR":
+        V_PORT["INJ_1"].set_voltage(INJ_1_TRIGGER_LEVEL)
+        V_LEVEL["INJ_1"] = INJ_1_TRIGGER_LEVEL
+        print(f"INJ_1 set back to {INJ_1_TRIGGER_LEVEL} V")
+
+def CheckInjSource(injSource):
+    if injSource not in ("PG", "CAR"):
+        print(f"injSource = {injSource} is not valid, use 'PG' (pulse generator) or 'CAR' (CaR board INJ_1).")
+        return False
+    return True
+
+
+#-----------------------------------------------------------------------
 # PreProgSCurve function
 #-----------------------------------------------------------------------
 # This function assumes the ASIC pixels are already configured 
@@ -43,11 +72,13 @@ def PreProgSCurve(
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
         testType = "Single",
-        parameter = None
+        parameter = None,
+        injSource = "PG", # "PG": pulse generator on the Vin_Test SMA, "CAR": CaR board INJ_1 (Vin_Test_Trigger jumper), see SetInjection
 ):
-    
 
-    
+    if not CheckInjSource(injSource):
+        return
+
     # Note we do not yet have a smoke test. verify this on scope as desired.
     x = bin(int(scanLoadPhase, 16))[2:].zfill(6)
     scanLoadPhase1= hex(int(x[:2], 2))[2:]
@@ -121,95 +152,101 @@ def PreProgSCurve(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
         pixelInfo = ""
 
+    if injSource == "CAR":
+        testInfo += "_injSrcCAR"
+
     # output directory
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
     print(f"Saving results to {outDir}")
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
 
-    # loop over the voltage steps
-    for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
-        v_asic = round(i, 3)
-        if v_asic>0.9:
-            v_asic = 0 
-            return 
+    try:
+        # loop over the voltage steps
+        for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+            v_asic = round(i, 3)
+            if v_asic>0.9:
+                v_asic = 0 
+                return 
         
-        # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
-        # each voltage step is then set with 2.vstep
-        # 1mV equals 25e- (TBD!!!!!)
-        # SDG7102A_SWEEP(v_asic*2) # we used 50 ohm output load settings in the pulse generator
-        BK4600HLEV_SWEEP(v_asic*2)
-        # V_PORT["INJ_1"].set_voltage(v_asic)
+            # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+            # each voltage step is then set with 2.vstep
+            # 1mV equals 25e- (TBD!!!!!)
+            # SDG7102A_SWEEP(v_asic*2) # we used 50 ohm output load settings in the pulse generator
+            SetInjection(v_asic, injSource)
 
-        save_data = []
-        for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
+            save_data = []
+            for j in tqdm.tqdm(range(nsample), desc="Number of Samples", leave=False):
 
-            # write configuration
-            hex_lists = [
-                [
-                    "4'h2",  # firmware id
-                    "4'hF",  # op code for execute
-                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                    "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
-                    f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
-                ]
-            ] 
-            sw_write32_0(hex_lists)
-
-            if nPix == None:
-                wordList = list(range(24))
-            # prepare the word list to read
-            else:
-                if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
-                    wordList = [int(((nPix-1)*3+1)/32)]
-                else:
-                    wordList = [int(((nPix-1)*3+1)/32),int(((nPix-1)*3+3)/32)]
-
-            # allocate array for the words
-            words = ["0"*32] * nWord
-
-            # loop over the words to read
-            for iW in wordList:
-
-                # send read
-                address = "8'h" + hex(iW)[2:]
+                # write configuration
                 hex_lists = [
-                    ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
-                ]
+                    [
+                        "4'h2",  # firmware id
+                        "4'hF",  # op code for execute
+                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                        #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                        "4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                        #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST          
+                        f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                        f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    ]
+                ] 
                 sw_write32_0(hex_lists)
+
+                if nPix == None:
+                    wordList = list(range(24))
+                # prepare the word list to read
+                else:
+                    if(int(((nPix-1)*3+1)/32)==int(((nPix-1)*3+3)/32)):
+                        wordList = [int(((nPix-1)*3+1)/32)]
+                    else:
+                        wordList = [int(((nPix-1)*3+1)/32),int(((nPix-1)*3+3)/32)]
+
+                # allocate array for the words
+                words = ["0"*32] * nWord
+
+                # loop over the words to read
+                for iW in wordList:
+
+                    # send read
+                    address = "8'h" + hex(iW)[2:]
+                    hex_lists = [
+                        ["4'h2", "4'hC", address, "16'h0"] # OP_CODE_R_DATA_ARRAY_0
+                    ]
+                    sw_write32_0(hex_lists)
                
-                # # stream read back
-                # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
-                # no stream read back
-                sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
+                    # # stream read back
+                    # sw_read32_0_stream, sw_read32_1, _, _ = sw_readStream(N=nWord)
+                    # no stream read back
+                    sw_read32_0, sw_read32_1_old, _, _ = sw_read32() 
 
-                # store data
-                # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
-                words[iW] = int_to_32bit(sw_read32_0)[::-1]
+                    # store data
+                    # ROUTINE_PreProgSCurve(vmin = 0.1, vmax=0.2, vstep=0.01, nSample=200)
+                    words[iW] = int_to_32bit(sw_read32_0)[::-1]
             
-            # save words
-            s = [int(i) for i in "".join(words)]
-            save_data.append(s)
-            # print(s)
+                # save words
+                s = [int(i) for i in "".join(words)]
+                save_data.append(s)
+                # print(s)
 
-        # save just the correct npix
-        save_data = np.stack(save_data, 0)
-        # print(save_data)
-        save_data = save_data[:, 0:-3]
-        # print(save_data)
-        save_data = save_data.reshape(-1, 255, 3)
-        # print(save_data)
-        # save_data = save_data.reshape(-1, 256, 3)
-        save_data = save_data[:,nPix]
-        # save the output file
-        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
-        np.save(outFileName, save_data)
+            # save just the correct npix
+            save_data = np.stack(save_data, 0)
+            # print(save_data)
+            save_data = save_data[:, 0:-3]
+            # print(save_data)
+            save_data = save_data.reshape(-1, 255, 3)
+            # print(save_data)
+            # save_data = save_data.reshape(-1, 256, 3)
+            save_data = save_data[:,nPix]
+            # save the output file
+            outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
+            np.save(outFileName, save_data)
     
+    finally:
+        RestoreInjection(injSource)
+
     return None
 
 #-----------------------------------------------------------------------
@@ -247,8 +284,12 @@ def PreProgSCurveBurst(
         dataDir = FNAL_SETTINGS["storageDirectory"],
         dateTime = None,
         testType = "Single",
-        parameter = None
+        parameter = None,
+        injSource = "PG", # "PG": pulse generator on the Vin_Test SMA, "CAR": CaR board INJ_1 (Vin_Test_Trigger jumper), see SetInjection
 ):
+
+    if not CheckInjSource(injSource):
+        return
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
     nPixHex = int_to_32bit_hex(nPix)
@@ -330,6 +371,9 @@ def PreProgSCurveBurst(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{V_LEVEL['vth0']:.3f}_vth1-{V_LEVEL['vth1']:.3f}_vth2-{V_LEVEL['vth2']:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
         pixelInfo = ""
 
+    if injSource == "CAR":
+        testInfo += "_injSrcCAR"
+
     # output directory
     print(pixelInfo)
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
@@ -337,94 +381,97 @@ def PreProgSCurveBurst(
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
 
-    # loop over the voltage steps
-    for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+    try:
+        # loop over the voltage steps
+        for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
 
-        t_step_start = time.time()
+            t_step_start = time.time()
 
-        # vasic step
-        v_asic = round(i, 3)
-        if v_asic>0.9:
-            v_asic = 0
-            return
+            # vasic step
+            v_asic = round(i, 3)
+            if v_asic>0.9:
+                v_asic = 0
+                return
 
-        # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
-        # each voltage step is then set with 2.vstep
-        # 1mV equals 25e- (TBD!!!!!)
-        t0 = time.time()
-        # SDG7102A_SWEEP(v_asic*2)
-        BK4600HLEV_SWEEP(v_asic*2)
-        # V_PORT["INJ_1"].set_voltage(v_asic)
-        t_sweep = time.time() - t0
-        time.sleep(tsleep) #added time for pulse generator to settle
+            # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+            # each voltage step is then set with 2.vstep
+            # 1mV equals 25e- (TBD!!!!!)
+            t0 = time.time()
+            # SDG7102A_SWEEP(v_asic*2)
+            SetInjection(v_asic, injSource)
+            t_sweep = time.time() - t0
+            time.sleep(tsleep) #added time for pulse generator to settle
 
-        # save data
-        save_data = []
-        t_write_total = 0
-        t_read_total = 0
-        t_postproc_total = 0
-        for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
+            # save data
+            save_data = []
+            t_write_total = 0
+            t_read_total = 0
+            t_postproc_total = 0
+            for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
 
-            # write configuration
-            hex_lists = [
-                [
-                    "4'h2",  # firmware id
-                    "4'hF",  # op code for execute
-                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                    "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
-                    #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST
-                    f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                # write configuration
+                hex_lists = [
+                    [
+                        "4'h2",  # firmware id
+                        "4'hF",  # op code for execute
+                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                        #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                        "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
+                        #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                        #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST
+                        f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                        f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    ]
                 ]
-            ]
+                t0 = time.time()
+                sw_write32_0(hex_lists)
+                t_write_total += time.time() - t0
+
+                # prepare the word list to read
+                maxWordFWArray = 128
+                nword = math.ceil(nsample*3/32)
+                base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
+                words = ["0"*32] * nword
+                # added time for burst to complete
+                time.sleep(100e-6*nsample)
+
+                # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
+                t0 = time.time()
+                raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
+                t_read_total += time.time() - t0
+
+                t0 = time.time()
+                for i, iW in enumerate(range(base_addr, maxWordFWArray)):
+                    words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
+
+                # save words
+                s = [int(i) for i in "".join(words)]
+                # Cutting last bit because 3x1365 = 4095
+                s = s[:nsample*3]
+                save_data.append(s)
+                t_postproc_total += time.time() - t0
+
+            # save just the correct npix
             t0 = time.time()
-            sw_write32_0(hex_lists)
-            t_write_total += time.time() - t0
+            save_data = np.stack(save_data, 0)
+            # Bit order might have to be reversed in the next line since b2-b1-b0
+            save_data = save_data.reshape(nsample*nIter, 3)
+            save_data = save_data[:,::-1]
+            # save data
+            outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
+            np.save(outFileName, save_data)
+            t_save = time.time() - t0
 
-            # prepare the word list to read
-            maxWordFWArray = 128
-            nword = math.ceil(nsample*3/32)
-            base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
-            words = ["0"*32] * nword
-            # added time for burst to complete
-            time.sleep(100e-6*nsample)
+            t_step_total = time.time() - t_step_start
+            burst_sleep_total = 100e-6*nsample*nIter
+            print(f"[TIMING] v={v_asic:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
+                  f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
+                  f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
 
-            # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
-            t0 = time.time()
-            raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
-            t_read_total += time.time() - t0
-
-            t0 = time.time()
-            for i, iW in enumerate(range(base_addr, maxWordFWArray)):
-                words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
-
-            # save words
-            s = [int(i) for i in "".join(words)]
-            # Cutting last bit because 3x1365 = 4095
-            s = s[:nsample*3]
-            save_data.append(s)
-            t_postproc_total += time.time() - t0
-
-        # save just the correct npix
-        t0 = time.time()
-        save_data = np.stack(save_data, 0)
-        # Bit order might have to be reversed in the next line since b2-b1-b0
-        save_data = save_data.reshape(nsample*nIter, 3)
-        save_data = save_data[:,::-1]
-        # save data
-        outFileName = os.path.join(outDir, f"vasic_{v_asic:.3f}.npy")
-        np.save(outFileName, save_data)
-        t_save = time.time() - t0
-
-        t_step_total = time.time() - t_step_start
-        burst_sleep_total = 100e-6*nsample*nIter
-        print(f"[TIMING] v={v_asic:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
-              f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
-              f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
+    finally:
+        RestoreInjection(injSource)
 
     return None
 
@@ -453,8 +500,12 @@ def PreProgSCurveBurst_StaticPulse(
         dateTime = None,
         testType = "Single",
         parameter = None,
-        v_asic = .05
+        v_asic = .05,
+        injSource = "PG", # "PG": pulse generator on the Vin_Test SMA, "CAR": CaR board INJ_1 (Vin_Test_Trigger jumper), see SetInjection
 ):
+
+    if not CheckInjSource(injSource):
+        return
 
     # Note we do not yet have a smoke test. verify this on scope as desired.
     nPixHex = int_to_32bit_hex(nPix)
@@ -518,8 +569,6 @@ def PreProgSCurveBurst_StaticPulse(
     #V_PORT["vth2"].set_voltage(.031)
     #V_LEVEL["vth2"] = v_asic
 
-    BK4600HLEV_SWEEP(v_asic*2) 
-    time.sleep(250e-3)
 
     # TODO : STORE THE CURRENT/POWER INFO INSIDE EACH PIXEL FOLDER FOR ALL MATRIX TESTS
       
@@ -546,6 +595,9 @@ def PreProgSCurveBurst_StaticPulse(
         testInfo += f"_vMin{v_min:.3f}_vMax{v_max:.3f}_vStep{v_step:.5f}_nSample{nsample:.3f}_vdda{V_LEVEL['vdda']:.3f}_BXCLKf{bxclk_period_inMhz:.2f}_BxCLKDly{bxclk_delay_in_ns:.2f}_injDly{injection_delay_in_ns:.2f}_vth0-{v_asic:.3f}_vth1-{v_asic:.3f}_vth2-{v_asic:.3f}_pixPower{ipixel*0.9:.3f}_nPix{nPix}"
         pixelInfo = ""
 
+    if injSource == "CAR":
+        testInfo += "_injSrcCAR"
+
     # output directory
     print(pixelInfo)
     outDir = os.path.join(dataDir, chipInfo, testInfo, pixelInfo)
@@ -553,102 +605,110 @@ def PreProgSCurveBurst_StaticPulse(
     os.makedirs(outDir, exist_ok=True)
     os.chmod(outDir, mode=0o777)
 
-    # loop over the voltage steps
-    for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
+    try:
+        # fixed injected amplitude for the whole threshold sweep
+        SetInjection(v_asic, injSource)
+        time.sleep(250e-3)
 
-        t_step_start = time.time()
+        # loop over the voltage steps
+        for i in tqdm.tqdm(vasic_steps, desc="Voltage Step"):
 
-        # vasic step
-        vth = round(i, 3)
-        if vth>0.9:
-            vth = 0
-            return
+            t_step_start = time.time()
 
-        # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
-        # each voltage step is then set with 2.vstep
-        # 1mV equals 25e- (TBD!!!!!)
-        t0 = time.time()
-        # SDG7102A_SWEEP(vth*2)
-        # BK4600HLEV_SWEEP(vth*2)
-        # V_PORT["INJ_1"].set_voltage(vth*2)
-        V_PORT["vth0"].set_voltage(vth)
-        V_LEVEL["vth0"] = vth
-        V_PORT["vth1"].set_voltage(vth)
-        V_LEVEL["vth1"] = vth
-        V_PORT["vth2"].set_voltage(vth)
-        V_LEVEL["vth2"] = vth
-        V_PORT["vdda"].get_current()
+            # vasic step
+            vth = round(i, 3)
+            if vth>0.9:
+                vth = 0
+                return
 
-        t_sweep = time.time() - t0
-        time.sleep(tsleep) #added time for pulse generator to settle
+            # The Pulse generator voltage is divided by 2 at the ASIC input vin_test due to the 50ohm divider
+            # each voltage step is then set with 2.vstep
+            # 1mV equals 25e- (TBD!!!!!)
+            t0 = time.time()
+            # SDG7102A_SWEEP(vth*2)
+            # BK4600HLEV_SWEEP(vth*2)
+            # V_PORT["INJ_1"].set_voltage(vth*2)
+            V_PORT["vth0"].set_voltage(vth)
+            V_LEVEL["vth0"] = vth
+            V_PORT["vth1"].set_voltage(vth)
+            V_LEVEL["vth1"] = vth
+            V_PORT["vth2"].set_voltage(vth)
+            V_LEVEL["vth2"] = vth
+            V_PORT["vdda"].get_current()
 
-        # save data
-        save_data = []
-        t_write_total = 0
-        t_read_total = 0
-        t_postproc_total = 0
-        for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
+            t_sweep = time.time() - t0
+            time.sleep(tsleep) #added time for pulse generator to settle
 
-            # write configuration
-            hex_lists = [
-                [
-                    "4'h2",  # firmware id
-                    "4'hF",  # op code for execute
-                    "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
-                    #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
-                    f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
-                    "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
-                    #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
-                    #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST
-                    f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
-                    f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+            # save data
+            save_data = []
+            t_write_total = 0
+            t_read_total = 0
+            t_postproc_total = 0
+            for j in tqdm.tqdm(range(nIter), desc="Number of Samples", leave=False):
+
+                # write configuration
+                hex_lists = [
+                    [
+                        "4'h2",  # firmware id
+                        "4'hF",  # op code for execute
+                        "1'h1",  # 1 bit for w_execute_cfg_test_mask_reset_not_index
+                        #"6'h1D", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"6'h{injection_delay}", # 6 bits for w_execute_cfg_test_injection_delay_index_max
+                        f"1'h{scanLoopBackBit}",  # 1 bit for w_execute_cfg_test_loopback
+                        "4'h3",  # Test 5 is the only test none thermometrically encoded because of lack of code space
+                        #"4'h8",  # 4 bits for w_execute_cfg_test_number_index_max - w_execute_cfg_test_number_index_min
+                        #"4'h2",  # 4 bits for w_execute_cfg_test_number_index_max - NO SCANCHAIN - JUST DNN TEST
+                        f"6'h{test_sample}", # 6 bits for w_execute_cfg_test_sample_index_max - w_execute_cfg_test_sample_index_min
+                        f"6'h{test_delay}"  # 6 bits for w_execute_cfg_test_delay_index_max - w_execute_cfg_test_delay_index_min
+                    ]
                 ]
-            ]
+                t0 = time.time()
+                sw_write32_0(hex_lists)
+                t_write_total += time.time() - t0
+
+                # prepare the word list to read
+                maxWordFWArray = 128
+                nword = math.ceil(nsample*3/32)
+                base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
+                words = ["0"*32] * nword
+                # added time for burst to complete
+                time.sleep(100e-6*nsample)
+
+                # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
+                t0 = time.time()
+                raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
+                t_read_total += time.time() - t0
+
+                t0 = time.time()
+                for i, iW in enumerate(range(base_addr, maxWordFWArray)):
+                    words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
+
+                # save words
+                s = [int(i) for i in "".join(words)]
+                # Cutting last bit because 3x1365 = 4095
+                s = s[:nsample*3]
+                save_data.append(s)
+                t_postproc_total += time.time() - t0
+
+            # save just the correct npix
             t0 = time.time()
-            sw_write32_0(hex_lists)
-            t_write_total += time.time() - t0
+            save_data = np.stack(save_data, 0)
+            # Bit order might have to be reversed in the next line since b2-b1-b0
+            save_data = save_data.reshape(nsample*nIter, 3)
+            save_data = save_data[:,::-1]
+            # save data
+            outFileName = os.path.join(outDir, f"vasic_{vth:.3f}.npy")
+            np.save(outFileName, save_data)
+            t_save = time.time() - t0
 
-            # prepare the word list to read
-            maxWordFWArray = 128
-            nword = math.ceil(nsample*3/32)
-            base_addr = maxWordFWArray - nword  # first word address to read: from 128-nword to 127
-            words = ["0"*32] * nword
-            # added time for burst to complete
-            time.sleep(100e-6*nsample)
+            t_step_total = time.time() - t_step_start
+            burst_sleep_total = 100e-6*nsample*nIter
+            print(f"[TIMING] v={vth:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
+                  f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
+                  f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
 
-            # read all nword words from DATA_ARRAY_1 (opcode 0xD) in a single round trip
-            t0 = time.time()
-            raw_words, _, _, _ = sw_readStream(do_sw_read32_1 = False, N = nword, opcode = 0xD, base_addr = base_addr)
-            t_read_total += time.time() - t0
-
-            t0 = time.time()
-            for i, iW in enumerate(range(base_addr, maxWordFWArray)):
-                words[(maxWordFWArray-1)-iW] = int_to_32bit(raw_words[i])
-
-            # save words
-            s = [int(i) for i in "".join(words)]
-            # Cutting last bit because 3x1365 = 4095
-            s = s[:nsample*3]
-            save_data.append(s)
-            t_postproc_total += time.time() - t0
-
-        # save just the correct npix
-        t0 = time.time()
-        save_data = np.stack(save_data, 0)
-        # Bit order might have to be reversed in the next line since b2-b1-b0
-        save_data = save_data.reshape(nsample*nIter, 3)
-        save_data = save_data[:,::-1]
-        # save data
-        outFileName = os.path.join(outDir, f"vasic_{vth:.3f}.npy")
-        np.save(outFileName, save_data)
-        t_save = time.time() - t0
-
-        t_step_total = time.time() - t_step_start
-        burst_sleep_total = 100e-6*nsample*nIter
-        print(f"[TIMING] v={vth:.3f} total={t_step_total:.3f}s | sweep={t_sweep:.3f}s settle_sleep={tsleep:.3f}s "
-              f"write={t_write_total:.3f}s burst_sleep={burst_sleep_total:.3f}s read={t_read_total:.3f}s "
-              f"postproc={t_postproc_total:.3f}s save={t_save:.3f}s")
+    finally:
+        RestoreInjection(injSource)
 
     return None
 
