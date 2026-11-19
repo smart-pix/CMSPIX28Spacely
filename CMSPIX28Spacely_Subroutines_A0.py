@@ -444,11 +444,200 @@ def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     print("Elapsed time =", round(end-start,8), "seconds")
 
 
+# # # # # # # # # # # # # # # # # # # # # # # # # #
+# Agilent 81104A pulse generator through a Prologix GPIB-USB controller
+# # # # # # # # # # # # # # # # # # # # # # # # # #
+# The Prologix shows up as a USB serial port (FTDI, /dev/ttyUSB*), no GPIB driver needed (needs pyserial).
+# The ZCU serial console (minicom) also uses /dev/ttyUSB*, and the numbers can change after a reboot or replug,
+# so the Prologix is found by its stable name in /dev/serial/by-id (port = None) instead of a ttyUSB number.
+# Levels follow the BK4600 / SDG7102A convention: the 81104A expects a high impedance load (:OUTP:IMP:EXT 1MOHM),
+# so the programmed high level is the open circuit voltage and the chip sees half of it (the board terminates in 50 Ohm).
+# The scans call set_hlev(2*v_asic) for every generator, the attenuator between the 81104A and the board is corrected here:
+# programmed high level = 2*v_asic / atten_gain. Without attenuator the 81104A minimum amplitude (~100 mV into 50 Ohm,
+# ~200 mV open circuit) is ~100 mV at the chip; with 20 dB it is ~10 mV.
+# Measure atten_gain (and base_delay) once on the scope at the board and put the measured values in A81104A_SETTINGS.
+A81104A_SETTINGS = {
+    "port"       : None,           # None: find the Prologix in /dev/serial/by-id; or give its /dev/serial/by-id/... path
+    "gpib_addr"  : 10,             # GPIB address set on the 81104A (front panel: MORE -> GPIB address)
+    "out"        : 1,              # output channel (1 or 2)
+    "atten_dB"   : 20,             # fixed 50 Ohm attenuator between the 81104A output and the board, 0 if none
+    "atten_gain" : None,           # measured amplitude ratio (board/81104A); None uses 10**(-atten_dB/20)
+    "min_hlev"   : 0.200,          # smallest open circuit amplitude the 81104A accepts [V] (100 mVpp into 50 Ohm): check on the instrument
+    "max_hlev"   : 20.0,           # largest open circuit high level [V] (10 V into 50 Ohm): check on the instrument
+    "trig_level" : 1.0,            # EXT INPUT threshold [V] for INJ_OUT_1
+    "trig_slope" : "NEG",          # trigger on the falling edge of INJ_OUT_1 (same as the BK4600 / SDG7102A)
+    "rise"       : 6e-9,           # leading edge (trailing edge follows), same as the BK4600
+    "width"      : 1.6e-6,         # pulse width, same as the BK4600 (8 us period, 20 % duty)
+    "polarity"   : "NORM",         # "INV" to invert the pulse (as the SDG7102A OUTP PLRT,INVT)
+}
+
+_PROLOGIX = {}
+
+def _prologix_port():
+    # the Prologix serial port: A81104A_SETTINGS["port"] if set, else the unique Prologix entry in /dev/serial/by-id
+    if A81104A_SETTINGS["port"]:
+        return A81104A_SETTINGS["port"]
+    import glob
+    ports = sorted(glob.glob("/dev/serial/by-id/*Prologix*"))
+    if len(ports) != 1:
+        raise IOError(f"Expected one Prologix in /dev/serial/by-id, found {ports}. Set A81104A_SETTINGS['port'] "
+                      f"to its /dev/serial/by-id/... path (ls -l /dev/serial/by-id shows which ttyUSB is which).")
+    return ports[0]
+
+def _prologix(port=None, gpib_addr=None):
+    # persistent serial connection to the Prologix, configured as GPIB controller talking to gpib_addr
+    port = port or _prologix_port()
+    gpib_addr = A81104A_SETTINGS["gpib_addr"] if gpib_addr is None else gpib_addr
+    ser = _PROLOGIX.get(port)
+    if ser is None or not ser.is_open:
+        import serial # pyserial
+        ser = serial.Serial(port, baudrate=115200, timeout=1)
+        for cmd in ["++mode 1", "++auto 0", "++eoi 1", "++eos 2", "++read_tmo_ms 1000", "++ifc"]:
+            ser.write((cmd + "\n").encode())
+        time.sleep(0.1)
+        _PROLOGIX[port] = ser
+    ser.write(f"++addr {gpib_addr}\n".encode())
+    return ser
+
+def _gpib_write(cmd, max_retries=10, retry_delay=0.1):
+    retries = 0
+    while retries < max_retries:
+        try:
+            ser = _prologix()
+            ser.write((cmd + "\n").encode())
+            return
+        except Exception as e:
+            print(f"GPIB write '{cmd}' failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            for ser in list(_PROLOGIX.values()):
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+            _PROLOGIX.clear()
+            retries += 1
+            time.sleep(retry_delay)
+    print(f"Max retries reached. Could not write '{cmd}' to GPIB address {A81104A_SETTINGS['gpib_addr']}.")
+
+def _gpib_query(cmd, max_retries=10, retry_delay=0.1):
+    # returns the answer as a string, None if the instrument could not be reached
+    retries = 0
+    while retries < max_retries:
+        try:
+            ser = _prologix()
+            ser.reset_input_buffer()
+            ser.write((cmd + "\n").encode())
+            ser.write(b"++read eoi\n")
+            out = ser.readline().decode().strip()
+            if out:
+                return out
+            raise IOError("no answer")
+        except Exception as e:
+            print(f"GPIB query '{cmd}' failed: {e}. Retrying ({retries + 1}/{max_retries})...")
+            for ser in list(_PROLOGIX.values()):
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+            _PROLOGIX.clear()
+            retries += 1
+            time.sleep(retry_delay)
+    print(f"Max retries reached. Could not query '{cmd}' from GPIB address {A81104A_SETTINGS['gpib_addr']}.")
+    return None
+
+def A81104A_ERRORS():
+    # read and print the 81104A error queue, returns the list of errors (empty if none)
+    errors = []
+    for _ in range(20):
+        err = _gpib_query(":SYST:ERR?")
+        if err is None or err.startswith("0") or err.startswith("+0"):
+            break
+        errors.append(err)
+    for err in errors:
+        print(f"81104A ERROR: {err}")
+    return errors
+
+def A81104A_INIT(base_delay=None, hlev=0.2):
+    # One time setup: single pulse per falling edge of INJ_OUT_1 on EXT INPUT, delay base_delay, levels 0 / hlev (open circuit).
+    # Prints the error queue at the end: commands the instrument did not accept show up there.
+    st = A81104A_SETTINGS
+    o = st["out"]
+    if base_delay is None:
+        base_delay = PULSEGEN["A81104A"]["base_delay"]
+    cmds = [
+        "*CLS",
+        f":OUTP{o} OFF",
+        ":DIG:PATT OFF",                       # pulse mode, not pattern mode
+        ":ARM:SOUR EXT",                       # each EXT INPUT edge starts the pulses
+        ":ARM:SENS EDGE",
+        f":ARM:SLOP {st['trig_slope']}",
+        f":ARM:LEV {st['trig_level']}V",
+        ":TRIG:COUN 1",                        # one pulse per trigger
+        ":PULS:PER 10us",                      # internal period, only sets the limits (one pulse per trigger)
+        f":PULS:WIDT{o} {st['width']:.6e}S",
+        f":PULS:DEL{o}:HOLD TIME",
+        f":PULS:DEL{o} {base_delay:.6e}S",
+        f":PULS:TRAN{o}:LEAD {st['rise']:.6e}S",
+        f":PULS:TRAN{o}:TRA:AUTO ON",          # trailing edge = leading edge
+        f":OUTP{o}:IMP 50OHM",                 # source impedance
+        f":OUTP{o}:IMP:EXT 1MOHM",             # expected load: high impedance, levels are open circuit voltages (BK4600 convention)
+        ":HOLD VOLT",
+        f":VOLT{o}:LOW 0V",
+        f":VOLT{o}:HIGH {hlev}V",
+        f":OUTP{o}:POL {st['polarity']}",
+        f":OUTP{o} ON",
+    ]
+    print(_gpib_query("*IDN?"))
+    for cmd in cmds:
+        print(cmd)
+        _gpib_write(cmd)
+    print(f"Delay readback: {A81104A_GET_DLAY()} s")
+    if not A81104A_ERRORS():
+        print("A81104A_INIT done, no errors")
+
+def A81104A_HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # HLEV = 2*v_asic as for the BK4600 / SDG7102A; corrected for the attenuator before programming
+    st = A81104A_SETTINGS
+    gain = st["atten_gain"] if st["atten_gain"] is not None else 10**(-st["atten_dB"]/20)
+    hlev = HLEV/gain
+    if hlev < st["min_hlev"] - 1e-9:
+        raise ValueError(f"81104A: v_asic = {HLEV/2*1e3:.2f} mV needs {hlev*1e3:.1f} mV open circuit, below the minimum {st['min_hlev']*1e3:.0f} mV "
+                         f"(smallest v_asic with {st['atten_dB']} dB: {st['min_hlev']*gain/2*1e3:.1f} mV). Use a larger attenuator.")
+    if hlev > st["max_hlev"] + 1e-9:
+        raise ValueError(f"81104A: v_asic = {HLEV/2*1e3:.1f} mV needs {hlev:.2f} V open circuit, above the maximum {st['max_hlev']:.1f} V "
+                         f"(largest v_asic with {st['atten_dB']} dB: {st['max_hlev']*gain/2*1e3:.0f} mV). Use a smaller attenuator.")
+    _gpib_write(f":VOLT{st['out']}:HIGH {hlev:.6f}V", max_retries=max_retries, retry_delay=retry_delay)
+
+def A81104A_SET_DLAY(DLAY, max_retries=10, retry_delay=0.1):
+    _gpib_write(f":PULS:DEL{A81104A_SETTINGS['out']} {DLAY:.6e}S", max_retries=max_retries, retry_delay=retry_delay)
+
+def A81104A_GET_DLAY(max_retries=10, retry_delay=0.1):
+    out = _gpib_query(f":PULS:DEL{A81104A_SETTINGS['out']}?", max_retries=max_retries, retry_delay=retry_delay)
+    try:
+        return float(out)
+    except (TypeError, ValueError):
+        return None
+
+
+def pulseGenName(pulseGen=None):
+    # pulse generator key for a scan: pulseGen if given, else the bench default FNAL_SETTINGS["pulseGen"] (BK4600 if not set)
+    if pulseGen is None:
+        try:
+            pulseGen = FNAL_SETTINGS.get("pulseGen", "BK4600")
+        except NameError:
+            pulseGen = "BK4600"
+    if pulseGen not in PULSEGEN:
+        raise ValueError(f"Unknown pulse generator '{pulseGen}', choose one of {list(PULSEGEN)}")
+    return pulseGen
+
 # Pulse generators that can inject the test pulse, with the burst trigger delay
 # set in their INIT function. Used by the pulse delay scan (B6).
+# Optional "set_dlay" / "get_dlay": delay setter and readback for generators without the BK / Siglent BTWV DLAY command
 PULSEGEN = {
     "BK4600"   : {"path" : '/dev/usbtmc0', "channel" : "C1",    "base_delay" : 6.68e-7,  "set_hlev" : BK4600HLEV_SWEEP},
     "SDG7102A" : {"path" : '/dev/usbtmc1', "channel" : CHANNEL, "base_delay" : 2.106e-6, "set_hlev" : SDG7102A_SWEEP},
+    # base_delay is a placeholder: measure on the scope so the pulse reaches the chip at the same time after the INJ_OUT_1 edge as on the BK bench
+    "A81104A"  : {"path" : "Prologix GPIB", "channel" : A81104A_SETTINGS["out"], "base_delay" : 6.68e-7, "set_hlev" : A81104A_HLEV_SWEEP,
+                  "set_dlay" : A81104A_SET_DLAY, "get_dlay" : A81104A_GET_DLAY},
 }
 
 def PULSEGEN_DLAY_SWEEP(DLAY, pulseGen="BK4600", verify=False, max_retries=10, retry_delay=0.1):
@@ -456,6 +645,16 @@ def PULSEGEN_DLAY_SWEEP(DLAY, pulseGen="BK4600", verify=False, max_retries=10, r
     # DLAY is in seconds. Only the delay changes, everything else is set once by BK4600_INIT() / SDG7102A_INIT().
     # If verify is True, read back BTWV? and return the DLAY value reported by the pulse generator (in seconds)
     pg = PULSEGEN[pulseGen]
+    if "set_dlay" in pg:
+        pg["set_dlay"](DLAY, max_retries=max_retries, retry_delay=retry_delay)
+        if not verify:
+            return None
+        readback = pg["get_dlay"](max_retries=max_retries, retry_delay=retry_delay)
+        if readback is None:
+            print(f"WARNING: could not read back the delay from {pulseGen}")
+        elif abs(readback - DLAY) > 1e-12:
+            print(f"WARNING: requested delay {DLAY:.6e}S but {pulseGen} reports {readback:.6e}S")
+        return readback
     _usbtmc_write(pg["path"], f"{pg['channel']}:BTWV DLAY,{DLAY:.6e}S", max_retries=max_retries, retry_delay=retry_delay)
     if not verify:
         return None

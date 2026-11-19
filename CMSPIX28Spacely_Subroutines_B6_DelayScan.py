@@ -128,7 +128,8 @@ def DelayScanSettings(outDir, **settings):
 # delayMode = "FW": 2.5 ns steps with the firmware injection_delay (the 400 MHz FPGA clock, trigger position within one BxCLK period),
 #                   only injection_delay = 1..period/2 injects (21..40 gave no hits at bxclk_period '28'), so the pulse generator
 #                   delay changes by half BxCLK periods when the scan range needs more than one half period
-# The pulse generator must already be initialized (BK4600_INIT() or SDG7102A_INIT())
+# The pulse generator must already be initialized (BK4600_INIT(), SDG7102A_INIT() or A81104A_INIT())
+# pulseGen = None uses the bench default FNAL_SETTINGS["pulseGen"] in CMSPIX28Spacely_Config.py (set "A81104A" on the 81104A bench)
 # Analysis and plots: CMSPIX28_DAQ/lab_analysis/PulseDelayScan.py (run through launchAnalysis.py)
 #-----------------------------------------------------------------------
 
@@ -139,7 +140,7 @@ def PulseDelayScan(
         delay_min_ns = 0,
         delay_max_ns = 100,
         delay_step_ns = 1,
-        pulseGen = "BK4600", # key of PULSEGEN in A0
+        pulseGen = None, # key of PULSEGEN in A0, None = bench default FNAL_SETTINGS["pulseGen"]
         base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this. Set to 0 for absolute delays
         scan_load_delay = '5',
         startBxclkState = '0',
@@ -166,6 +167,7 @@ def PulseDelayScan(
         print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
         return
 
+    pulseGen = pulseGenName(pulseGen)
     if base_delay is None:
         base_delay = PULSEGEN[pulseGen]["base_delay"]
 
@@ -278,7 +280,7 @@ def PulseDelayScanSweepVTH(
         delay_min_ns = 0,
         delay_max_ns = 100,
         delay_step_ns = 1,
-        pulseGen = "BK4600",
+        pulseGen = None,
         base_delay = None,
         nsample = 1365,
         nIter = 1,
@@ -453,7 +455,7 @@ def ScurveDelaySweep(
         delay_min_ns = -50,
         delay_max_ns = 50,
         delay_step_ns = 2.5,
-        pulseGen = "BK4600", # key of PULSEGEN in A0
+        pulseGen = None, # key of PULSEGEN in A0, None = bench default FNAL_SETTINGS["pulseGen"]
         base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this
         scan_load_delay = '5',
         startBxclkState = '0',
@@ -480,6 +482,7 @@ def ScurveDelaySweep(
         print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
         return
 
+    pulseGen = pulseGenName(pulseGen)
     if base_delay is None:
         base_delay = PULSEGEN[pulseGen]["base_delay"]
 
@@ -718,7 +721,7 @@ def ScurveDelaySweepAmp(
         delay_min_ns = -62.5,
         delay_max_ns = 30,
         delay_step_ns = 2.5,
-        pulseGen = "BK4600", # key of PULSEGEN in A0
+        pulseGen = None, # key of PULSEGEN in A0, None = bench default FNAL_SETTINGS["pulseGen"]
         base_delay = None, # None uses the delay from the pulse generator INIT. The scan is an offset from this
         scan_load_delay = '5',
         startBxclkState = '0',
@@ -745,6 +748,7 @@ def ScurveDelaySweepAmp(
         print("You asked for more samples per iteration that the firmware can achieve. Max allowed is nsample = 1365. Please increase nIter instead and rerun.")
         return
 
+    pulseGen = pulseGenName(pulseGen)
     if base_delay is None:
         base_delay = PULSEGEN[pulseGen]["base_delay"]
 

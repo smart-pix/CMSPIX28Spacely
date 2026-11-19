@@ -153,5 +153,6 @@ I_WARN_VOLTAGE = {
 FNAL_SETTINGS = {
     "storageDirectory" : "/home/bparpill/Documents/test_bench_2_output",#"/mnt/local/CMSPIX28/data",#"/mnt/local/CMSPIX28/data/ChipVersion1_ChipID17_SuperPix1/Pnoise",#"/mnt/local/CMSPIX28/Scurve/data",#
     "chipVersion" : 1,
-    "chipID" : 30
+    "chipID" : 30,
+    "pulseGen" : "BK4600", # injection pulse generator of this bench (key of PULSEGEN in A0): "BK4600", "SDG7102A" or "A81104A". Used when a scan / routine gets pulseGen=None
 }
