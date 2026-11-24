@@ -569,7 +569,7 @@ def A81104A_WRITE(cmd):
 def A81104A_LIMITS():
     # print the installed options and the level / amplitude range the instrument accepts in its current state
     o = A81104A_SETTINGS["out"]
-    for q in ["*IDN?", "*OPT?", f":OUTP{o}:IMP?", f":OUTP{o}:IMP:EXT?", ":HOLD?",
+    for q in ["*IDN?", "*OPT?", ":ARM:SOUR?", ":ARM:IMP?", ":ARM:LEV?", f":OUTP{o}?", f":OUTP{o}:IMP?", f":OUTP{o}:IMP:EXT?", ":HOLD?",
               f":VOLT{o}:HIGH?", f":VOLT{o}:HIGH? MIN", f":VOLT{o}:HIGH? MAX",
               f":VOLT{o}:LOW?", f":VOLT{o}:LOW? MIN", f":VOLT{o}:LOW? MAX",
               f":VOLT{o}?", f":VOLT{o}? MIN", f":VOLT{o}? MAX",
@@ -591,6 +591,7 @@ def A81104A_INIT(base_delay=None, hlev=0.2):
         ":ARM:SOUR EXT",                       # each EXT INPUT edge starts the pulses
         ":ARM:SENS EDGE",
         f":ARM:SLOP {st['trig_slope']}",
+        ":ARM:IMP 1E4OHM",                     # EXT INPUT 10 kOhm: 50 Ohm loads the CaR INJ_1 trigger below the threshold (no triggers)
         f":ARM:LEV {st['trig_level']}V",
         ":TRIG:COUN 1",                        # one pulse per trigger
         ":PULS:PER 10us",                      # internal period, only sets the limits (one pulse per trigger)
