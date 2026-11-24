@@ -556,6 +556,26 @@ def A81104A_ERRORS():
         print(f"81104A ERROR: {err}")
     return errors
 
+# Console helpers (names starting with "_" are not imported into the Spacely console)
+def A81104A_QUERY(cmd):
+    # send a query to the 81104A and return the answer, e.g. A81104A_QUERY("*IDN?")
+    return _gpib_query(cmd)
+
+def A81104A_WRITE(cmd):
+    # send a command to the 81104A, then print any error it caused, e.g. A81104A_WRITE(":VOLT1:HIGH 2V")
+    _gpib_write(cmd)
+    return A81104A_ERRORS()
+
+def A81104A_LIMITS():
+    # print the installed options and the level / amplitude range the instrument accepts in its current state
+    o = A81104A_SETTINGS["out"]
+    for q in ["*IDN?", "*OPT?", f":OUTP{o}:IMP?", f":OUTP{o}:IMP:EXT?", ":HOLD?",
+              f":VOLT{o}:HIGH?", f":VOLT{o}:HIGH? MIN", f":VOLT{o}:HIGH? MAX",
+              f":VOLT{o}:LOW?", f":VOLT{o}:LOW? MIN", f":VOLT{o}:LOW? MAX",
+              f":VOLT{o}?", f":VOLT{o}? MIN", f":VOLT{o}? MAX",
+              f":VOLT{o}:LIM:STAT?"]:
+        print(f"{q:24s} {_gpib_query(q)}")
+
 def A81104A_INIT(base_delay=None, hlev=0.2):
     # One time setup: single pulse per falling edge of INJ_OUT_1 on EXT INPUT, delay base_delay.
     # hlev = 2*v_asic as in A81104A_HLEV_SWEEP (default 0.2: v_asic = 100 mV), corrected for the attenuator.
@@ -588,12 +608,17 @@ def A81104A_INIT(base_delay=None, hlev=0.2):
         f":OUTP{o} ON",
     ]
     print(_gpib_query("*IDN?"))
+    errors = []
     for cmd in cmds:
         print(cmd)
         _gpib_write(cmd)
+        errors += A81104A_ERRORS()             # errors are printed right under the command that caused them
     print(f"Delay readback: {A81104A_GET_DLAY()} s")
     print(f"Levels readback: high {_gpib_query(f':VOLT{o}:HIGH?')} V, low {_gpib_query(f':VOLT{o}:LOW?')} V")
-    if not A81104A_ERRORS():
+    errors += A81104A_ERRORS()
+    if errors:
+        print(f"A81104A_INIT done with {len(errors)} error(s), see above. A81104A_LIMITS() shows the allowed ranges.")
+    else:
         print("A81104A_INIT done, no errors")
 
 def _a81104a_hlev(HLEV):
