@@ -450,7 +450,7 @@ def SDG7102A_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
 # The Prologix shows up as a USB serial port (FTDI, /dev/ttyUSB*), no GPIB driver needed (needs pyserial).
 # The ZCU serial console (minicom) also uses /dev/ttyUSB*, and the numbers can change after a reboot or replug,
 # so the Prologix is found by its stable name in /dev/serial/by-id (port = None) instead of a ttyUSB number.
-# Levels follow the BK4600 / SDG7102A convention: the 81104A expects a high impedance load (:OUTP:IMP:EXT 1MOHM),
+# Levels follow the BK4600 / SDG7102A convention: the 81104A expects a high impedance load (:OUTP:IMP:EXT 1E6OHM),
 # so the programmed high level is the open circuit voltage and the chip sees half of it (the board terminates in 50 Ohm).
 # The scans call set_hlev(2*v_asic) for every generator, the attenuator between the 81104A and the board is corrected here:
 # programmed high level = 2*v_asic / atten_gain. Without attenuator the 81104A minimum amplitude (~100 mV into 50 Ohm,
@@ -600,7 +600,7 @@ def A81104A_INIT(base_delay=None, hlev=0.2):
         f":PULS:TRAN{o}:LEAD {st['rise']:.6e}S",
         f":PULS:TRAN{o}:TRA:AUTO ON",          # trailing edge = leading edge
         f":OUTP{o}:IMP 50OHM",                 # source impedance
-        f":OUTP{o}:IMP:EXT 1MOHM",             # expected load: high impedance, levels are open circuit voltages (BK4600 convention)
+        f":OUTP{o}:IMP:EXT 1E6OHM",            # expected load: high impedance, levels are open circuit voltages (BK4600 convention). NOT "1MOHM": in SCPI M = milli
         ":HOLD VOLT",
         f":VOLT{o}:HIGH {_a81104a_hlev(hlev):.6f}V",  # high first: low = 0 V with the old high could fall below the minimum amplitude
         f":VOLT{o}:LOW 0V",
