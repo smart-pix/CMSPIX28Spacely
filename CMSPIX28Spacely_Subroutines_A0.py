@@ -557,7 +557,8 @@ def A81104A_ERRORS():
     return errors
 
 def A81104A_INIT(base_delay=None, hlev=0.2):
-    # One time setup: single pulse per falling edge of INJ_OUT_1 on EXT INPUT, delay base_delay, levels 0 / hlev (open circuit).
+    # One time setup: single pulse per falling edge of INJ_OUT_1 on EXT INPUT, delay base_delay.
+    # hlev = 2*v_asic as in A81104A_HLEV_SWEEP (default 0.2: v_asic = 100 mV), corrected for the attenuator.
     # Prints the error queue at the end: commands the instrument did not accept show up there.
     st = A81104A_SETTINGS
     o = st["out"]
@@ -581,8 +582,8 @@ def A81104A_INIT(base_delay=None, hlev=0.2):
         f":OUTP{o}:IMP 50OHM",                 # source impedance
         f":OUTP{o}:IMP:EXT 1MOHM",             # expected load: high impedance, levels are open circuit voltages (BK4600 convention)
         ":HOLD VOLT",
+        f":VOLT{o}:HIGH {_a81104a_hlev(hlev):.6f}V",  # high first: low = 0 V with the old high could fall below the minimum amplitude
         f":VOLT{o}:LOW 0V",
-        f":VOLT{o}:HIGH {hlev}V",
         f":OUTP{o}:POL {st['polarity']}",
         f":OUTP{o} ON",
     ]
@@ -591,11 +592,12 @@ def A81104A_INIT(base_delay=None, hlev=0.2):
         print(cmd)
         _gpib_write(cmd)
     print(f"Delay readback: {A81104A_GET_DLAY()} s")
+    print(f"Levels readback: high {_gpib_query(f':VOLT{o}:HIGH?')} V, low {_gpib_query(f':VOLT{o}:LOW?')} V")
     if not A81104A_ERRORS():
         print("A81104A_INIT done, no errors")
 
-def A81104A_HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
-    # HLEV = 2*v_asic as for the BK4600 / SDG7102A; corrected for the attenuator before programming
+def _a81104a_hlev(HLEV):
+    # HLEV = 2*v_asic (open circuit at the board) -> high level to program on the 81104A, corrected for the attenuator
     st = A81104A_SETTINGS
     gain = st["atten_gain"] if st["atten_gain"] is not None else 10**(-st["atten_dB"]/20)
     hlev = HLEV/gain
@@ -605,7 +607,11 @@ def A81104A_HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
     if hlev > st["max_hlev"] + 1e-9:
         raise ValueError(f"81104A: v_asic = {HLEV/2*1e3:.1f} mV needs {hlev:.2f} V open circuit, above the maximum {st['max_hlev']:.1f} V "
                          f"(largest v_asic with {st['atten_dB']} dB: {st['max_hlev']*gain/2*1e3:.0f} mV). Use a smaller attenuator.")
-    _gpib_write(f":VOLT{st['out']}:HIGH {hlev:.6f}V", max_retries=max_retries, retry_delay=retry_delay)
+    return hlev
+
+def A81104A_HLEV_SWEEP(HLEV=0.2, max_retries=10, retry_delay=0.1):
+    # HLEV = 2*v_asic as for the BK4600 / SDG7102A; corrected for the attenuator before programming
+    _gpib_write(f":VOLT{A81104A_SETTINGS['out']}:HIGH {_a81104a_hlev(HLEV):.6f}V", max_retries=max_retries, retry_delay=retry_delay)
 
 def A81104A_SET_DLAY(DLAY, max_retries=10, retry_delay=0.1):
     _gpib_write(f":PULS:DEL{A81104A_SETTINGS['out']} {DLAY:.6e}S", max_retries=max_retries, retry_delay=retry_delay)

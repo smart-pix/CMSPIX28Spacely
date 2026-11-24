@@ -27,7 +27,8 @@ def SetInjection(v_asic, injSource="PG"):
         V_PORT["INJ_1"].set_voltage(v_asic)
         V_LEVEL["INJ_1"] = v_asic
     else:
-        BK4600HLEV_SWEEP(v_asic*2)
+        # pulse generator from FNAL_SETTINGS["pulseGen"] (BK4600, SDG7102A or A81104A); x2 for the 50 ohm divider
+        PULSEGEN[pulseGenName()]["set_hlev"](v_asic*2)
 
 def RestoreInjection(injSource="PG"):
     if injSource == "CAR":
