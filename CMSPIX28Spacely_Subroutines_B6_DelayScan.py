@@ -27,9 +27,12 @@ def DelayScanPlan(delay_min_ns, delay_max_ns, delay_step_ns, delayMode="PG", inj
         period = int(bxclk_period, 16)
         inj0 = int(injection_delay, 16)
         half = period//2
-        if not 1 <= inj0 <= half:
-            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period/2 = {half:X} (hex) for delayMode='FW'.")
+        if not 1 <= inj0 < period:
+            print(f"injection_delay = {injection_delay} must be between 1 and bxclk_period-1 = {period-1:X} (hex) for delayMode='FW'.")
             return None
+        # above period/2 (= test_delay 0x14) the trigger fires one BxCLK period earlier: effective value inj0 - period (e.g. '1A' = -14)
+        if inj0 > half:
+            inj0 -= period
         # 2.5 ns grid; only injection_delay in the first half of the BxCLK period (1..period/2) injects a pulse
         # points on the grid inside [delay_min_ns, delay_max_ns], step rounded to a multiple of 2.5 ns (at least 2.5 ns)
         k = max(1, int(round(delay_step_ns/2.5)))
