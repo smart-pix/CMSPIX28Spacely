@@ -468,7 +468,8 @@ A81104A_SETTINGS = {
     "trig_slope" : "NEG",          # trigger on the falling edge of INJ_OUT_1 (same as the BK4600 / SDG7102A)
     "rise"       : 6e-9,           # leading edge (trailing edge follows), same as the BK4600
     "width"      : 1.6e-6,         # pulse width, same as the BK4600 (8 us period, 20 % duty)
-    "polarity"   : "NORM",         # "INV" to invert the pulse (as the SDG7102A OUTP PLRT,INVT)
+    "polarity"   : "INV",          # negative-going injection like the other benches (SDG7102A OUTP PLRT,INVT, BK4600 inverted):
+                                   # idles at the high level and drops to 0 V. "NORM" injects the wrong sign (low peak, no flat top)
 }
 
 _PROLOGIX = {}
