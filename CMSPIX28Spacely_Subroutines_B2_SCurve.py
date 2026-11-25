@@ -871,7 +871,7 @@ def SCurveMatrix():
             startBxclkState = '0', 
             bxclk_delay = '10',         #superpix1 '11', superpix2 '12',
             bxclk_period = '28', 
-            injection_delay = '18',    # TB3 (81104A), TB2: '5'. superpix1 '1C', superpix2 '1E',
+            injection_delay = '1',     # TB3 (81104A), TB2: '5'. superpix1 '1C', superpix2 '1E',
             scanLoopBackBit = '0', 
             test_sample = '0F', 
             scanLoadPhase ='26',        #superpix1 '25', superpix2 '26',
