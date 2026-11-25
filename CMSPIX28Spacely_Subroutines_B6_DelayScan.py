@@ -105,7 +105,8 @@ def DelayScanBurst(inj_hex, nsample, nIter, scanLoopBackBit, test_sample, test_d
     # same bit ordering as PreProgSCurveBurst
     save_data = np.stack(save_data, 0)
     save_data = save_data.reshape(nsample*nIter, 3)
-    return save_data[:,::-1]
+    # samples are 0/1: saved as uint8 (8x smaller files than int64, same hit rates in the analysis)
+    return np.ascontiguousarray(save_data[:,::-1], dtype=np.uint8)
 
 def DelayScanSettings(outDir, **settings):
     # save the timing settings of this run, so scope measurements of the timing (for the 2D map overlay) can be matched to the settings
